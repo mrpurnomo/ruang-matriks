@@ -136,7 +136,7 @@ export class Det2x2Sim extends Simulation {
     // Garis coret muncul lebih dulu: siswa melihat "inilah pasangan yang tadi
     // kamu tunjuk" sebelum angkanya melebur.
     this.strike.draw(wanted, this.phase === 0 ? 'blue' : 'coral');
-    await new Promise((r) => setTimeout(r, 440));
+    await this.wait(440);
 
     const chips = wanted.map((c) => makeFlyChip(c, { text: c.dataset.value }));
     const slot = this.expr.querySelector(
@@ -175,7 +175,7 @@ export class Det2x2Sim extends Simulation {
       `$\\det = ${formatNumber(this.products[0])} - ${formatNumber(this.products[1])} = ${formatNumber(det)}$`,
       'Selesai'
     );
-    setTimeout(() => this.complete(), 500);
+    this.later(() => this.complete(), 500);
   }
 }
 
@@ -395,7 +395,7 @@ export class Det3x3SarrusSim extends Simulation {
     // melebur. Garis ini permanen — jejak visual jalur perkalian, supaya di
     // akhir siswa bisa melihat keenam diagonal sekaligus.
     this.strike.draw(wanted, current.group === 'down' ? 'blue' : 'coral');
-    await new Promise((r) => setTimeout(r, 440));
+    await this.wait(440);
 
     // Tiga angka melebur menjadi satu hasil kali, lalu mendarat di ekspresi.
     const chips = wanted.map((c) => makeFlyChip(c, { text: c.dataset.value }));
@@ -429,7 +429,7 @@ export class Det3x3SarrusSim extends Simulation {
         `$\\det = ${formatNumber(down)} - ${formatNumber(up)} = ${formatNumber(det)}$`,
         'Selesai'
       );
-      setTimeout(() => this.complete(), 500);
+      this.later(() => this.complete(), 500);
       return;
     }
 
@@ -520,7 +520,7 @@ export class SingularCheckSim extends Simulation {
     this.verdictHost.appendChild(verdict);
 
     this.index += 1;
-    setTimeout(() => this.renderCase(), 2200);
+    this.later(() => this.renderCase(), 2200);
   }
 }
 
@@ -601,7 +601,7 @@ export class PropertyCalculatorSim extends Simulation {
 
     toast.success(this.msg('success'));
     this.index += 1;
-    setTimeout(() => this.renderProblem(), 2600);
+    this.later(() => this.renderProblem(), 2600);
   }
 }
 
@@ -759,7 +759,7 @@ export class Inverse2x2Sim extends Simulation {
     const tone = this.detPhase === 0 ? 'blue' : 'coral';
 
     this.strike.draw(wanted, tone);
-    await new Promise((r) => setTimeout(r, 440));
+    await this.wait(440);
 
     const chips = wanted.map((c) => makeFlyChip(c, { text: c.dataset.value }));
     const slot = this.expr.querySelector(`.det-expr__term--${tone}`);
@@ -802,7 +802,7 @@ export class Inverse2x2Sim extends Simulation {
         `$\\det = 0$ — matriks ini singular, jadi inversnya tidak ada. Proses berhenti di sini.`,
         'Selesai'
       );
-      setTimeout(() => this.complete(), 400);
+      this.later(() => this.complete(), 400);
       return;
     }
 
@@ -935,7 +935,7 @@ export class Inverse2x2Sim extends Simulation {
     await landOn(chipClone, cell, { text: null });
 
     cell.classList.add('cell--resolving');
-    await new Promise((r) => setTimeout(r, 420));
+    await this.wait(420);
 
     cell.innerHTML = '';
     cell.textContent = toFractionText(value);

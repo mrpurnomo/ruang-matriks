@@ -16,6 +16,7 @@
 const routes = [];
 let notFoundHandler = null;
 let currentPath = null;
+let guard = null;
 
 /** Daftarkan rute dengan pola bergaya "/belajar/:chapterId". */
 export function route(pattern, handler) {
@@ -25,6 +26,20 @@ export function route(pattern, handler) {
 
 export function setNotFound(handler) {
   notFoundHandler = handler;
+}
+
+/**
+ * Penjaga rute — dijalankan pada SETIAP perpindahan, bukan sekali saat boot.
+ *
+ * Versi sebelumnya hanya memeriksa identitas di `init()`, jadi begitu aplikasi
+ * hidup, hash apa pun lolos: mengetik `#/` di bilah alamat atau menekan tombol
+ * rumah di layar masuk langsung menembus ke menu tanpa mengisi nama.
+ *
+ * Handler mengembalikan string path untuk MENGALIHKAN, atau nilai palsu untuk
+ * meloloskan.
+ */
+export function setGuard(handler) {
+  guard = typeof handler === 'function' ? handler : null;
 }
 
 function parse(hash) {
@@ -57,6 +72,22 @@ function match(segments) {
 export function resolve() {
   const segments = parse(window.location.hash);
   const path = segments.join('/');
+
+  // Penjaga berjalan SEBELUM pengecekan "hash yang sama", supaya rute yang
+  // terlarang tidak pernah lolos hanya karena kebetulan sama dengan yang
+  // sedang tampil.
+  if (guard) {
+    const redirect = guard(path, segments);
+    if (redirect && redirect !== path) {
+      // `replaceState` dipakai agar rute yang ditolak tidak menumpuk di
+      // riwayat — tombol Back tidak boleh memantul bolak-balik ke sana.
+      currentPath = null;
+      const target = redirect.startsWith('#') ? redirect : `#/${redirect.replace(/^\/+/, '')}`;
+      window.history.replaceState(null, '', target);
+      resolve();
+      return;
+    }
+  }
 
   // Hindari render ulang untuk hash yang sama.
   if (path === currentPath) return;
@@ -101,4 +132,4 @@ export function getCurrentPath() {
   return currentPath;
 }
 
-export default { route, setNotFound, navigate, back, start, resolve, getCurrentPath };
+export default { route, setNotFound, setGuard, navigate, back, start, resolve, getCurrentPath };

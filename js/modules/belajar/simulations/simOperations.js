@@ -16,7 +16,7 @@ import {
 import { canAddSubtract, canMultiply } from '../../../engine/validator.js';
 import { renderMixed } from '../../../engine/katexRenderer.js';
 import { icon } from '../../../ui/icons.js';
-import { makeDraggable, registerDropZone, getTapSource, clearTapSelection } from '../../../interactions/dragDrop.js';
+import { makeDraggable, registerDropZone, getTapSource, clearTapSelection, resetDragSystem } from '../../../interactions/dragDrop.js';
 import { flyMergeLand, highlight, makeFlyChip, landOn, showDragCue, hideDragCue } from '../../../interactions/flyToAnimation.js';
 import toast from '../../../ui/toast.js';
 import { parseRational, mulR, toText, toLatexR } from '../../../engine/rational.js';
@@ -94,7 +94,7 @@ export class ElementwiseOpSim extends Simulation {
       slot.innerHTML = icon('x-circle', { size: 26 });
       [A.bracket, B.bracket].forEach((n) => {
         n.classList.add('shake');
-        setTimeout(() => n.classList.remove('shake'), 420);
+        this.later(() => n.classList.remove('shake'), 420);
       });
 
       const check = canAddSubtract(bad.matrixA, bad.matrixB, 'dijumlahkan');
@@ -130,18 +130,20 @@ export class ElementwiseOpSim extends Simulation {
 
   /* --- Slide 2: satu sel hasil dikerjakan tuntas, satu per satu --- */
   /**
-   * Alurnya sengaja MENCERMINKAN perkalian matriks, supaya siswa mengenali
-   * satu pola kerja yang sama di kedua operasi:
+   * Sejak Fase 11 alurnya KETUK-KETUK sepenuhnya, mencerminkan `Det2x2Sim`:
    *
-   *   1. Ketuk/seret elemen di $A$ → pasangan seletaknya di $B$ menyala,
-   *      dan SEMUA sel lain diredupkan supaya tidak ada tebakan liar.
-   *   2. Bawa pasangan dari $B$ ke sel hasil → sel itu menampilkan $(6+1)$.
+   *   1. Ketuk elemen di $A$ → pasangan seletaknya di $B$ menyala, dan SEMUA
+   *      sel lain diredupkan supaya tidak ada tebakan liar.
+   *   2. Ketuk pasangan di $B$ → salinannya langsung terbang ke sel hasil,
+   *      yang lalu menampilkan bentuknya dulu: $(6+1)$.
    *   3. Tombol hitung baru muncul setelah pasangannya lengkap; menekannya
    *      barulah memunculkan angka hasilnya.
    *
-   * Versi sebelumnya menerima dua elemen dalam urutan bebas ke satu titik
-   * temu dan langsung menulis hasilnya — cepat, tapi melompati momen di mana
-   * siswa melihat bentuk $(6+1)$ sebelum ia menjadi $7$.
+   * Seret DICABUT dari engine ini. Targetnya sebesar satu sel matriks, dan di
+   * ponsel seretan sependek itu terlalu sering meleset — alasan yang persis
+   * sama dengan yang memindahkan determinan & invers ke ketukan di Fase 8.
+   * Kontrak §5 butir 12 mensyaratkan setiap SERET punya pasangan ketuk;
+   * menghapus seretnya sama sekali memenuhi syarat itu, bukan melanggarnya.
    */
   renderComputeSlide() {
     const { matrixA, matrixB, operator = '+', nameA = 'A', nameB = 'B' } = this.config;
@@ -158,8 +160,10 @@ export class ElementwiseOpSim extends Simulation {
       `0 / ${this.total} sel`
     );
 
-    const a = renderMatrix(matrixA, { name: nameA, draggable: true, showAddress: true, showOrdo: true });
-    const b = renderMatrix(matrixB, { name: nameB, draggable: true, showAddress: true, addressPrefix: 'b', showOrdo: true });
+    // `draggable: false` — kursor "genggam" dari kelas `cell--draggable` akan
+    // berbohong di engine ini: yang diminta ketukan, bukan seretan.
+    const a = renderMatrix(matrixA, { name: nameA, showAddress: true, showOrdo: true });
+    const b = renderMatrix(matrixB, { name: nameB, showAddress: true, addressPrefix: 'b', showOrdo: true });
     const c = renderMatrix(this.result, { name: 'C', empty: true, showAddress: true, addressPrefix: 'c', showOrdo: true });
 
     this.cellsA = a.cells;
@@ -185,11 +189,8 @@ export class ElementwiseOpSim extends Simulation {
     workRow.append(this.work, this.confirmBtn);
     this.stage.appendChild(workRow);
 
-    // Dua jalur yang setara: seret ATAU ketuk. Keduanya bermuara ke fungsi
-    // yang sama, jadi animasinya identik.
-    this.wireDrag(this.cellsA, 'A');
-    this.wireDrag(this.cellsB, 'B');
-
+    // Hanya satu jalur: KETUK. Tidak ada `makeDraggable` di sini, jadi tidak
+    // ada pointer-handler yang bersaing dengan ketukan.
     this.cellsA.forEach((cell, key) => {
       const [row, col] = key.split(',').map(Number);
       this.track(makeTappable(cell, () => this.pickFromA({ row, col, value: Number(cell.dataset.value) }, cell),
@@ -221,13 +222,6 @@ export class ElementwiseOpSim extends Simulation {
           toast.info(`Sel $c_{${t[0] + 1}${t[1] + 1}}$ sudah selesai.`);
         }
       },
-    });
-  }
-
-  wireDrag(cells, which) {
-    cells.forEach((cell, key) => {
-      const [row, col] = key.split(',').map(Number);
-      makeDraggable(cell, { data: { which, row, col, value: Number(cell.dataset.value) } });
     });
   }
 
@@ -271,14 +265,8 @@ export class ElementwiseOpSim extends Simulation {
     const target = this.cellsC.get(key);
     target.classList.add('cell--target');
 
-    // Sel hasil menerima jatuhan langsung — pasangan dibawa ke tempat
-    // hasilnya lahir, bukan ke titik temu terpisah.
-    if (this.releaseTargetZone) this.releaseTargetZone();
-    this.releaseTargetZone = registerDropZone(target, {
-      padding: 14,
-      onDrop: (dropData, el2) => this.handleDrop(dropData, el2),
-    });
-    this.track(this.releaseTargetZone);
+    // Tidak ada drop-zone di sini lagi: ketukan pada pasangan di $B$ yang
+    // langsung menerbangkan salinannya ke sel hasil.
 
     const stepIndex = this.cellOrder.findIndex(([r, cc]) => r === data.row && cc === data.col);
     if (stepIndex >= 0) this.setStep(stepIndex);
@@ -286,8 +274,8 @@ export class ElementwiseOpSim extends Simulation {
     this.updateWorkstrip();
 
     this.setPrompt(
-      `Menghitung $c_{${data.row + 1}${data.col + 1}}$ — sekarang bawa pasangan **seletaknya dari $${this.config.nameB || 'B'}$** ` +
-      `(yang sedang berkedip) ke sel hasil yang **berwarna kuning**.`,
+      `Menghitung $c_{${data.row + 1}${data.col + 1}}$ — sekarang **ketuk pasangan seletaknya di $${this.config.nameB || 'B'}$**, ` +
+      `yang sedang berkedip **biru**. Hasilnya mendarat di sel yang **berwarna kuning**.`,
       `${this.completed.size} / ${this.total} sel`
     );
 
@@ -296,30 +284,13 @@ export class ElementwiseOpSim extends Simulation {
     }
   }
 
-  /* ---------------- Langkah 2: pasangan dari B ---------------- */
+  /* ---------------- Langkah 2: ketuk pasangan di B ---------------- */
   pickFromB(data, sourceEl) {
     if (this.busy) return;
 
+    // Belum ada elemen $A$ terpilih: mulai dari kiri, bukan dari kanan.
     if (!this.pending) {
       this.reject(sourceEl, 'startFromA');
-      return;
-    }
-
-    this.handleDrop({ which: 'B', ...data }, sourceEl);
-  }
-
-  handleDrop(data, sourceEl) {
-    if (this.busy) return;
-
-    if (!this.pending) {
-      this.reject(sourceEl, 'startFromA');
-      return;
-    }
-
-    if (data.which === 'A') {
-      this.reject(sourceEl, 'needPartner', {
-        ai: this.pending.data.row + 1, aj: this.pending.data.col + 1,
-      });
       return;
     }
 
@@ -399,7 +370,7 @@ export class ElementwiseOpSim extends Simulation {
     const value = this.result[i][j];
 
     target.classList.add('cell--resolving');
-    await new Promise((r) => setTimeout(r, 420));
+    await this.wait(420);
 
     target.innerHTML = '';
     target.textContent = formatNumber(value);
@@ -438,11 +409,6 @@ export class ElementwiseOpSim extends Simulation {
     this.pending = null;
     this.partner = null;
     this.activeCell = null;
-
-    if (this.releaseTargetZone) {
-      this.releaseTargetZone();
-      this.releaseTargetZone = null;
-    }
 
     setCellsMuted([...this.cellsA.values()], false);
     setCellsMuted([...this.cellsB.values()], false);
@@ -646,13 +612,13 @@ export class ComboOpSim extends Simulation {
     const value = this.scaledA[i][j];
 
     cell.classList.add('cell--pulse');
-    await new Promise((r) => setTimeout(r, 220));
+    await this.wait(220);
 
     cell.textContent = formatNumber(value);
     cell.dataset.value = String(value);
     cell.classList.remove('cell--pulse', 'cell--awaiting');
     cell.classList.add('anim-flash-success');
-    setTimeout(() => cell.classList.remove('anim-flash-success'), 620);
+    this.later(() => cell.classList.remove('anim-flash-success'), 620);
 
     this.scalarDone.add(key);
     this.setBusy(false);
@@ -869,7 +835,7 @@ export class OrdoCheckSim extends Simulation {
     this.renderWhy(item);
     this.markSlideSolved(this.index, { wrong: this.wrongPicks.slice() });
     this.index += 1;
-    setTimeout(() => this.runCase(), 2400);
+    this.later(() => this.runCase(), 2400);
   }
 }
 
@@ -901,6 +867,18 @@ export class MatrixMultiplySim extends Simulation {
 
     this.caseIndex = 0;
     this.solvedCases = new Set();
+
+    /**
+     * Kemajuan PER-KASUS: indeks kasus → Set berisi kunci "i,j" sel yang
+     * sudah tuntas dihitung.
+     *
+     * Sebelum Fase 11 yang tersimpan hanya `solvedCases` (kasus yang TUNTAS),
+     * jadi siswa yang mengerjakan tiga dari empat sel lalu mengintip kasus
+     * lain kehilangan seluruh kerjanya begitu ia kembali. Kemajuan sebagian
+     * juga kemajuan — ia hanya boleh hilang lewat "Ulangi Simulasi".
+     */
+    this.caseProgress = new Map();
+    this.restoreState();
 
     this.root = el('div', 'sim');
     this.container.appendChild(this.root);
@@ -943,8 +921,55 @@ export class MatrixMultiplySim extends Simulation {
       return;
     }
 
+    // Kunci kemajuan kasus yang ditinggalkan SEBELUM panggungnya dibongkar.
+    this.persistState();
+
     this.caseIndex = index;
     this.buildCase();
+  }
+
+  /* ---------------- Ingatan kemajuan per-kasus ---------------- */
+
+  /** Sel yang sudah tuntas di sebuah kasus. Selalu mengembalikan Set. */
+  progressFor(index) {
+    if (!this.caseProgress.has(index)) this.caseProgress.set(index, new Set());
+    return this.caseProgress.get(index);
+  }
+
+  /** Pulihkan kemajuan yang dititipkan sesi sebelumnya. */
+  restoreState() {
+    const saved = this.savedState;
+    if (!saved || typeof saved !== 'object') return;
+
+    if (saved.cases && typeof saved.cases === 'object') {
+      Object.entries(saved.cases).forEach(([key, keys]) => {
+        const index = Number(key);
+        if (!Number.isInteger(index) || !Array.isArray(keys)) return;
+        this.caseProgress.set(index, new Set(keys.filter((k) => typeof k === 'string')));
+      });
+    }
+
+    if (Array.isArray(saved.solved)) {
+      saved.solved.forEach((i) => { if (Number.isInteger(i)) this.solvedCases.add(i); });
+    }
+
+    if (Number.isInteger(saved.caseIndex)) {
+      this.caseIndex = Math.max(0, Math.min(this.cases.length - 1, saved.caseIndex));
+    }
+  }
+
+  /** Titipkan kemajuan supaya bertahan saat siswa keluar sejenak ke menu. */
+  persistState() {
+    const cases = {};
+    this.caseProgress.forEach((set, index) => {
+      if (set.size) cases[index] = [...set];
+    });
+
+    this.saveState({
+      cases,
+      solved: [...this.solvedCases],
+      caseIndex: this.caseIndex,
+    });
   }
 
   syncCaseBar() {
@@ -975,7 +1000,9 @@ export class MatrixMultiplySim extends Simulation {
     }
 
     this.result = multiply(matrixA, matrixB);
-    this.completedCells = new Set();
+    // Kemajuan kasus ini DIPAKAI LAGI, bukan dibuang. Ia hidup di
+    // `caseProgress`, jadi bolak-balik antar kasus tidak menghapus apa pun.
+    this.completedCells = this.progressFor(this.caseIndex);
     this.activeCell = null;
 
     /**
@@ -1085,8 +1112,55 @@ export class MatrixMultiplySim extends Simulation {
     // sumber bug "slider dobel".
     if (this.slider) this.caseHints.appendChild(this.slider);
 
-    // Semua sel hasil berdenyut sampai salah satunya dipilih.
-    this.cellsC.forEach((cell) => cell.classList.add('cell--invite'));
+    // Pulihkan sel yang sudah tuntas sebelum kasus ini ditinggalkan.
+    this.repaintSolvedCells();
+
+    // Sel hasil yang MASIH kosong berdenyut sampai salah satunya dipilih.
+    this.cellsC.forEach((cell, key) => {
+      if (!this.completedCells.has(key)) cell.classList.add('cell--invite');
+    });
+
+    // Kasus yang ternyata sudah tuntas sejak awal langsung ditandai selesai.
+    if (this.completedCells.size >= this.total) {
+      this.solvedCases.add(this.caseIndex);
+      this.syncCaseBar();
+      this.setPrompt(
+        `${current.label || 'Kasus ini'} sudah selesai. Pilih kasus lain, atau lanjut ke Mini Kuis.`,
+        'Selesai'
+      );
+    }
+  }
+
+  /**
+   * Gambar ulang sel-sel yang sudah dihitung di kasus ini: angkanya, tanda
+   * centangnya, dan titik langkahnya. Tanpa ini, kembali ke sebuah kasus
+   * berarti melihat matriks kosong seolah tidak pernah dikerjakan.
+   */
+  repaintSolvedCells() {
+    if (!this.completedCells.size) return;
+
+    this.completedCells.forEach((key) => {
+      const [i, j] = key.split(',').map(Number);
+      const cell = this.cellsC.get(key);
+      if (!cell || !this.result[i] || this.result[i][j] == null) return;
+
+      cell.innerHTML = '';
+      cell.textContent = formatNumber(this.result[i][j]);
+      cell.classList.remove('cell--invite', 'cell--target', 'cell--locked', 'cell--building');
+      cell.classList.add('cell--done');
+      cell.appendChild(el('span', 'cell__addr', `c${i + 1}${j + 1}`));
+      cell.appendChild(el('span', 'cell__check', icon('check', { size: 11 })));
+      cell.style.cursor = 'default';
+
+      const stepIndex = this.cellOrder.findIndex(([r, cc]) => r === i && cc === j);
+      if (stepIndex >= 0) this.markStepDone(stepIndex);
+    });
+
+    this.updateWorkstrip();
+    this.setPrompt(
+      'Klik sel kosong berikutnya di matriks hasil.',
+      `${this.completedCells.size} / ${this.total} sel`
+    );
   }
 
   /**
@@ -1097,23 +1171,36 @@ export class MatrixMultiplySim extends Simulation {
    * dari DOM, dan isyarat seret hidup di luar wadah ini.
    */
   teardownCase() {
+    // Timer kasus lama tidak boleh menyala di atas panggung kasus baru.
+    this.clearTimers();
+
     this.cleanups.forEach((fn) => {
-      try { fn(); } catch (err) { /* diabaikan */ }
+      try { fn(); } catch (err) { console.warn('[sim] cleanup kasus gagal:', err); }
     });
     this.cleanups = [];
 
     hideDragCue();
-    clearTapSelection();
 
+    // `releaseTargetZone` sudah IDEMPOTEN sejak Fase 11, jadi panggilan kedua
+    // ini aman — dulu ia dilepas dua kali (sekali lewat `cleanups`, sekali di
+    // sini) dan pelepasan kedua bisa melempar diam-diam, menghentikan sisa
+    // pembongkaran, lalu meninggalkan seret dalam keadaan mati.
     if (this.releaseTargetZone) {
       this.releaseTargetZone();
       this.releaseTargetZone = null;
     }
 
+    // Zona drop & pilihan ketuk hidup di level MODUL `dragDrop`, bukan di
+    // pohon DOM ini. Mengosongkan `caseHost` tidak menyentuhnya sedikit pun —
+    // inilah akar "seret mati total setelah pindah kasus" (isu 3a).
+    resetDragSystem();
+
     document.querySelectorAll('.fly-chip, .drag-ghost, .diag-trace').forEach((n) => n.remove());
 
-    this.slider = null;
-    this.stepJump = null;
+    // Slider dicabut lewat jalur resmi: menolkan rujukannya saja meninggalkan
+    // node-nya menempel di panel kendali (isu 7).
+    this.disposeSlider();
+
     this.promptEl = null;
     this.stage = null;
     this.activeCell = null;
@@ -1365,7 +1452,7 @@ export class MatrixMultiplySim extends Simulation {
 
     // Animasi penutup: ekspresi mengerut, lalu angka hasilnya muncul.
     targetCell.classList.add('cell--resolving');
-    await new Promise((r) => setTimeout(r, 420));
+    await this.wait(420);
 
     targetCell.innerHTML = '';
     targetCell.textContent = formatNumber(value);
@@ -1376,6 +1463,9 @@ export class MatrixMultiplySim extends Simulation {
     targetCell.style.cursor = 'default';
 
     this.completedCells.add(`${i},${j}`);
+    // Disimpan per SEL, bukan per kasus: siswa yang berpindah kasus di tengah
+    // jalan tetap menemukan kerjanya utuh saat kembali.
+    this.persistState();
 
     const stepIndex = this.cellOrder.findIndex(([r, cc]) => r === i && cc === j);
     if (stepIndex >= 0) this.markStepDone(stepIndex);
@@ -1407,6 +1497,7 @@ export class MatrixMultiplySim extends Simulation {
     if (this.completedCells.size >= this.total) {
       this.solvedCases.add(this.caseIndex);
       this.syncCaseBar();
+      this.persistState();
 
       const label = (this.cases[this.caseIndex].label) || 'Kasus ini';
       this.setPrompt(`Seluruh sel matriks hasil terisi. ${label} selesai.`, 'Selesai');
@@ -1497,7 +1588,7 @@ export class PropertyCardsSim extends Simulation {
 
     this.showProof(pair);
     this.index += 1;
-    setTimeout(() => this.renderPair(), 3400);
+    this.later(() => this.renderPair(), 3400);
   }
 
   showProof(pair) {

@@ -183,6 +183,13 @@ export class LessonView {
 
     if (saved.simulationDone === true) this.simulationDone = true;
     this.resumeSimSlide = Number.isInteger(saved.simSlide) ? saved.simSlide : 0;
+
+    // Kemajuan DI DALAM simulasi (mis. sel mana saja yang sudah dihitung di
+    // tiap kasus perkalian). Umurnya sama dengan posisi slide: hidup selama
+    // sesi, dan hanya "Ulangi Simulasi" yang menghapusnya.
+    this.resumeSimState = saved.simState && typeof saved.simState === 'object'
+      ? saved.simState
+      : null;
   }
 
   /** Catat posisi terkini ke ingatan sesi. */
@@ -384,7 +391,8 @@ export class LessonView {
       // ingatan slide-nya memang harus dilupakan.
       this.simulationDone = this.reviewMode;
       this.resumeSimSlide = 0;
-      this.remember({ simSlide: 0, simulationDone: this.simulationDone });
+      this.resumeSimState = null;
+      this.remember({ simSlide: 0, simState: null, simulationDone: this.simulationDone });
       this.renderStep();
     });
     actions.appendChild(retry);
@@ -420,6 +428,11 @@ export class LessonView {
       onSlideChange: (index) => {
         this.resumeSimSlide = index;
         this.remember({ simSlide: index });
+      },
+      resumeState: this.resumeSimState,
+      onStateChange: (payload) => {
+        this.resumeSimState = payload;
+        this.remember({ simState: payload });
       },
     });
 

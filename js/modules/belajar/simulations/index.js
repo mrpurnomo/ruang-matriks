@@ -76,6 +76,12 @@ export function mountSimulation(container, definition, onComplete, options = {})
   // ikut tercatat.
   if (typeof options.onSlideChange === 'function') sim.onSlideChange = options.onSlideChange;
 
+  // Kemajuan yang sudah dicapai di sesi ini (mis. kasus mana yang sel-selnya
+  // sudah terisi). Dipasang SEBELUM build() supaya engine bisa langsung
+  // memulihkannya saat menggambar panggung pertama kalinya.
+  if (options.resumeState) sim.savedState = options.resumeState;
+  if (typeof options.onStateChange === 'function') sim.onStateChange = options.onStateChange;
+
   // Panel kiri (Fase 10). Harus dipasang SEBELUM build() karena scaffold()
   // sudah menempatkan brief dan prompt saat itu juga.
   if (options.hintHost) sim.hintHost = options.hintHost;
@@ -86,6 +92,7 @@ export function mountSimulation(container, definition, onComplete, options = {})
     const fresh = new Engine(container, config, definition.toasts, onComplete);
     fresh.restart = sim.restart;
     if (typeof options.onSlideChange === 'function') fresh.onSlideChange = options.onSlideChange;
+    if (typeof options.onStateChange === 'function') fresh.onStateChange = options.onStateChange;
     if (options.hintHost) {
       options.hintHost.innerHTML = '';
       fresh.hintHost = options.hintHost;

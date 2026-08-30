@@ -18,6 +18,7 @@ import {
 } from './state/progressStore.js';
 import { quizKey, clearAllResume } from './state/sessionState.js';
 import { attachMathpad } from './ui/mathpad.js';
+import { killAllMotion } from './interactions/motion.js';
 
 /* ------------------------------------------------------------
    State aplikasi
@@ -114,6 +115,12 @@ function mountScreen(builder, { isBack = false } = {}) {
     state.activeView = null;
   }
 
+  // Membuang HTML layar TIDAK menghentikan animasinya. Timeline GSAP hidup di
+  // objek global, dan chip terbang menempel di `document.body` — keduanya
+  // selamat dari baris di bawah lalu terus berjalan di latar. Karena itu
+  // pembunuhannya harus mendahului pembongkaran (Fase 11, isu 5).
+  killAllMotion();
+
   screenHost.innerHTML = '';
 
   const screen = el('div', `screen ${isBack ? 'screen--enter-back' : 'screen--enter'}`);
@@ -153,6 +160,20 @@ function showError(container, error) {
    Header: progress ring
    ------------------------------------------------------------ */
 function updateHeader() {
+  // LAPIS 2 dari penjaga masuk (isu 4): di layar masuk, tombol rumah dan
+  // cincin progres tidak punya makna — yang satu melompati perkenalan, yang
+  // lain melaporkan progres siswa yang belum diketahui siapa. Keduanya
+  // disembunyikan DAN dimatikan, bukan sekadar diredupkan.
+  const onLogin = router.getCurrentPath() === 'login';
+  document.body.classList.toggle('is-login-screen', onLogin);
+
+  const homeBtn = document.querySelector('[data-role="home"]');
+  if (homeBtn) {
+    homeBtn.disabled = onLogin;
+    homeBtn.setAttribute('aria-hidden', String(onLogin));
+    homeBtn.tabIndex = onLogin ? -1 : 0;
+  }
+
   if (!state.manifest) return;
 
   const overall = getOverallProgress(state.manifest);
@@ -828,7 +849,21 @@ function buildBar({ eyebrow, title, onBack }) {
 /* ------------------------------------------------------------
    Bootstrap
    ------------------------------------------------------------ */
+/**
+ * Penjaga identitas — LAPIS 1 (Fase 11, isu 4).
+ *
+ * Berjalan pada setiap perpindahan rute, jadi ia menutup semua pintu masuk
+ * sekaligus: tombol rumah di header, tombol Back peramban, dan deep-link yang
+ * diketik manual di bilah alamat. Menyembunyikan tombolnya saja (lapis 2 di
+ * `updateHeader()`) tidak pernah cukup.
+ */
+function identityGuard(path) {
+  if (path === 'login') return null;          // layar masuk selalu boleh dibuka
+  return getIdentity() ? null : 'login';      // sisanya butuh perkenalan
+}
+
 function registerRoutes() {
+  router.setGuard(identityGuard);
   router.route('/login', renderLogin);
   router.route('/tka', renderTka);
   router.route('/', renderMenu);
@@ -899,16 +934,23 @@ async function init() {
     console.error('[app] manifest gagal dimuat:', err);
   }
 
-  // Tombol Home di header
+  // Tombol Home di header. Penjaga rute sudah menahan navigasinya, tapi
+  // tombolnya juga menolak berbunyi di layar masuk supaya siswa tidak melihat
+  // klik yang "tidak melakukan apa-apa" tanpa penjelasan.
   const homeBtn = document.querySelector('[data-role="home"]');
-  if (homeBtn) homeBtn.addEventListener('click', () => router.navigate(''));
-
-  // Penjaga masuk: siswa yang belum memperkenalkan diri diarahkan ke layar
-  // masuk lebih dulu. Deep-link ke #/login sendiri tentu dibiarkan lewat.
-  if (!getIdentity() && !location.hash.startsWith('#/login')) {
-    location.hash = '#/login';
+  if (homeBtn) {
+    homeBtn.addEventListener('click', (event) => {
+      if (!getIdentity()) {
+        event.preventDefault();
+        toast.info('Isi dulu nama dan asal sekolahmu untuk masuk.');
+        return;
+      }
+      router.navigate('');
+    });
   }
 
+  // Pengalihan awal kini ditangani `identityGuard` di dalam router, jadi ia
+  // ikut berjalan pada setiap perpindahan berikutnya — bukan sekali saja.
   router.start();
   updateHeader();
 

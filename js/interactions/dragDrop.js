@@ -326,16 +326,62 @@ export function registerDropZone(el, { onDrop, accepts, padding = 0, id } = {}) 
 
   el.addEventListener('click', onClick);
 
-  return () => {
+  // Pelepasan dibuat IDEMPOTEN. Beberapa simulasi mendaftarkan fungsi ini
+  // lewat `track()` sekaligus memanggilnya sendiri saat berpindah sel, jadi
+  // ia hampir pasti terpanggil dua kali. Panggilan kedua pada zona yang sudah
+  // hilang dulu bisa melempar dan menghentikan sisa pembongkaran di tengah
+  // jalan — itulah yang membuat seret mati total setelah pindah kasus.
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
     el.removeEventListener('click', onClick);
     delete el.dataset.tapTarget;
+    delete el.dataset.over;
+    delete el.dataset.invalid;
+    if (el.dataset.dropzoneId === zoneId) delete el.dataset.dropzoneId;
     zones.delete(zoneId);
   };
+
+  zone.release = release;
+  return release;
 }
 
 export function clearDropZones() {
+  zones.forEach((zone) => {
+    if (typeof zone.release === 'function') zone.release();
+  });
   zones.clear();
   clearTapSelection();
+}
+
+/**
+ * Kembalikan modul ini ke keadaan awal — dipanggil saat layar atau kasus
+ * berganti (Fase 11, isu 3a).
+ *
+ * `zones` dan `tapSource` adalah state tingkat-MODUL: ia tidak ikut mati saat
+ * pohon DOM dibuang. Tanpa reset ini, zona milik kasus lama tetap terdaftar
+ * sambil menunjuk node hantu, dan `findZoneAt()` bisa memilih salah satunya
+ * lebih dulu sehingga jatuhan berikutnya menghilang tanpa jejak.
+ */
+export function resetDragSystem() {
+  // Seret yang masih berjalan dibatalkan lebih dulu supaya hantunya ikut mati.
+  if (activeDrag) abortDrag();
+
+  clearDropZones();
+
+  tapSource = null;
+  suppressClickUntil = 0;
+
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.classList.remove('is-tap-armed');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.querySelectorAll('[data-tap-selected], [data-tap-target]').forEach((node) => {
+      delete node.dataset.tapSelected;
+      delete node.dataset.tapTarget;
+    });
+  }
 }
 
 export function isDragging() {
@@ -411,7 +457,7 @@ export function enableClickToMove(sources, targets, onPair, { getSourceData, get
 }
 
 export default {
-  makeDraggable, registerDropZone, clearDropZones,
+  makeDraggable, registerDropZone, clearDropZones, resetDragSystem,
   enableClickToMove, isDragging, getDragData,
   clearTapSelection, getTapSource,
 };

@@ -1,16 +1,15 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **30 Agustus 2026**, menutup Fase 10.
-> Status: **fase 1–10 selesai, seluruh pengujian otomatis hijau (21/21 + 300/300).**
+> Dokumen serah-terima antar sesi. Diperbarui **30 Agustus 2026**, menutup Fase 11.
+> Status: **fase 1–11 selesai, seluruh pengujian otomatis hijau (21/21 + 346/346).**
 >
-> ⚠️ **SESI BERIKUTNYA = FASE 11: BUG SQUASHING.** QA manual menemukan **9 masalah
-> UI/UX** yang lolos dari suite otomatis. Cetak birunya ada di **§0 — baca itu
-> lebih dulu sebelum apa pun.** Suite hijau BUKAN berarti aplikasinya benar;
-> lihat catatan pengujian di §0.4.
+> ✅ **FASE 11 SELESAI.** Kesembilan temuan QA manual sudah diperbaiki,
+> diverifikasi dengan pengukuran di peramban, lalu dikunci dengan 46 pengujian
+> regresi baru (bagian 77–86 di `smoke.py`). Rinciannya di **§0**.
 >
-> **Fase 10 mengubah nama dan tata letak.** Aplikasi kini bernama **Ruang Matriks**,
+> **Fase 10 mengubah nama dan tata letak.** Aplikasi bernama **Ruang Matriks**,
 > dan layar belajar memakai arsitektur **Sidebar & Stage**: kendali di kolom kiri,
-> kanvas matriks di kolom kanan. Repositori git sudah diinisialisasi.
+> kanvas matriks di kolom kanan. Arsitektur itu **tidak berubah di Fase 11**.
 >
 > **Fase 9 adalah pivot besar.** Aplikasi bukan lagi sandbox: **Lab Maya dicabut
 > total**, tampilannya berganti ke sistem desain terang "TRANSFORMASI", dan media
@@ -19,354 +18,87 @@
 
 ---
 
-## 0. FASE 11 — CETAK BIRU BUG SQUASHING (KERJAKAN INI DULU)
-
-Sembilan temuan QA manual, lengkap dengan dugaan akar masalah dan berkas yang
-harus disentuh. **Dugaan tetap dugaan** — verifikasi dengan pengukuran di
-peramban sebelum menulis perbaikan. Beberapa di antaranya saling bertaut
-(nomor 3, 5, dan 7 semuanya berakar di pembongkaran yang tidak tuntas), jadi
-urutan pengerjaannya penting.
-
-### 0.1 Urutan yang disarankan
-
-Kerjakan **fondasi dulu**, karena tiga bug lain akan ikut sembuh atau berubah
-bentuk setelahnya:
-
-| Urut | Isu | Alasan didahulukan |
-|---|---|---|
-| 1 | **#5** Kebocoran animasi GSAP | Pembersihan global; #3 dan #7 ikut terbantu |
-| 2 | **#7** Slider ganda | Bug pembongkaran paling sederhana — jadi kasus uji fondasi |
-| 3 | **#3** Perkalian multi-kasus | Bug pembongkaran terberat; butuh #5 & #7 beres |
-| 4 | **#8** Jumlah/Kurang jadi ketuk-ketuk | Menyentuh engine yang sama dengan #3 |
-| 5 | **#4** Bypass login | Mandiri, cepat |
-| 6 | **#2** Animasi denyut | Murni CSS |
-| 7 | **#1**, **#9**, **#6** Skala & gulir | Murni tata letak; kerjakan berbarengan |
-
----
-
-### 0.2 Sembilan isu, satu per satu
-
-#### ISU 1 — Isi panggung terlalu kecil di layar besar
-
-**Gejala.** Di monitor lebar, matriks dan teks di dalam Stage terlihat mungil;
-ruang kosong terbuang.
-
-**Dugaan akar masalah.** Ukuran ditulis dalam piksel tetap, bukan relatif:
-
-- `css/phase10.css` §6 — `.ws-stage .cell { min-width: 52px; min-height: 50px }`
-- `css/matrix.css` — `.cell` dasar juga piksel tetap
-- `css/phase10.css` §5 — `.ws-stage .materi-card { width: min(920px, 100%) }`
-  memaku lebar baca di 920px betapapun lebarnya layar
-
-**Strategi.**
-
-1. Ganti ukuran sel ke `clamp()` yang terikat viewport, mis.
-   `min-width: clamp(46px, 3.4vw, 76px)`. Jaga ambang sentuh 44px sebagai
-   batas bawah — itu kontrak yang sudah ada.
-2. `font-size` sel ikut `clamp()` supaya angkanya membesar bersama kotaknya.
-3. Naikkan batas lebar baca bertingkat: `min(920px, 100%)` di bawah 1440px,
-   naik ke ~1100px di atasnya. Pertimbangkan container query (`@container`)
-   pada `.ws-stage` — ia lebih tepat daripada media query karena yang relevan
-   adalah lebar PANGGUNG, bukan lebar layar.
-4. `.stage` `min-height` juga ikut `clamp` supaya kanvasnya tumbuh.
-
-**Berkas.** `css/phase10.css`, `css/matrix.css`, mungkin `css/phase11.css` baru.
-
-**Cara membuktikan.** Render di 1280, 1920, dan 2560. Ukur tinggi `.cell` dan
-lebar `.materi-card`; keduanya harus naik, bukan datar.
-
----
-
-#### ISU 2 — Denyut harus mengubah SELURUH latar sel
-
-**Gejala.** Denyut sekarang hanya menggerakkan garis tepi dan bayangan. Dari
-jarak pandang kelas, itu terlalu halus.
-
-**Strategi.** Tambahkan keyframe yang menganimasikan `background-color` penuh,
-bukan hanya `border-color`/`box-shadow`. Bedakan per peran, konsisten dengan
-bahasa warna yang sudah dipakai (kontrak §5 butir 8 — sebut warnanya, jangan
-bilang "disorot"):
-
-| Peran | Kelas | Warna latar denyut |
-|---|---|---|
-| Sumber / baris | `.cell--pulse`, `.cell--row-hl` | biru (`--blue-100` → `--royal` tipis) |
-| Kolom | `.cell--col-hl` | oranye/magenta (`--magenta-100`) |
-| Target sedang dihitung | `.cell--target`, `.cell--invite` | kuning (`--yellow-100` → `--yellow`) |
-| Terpilih (ketuk) | `.cell--picked` | kuning pekat, sudah ada |
-
-Pastikan teksnya tetap terbaca saat latar paling pekat — cek kontras, jangan
-hanya melihatnya sekilas. Hormati `prefers-reduced-motion` (sudah ada blok
-khususnya di `css/animations.css`).
-
-**Berkas.** `css/animations.css` (keyframes `hlPulse*`), `css/matrix.css`.
-
----
-
-#### ISU 3 — Perkalian multi-kasus: seret rusak & progres hilang
-
-Dua bug terpisah dalam satu engine. **Ini yang paling berat.**
-
-**3a. Seret mati total setelah pindah kasus.**
-
-Langkah reproduksi: selesaikan Kasus 1 → klik Kasus 2 → coba seret. Tidak ada
-yang bergerak.
-
-Dugaan akar masalah — periksa ketiganya:
-
-1. `teardownCase()` di `simOperations.js` memanggil seluruh `this.cleanups`
-   lalu **mengosongkan array itu**. Tetapi `this.releaseTargetZone` juga sudah
-   didaftarkan lewat `this.track()`, jadi ia dilepas **dua kali**. Pelepasan
-   kedua pada zona yang sudah hilang bisa melempar diam-diam dan menghentikan
-   sisa pembongkaran.
-2. `makeDraggable()` di `js/interactions/dragDrop.js` kemungkinan menyimpan
-   state di level modul (sumber ketuk aktif, `suppressClickUntil`, daftar zona).
-   Node lama sudah lenyap dari DOM tetapi masih dirujuk, sehingga pointer event
-   berikutnya jatuh ke elemen hantu.
-3. `document.body.classList` bisa tertinggal di `is-tap-armed` setelah kasus
-   dibongkar di tengah jalan.
-
-**Strategi.** Tambahkan fungsi reset global yang jujur di `dragDrop.js` —
-mis. `resetDragSystem()` yang: melepas semua drop-zone terdaftar, membatalkan
-pilihan ketuk, membersihkan kelas di `body`, dan menolkan state modul. Panggil
-ia dari `teardownCase()` **dan** dari `Simulation.destroy()`. Jadikan
-`this.track()` idempoten (cegah pelepasan ganda) atau berhenti mendaftarkan
-`releaseTargetZone` dua kali.
-
-**3b. Progres kasus hilang saat bolak-balik.**
-
-`buildCase()` selalu membangun ulang dari nol; yang tersimpan hanya
-`this.solvedCases` (kasus yang TUNTAS), bukan kemajuan sebagian.
-
-**Strategi.** Simpan state per-kasus di `Map` berkunci indeks kasus:
-sel mana yang sudah selesai beserta nilainya. Di `buildCase()`, pulihkan sel-sel
-itu (isi angkanya, beri `cell--done`, tandai langkahnya). Progres HANYA boleh
-dihapus ketika siswa menekan **"Ulangi Simulasi"** — bukan saat pindah kasus.
-Pertimbangkan menaruhnya di `sessionState.js` supaya bertahan saat siswa keluar
-ke menu (itu sudah jadi kontrak §5 butir 28).
-
-**Berkas.** `js/modules/belajar/simulations/simOperations.js`,
-`js/interactions/dragDrop.js`, mungkin `js/state/sessionState.js`.
-
-**Cara membuktikan.** Skrip Playwright yang benar-benar menyelesaikan satu sel
-di Kasus 1, pindah ke Kasus 2, menyeret, lalu kembali ke Kasus 1 dan memeriksa
-sel yang tadi selesai MASIH selesai.
-
----
-
-#### ISU 4 — Login bisa dilewati lewat ikon rumah
-
-**Gejala.** Di layar masuk, tombol merek/rumah di kiri atas tetap bisa diklik
-dan melompat ke menu tanpa mengisi nama.
-
-**Dugaan akar masalah.** Penjaga identitas di `app.js` hanya berjalan **sekali**
-di `init()`. Sesudah itu, navigasi hash apa pun lolos.
-
-**Strategi.** Dua lapis, jangan hanya satu:
-
-1. **Penjaga rute yang benar-benar menjaga.** Pasang pemeriksaan di setiap
-   perpindahan rute (bungkus handler di `registerRoutes`, atau tambahkan hook
-   di `router.js`): kalau `getIdentity()` kosong dan tujuannya bukan `/login`,
-   alihkan kembali ke `#/login`. Ini menutup juga deep-link manual.
-2. **Sembunyikan pemicunya.** Di rute `/login`, sembunyikan atau matikan
-   `[data-role="home"]` (dan progress ring, yang juga tidak bermakna di sana).
-   Menyembunyikan saja tidak cukup — tanpa lapis 1, mengetik hash di bilah
-   alamat tetap tembus.
-
-**Berkas.** `js/app.js`, mungkin `js/router.js`, `css/phase11.css`.
-
----
-
-#### ISU 5 — Animasi GSAP terus jalan setelah pindah layar
-
-**Gejala.** Klik Home saat animasi berjalan → animasinya lanjut di latar,
-membakar CPU dan kadang menulis ke node yang sudah lenyap.
-
-**Dugaan akar masalah.** `mountScreen()` di `app.js` memanggil
-`activeView.destroy()`, tetapi `destroy()` hanya melepas cleanup yang terdaftar.
-Timeline GSAP yang sedang berjalan, `setTimeout` yang tertunda, dan chip terbang
-di `document.body` tidak tersentuh.
-
-**Strategi.**
-
-1. Buat satu titik pembersihan, mis. `killAllMotion()` yang diekspor dari
-   `js/interactions/flyToAnimation.js` (atau modul `motion.js` baru). Isinya:
-   - `gsap.globalTimeline.clear()` dan `gsap.killTweensOf('*')` bila GSAP ada
-   - hapus `.fly-chip, .drag-ghost, .diag-trace` dari DOM
-   - `hideDragCue()` + `clearTapSelection()`
-2. Panggil dari `mountScreen()` **sebelum** `screenHost.innerHTML = ''`.
-3. `setTimeout` tersebar di banyak engine. Tambahkan helper berjejak di kelas
-   `Simulation` (mis. `this.later(fn, ms)`) yang menyimpan id-nya dan
-   membatalkan semuanya di `destroy()`. Migrasikan `setTimeout` yang menyentuh
-   DOM ke helper itu.
-
-**Berkas.** `js/interactions/flyToAnimation.js`, `js/app.js`,
-`js/modules/belajar/simulations/simCore.js`, seluruh `sim*.js`.
-
-**Cara membuktikan.** Mulai animasi, klik Home, lalu baca
-`gsap.globalTimeline.getChildren().length` — harus 0. Hitung juga
-`document.querySelectorAll('.fly-chip').length`.
-
----
-
-#### ISU 6 — Menu bab tidak bisa digulir (sempit) & terlalu kecil (lebar)
-
-**Gejala.** Di lanskap ponsel, daftar bab terkunci — isinya tidak bisa digulir
-sehingga bab terakhir tak terjangkau. Di layar lebar, kartunya kekecilan.
-
-**Dugaan akar masalah.** Fase 10 memberi aturan gulir hanya kepada
-`.ws-stage > .workspace__body` (jalur Sidebar & Stage). Layar daftar bab
-memakai `.workspace` biasa, dan Fase 9 sempat menjadikan `.workspace__body`
-sebuah `display:flex` **tanpa** `overflow-y` di jalur itu.
-
-**Strategi.**
-
-1. Beri aturan eksplisit untuk jalur non-split:
-   `.workspace:not(.workspace--split) .workspace__body { overflow-y: auto; min-height: 0; }`
-   `min-height: 0` wajib — tanpa itu flex item menolak menyusut dan gulirnya
-   tidak pernah aktif (jebakan ini sudah menggigit dua kali, lihat §6).
-2. Rapikan ukuran: `.chapter-list` / `.chapter-item` memakai `clamp()` untuk
-   tinggi dan ukuran huruf, dan grid dua kolom di layar lebar supaya tidak
-   ada lajur panjang yang kosong.
-3. Terapkan hal yang sama pada daftar sub-topik (`#/belajar/:chapterId`) —
-   masalahnya identik dan pasti muncul juga.
-
-**Berkas.** `css/phase9.css`, `css/phase10.css`, `css/layout.css`.
-
-**Cara membuktikan.** Di 844×390, ukur `scrollHeight > clientHeight` DAN
-benar-benar gulirkan sampai item terakhir terlihat.
-
----
-
-#### ISU 7 — Slider paginasi ganda (dobel/tripel)
-
-**Gejala.** Di Penjumlahan (dan mungkin engine lain), muncul dua atau tiga
-navigasi titik bertumpuk.
-
-**Dugaan akar masalah.** `ElementwiseOpSim.renderComputeSlide()` memanggil
-`this.useSteps(...)` **setiap kali** slide dirender ulang. Sejak Fase 10,
-`useSteps()` menempelkan slider lewat `addHint()` — dan `addHint()` mendarat di
-**panel kendali**, bukan di `.stage`. `resetStage()` hanya mengosongkan
-`.stage`, jadi slider lama tidak pernah tersapu.
-
-**Strategi.** Jadikan `useSteps()` idempoten: kalau `this.slider` sudah ada,
-lepaskan dari DOM dan nolkan **sebelum** membuat yang baru. Ini satu perbaikan
-di `simCore.js` yang menutup seluruh engine sekaligus. Sebagai jaring pengaman,
-tambahkan pengujian yang menghitung `.slider__nav` di seluruh 22 sub-topik
-setelah beberapa kali render ulang.
-
-**Berkas.** `js/modules/belajar/simulations/simCore.js`.
-
----
-
-#### ISU 8 — Jumlah/Kurang harus jadi ketuk-ketuk
-
-**Gejala.** Engine ini masih menuntut seret ke sel hasil. Di ponsel itu sering
-meleset — persis alasan determinan dan invers sudah dipindah ke ketukan.
-
-**Strategi.** Cerminkan `Det2x2Sim`:
-
-1. Ketuk elemen di `A` → pasangan seletaknya di `B` menyala, sel lain diredupkan
-   (ini sudah berjalan lewat `pickFromA`).
-2. Ketuk pasangan di `B` → **langsung** jalankan animasi terbang ke sel hasil.
-   Hilangkan `registerDropZone` pada sel target dan `makeDraggable` pada sel
-   sumber untuk engine ini.
-3. Sel hasil menampilkan `(6+1)`, tombol hitung muncul, hasilnya mendarat.
-   Alur ini sudah ada — yang dibuang hanya jalur seretnya.
-4. Perbarui `brief` dan toast di
-   `data/chapters/02_operasi_aljabar.json` supaya tidak lagi menyuruh menyeret.
-
-**Catatan kontrak.** Kontrak §5 butir 12 mewajibkan setiap seret punya pasangan
-ketuk. Menghapus seret sama sekali **tidak melanggarnya** — yang dilarang adalah
-seret tanpa alternatif. Perbarui bunyi kontraknya agar tidak menyesatkan sesi
-berikutnya.
-
-**Berkas.** `js/modules/belajar/simulations/simOperations.js`,
-`data/chapters/02_operasi_aljabar.json`, `tests/smoke.py` (§55, §69a).
-
----
-
-#### ISU 9 — Kartu Mini Kuis kekecilan & tidak terpusat di layar lebar
-
-**Gejala.** Di layar sempit tampilannya benar; di layar lebar kartunya kecil
-dan melenceng dari tengah.
-
-**Dugaan akar masalah.** `.ws-stage .quiz-slider` mewarisi `width: min(920px,
-100%)` dari aturan kartu panggung, tetapi pemusatannya bergantung pada
-`margin-inline: auto` yang bisa gugur di konteks flex (jebakan yang sudah
-tercatat di §6 — margin auto pada sumbu silang membatalkan peregangan).
-
-**Strategi.**
-
-1. Pusatkan dengan `justify-self`/`align-self: center` yang eksplisit, jangan
-   mengandalkan `margin-inline: auto` saja.
-2. Naikkan lebar maksimum kartu kuis di layar lebar dan skalakan ukuran huruf
-   soal dengan `clamp()`.
-3. Periksa **dua** jalur: kuis di dalam workspace (langkah 3 sub-topik, jalur
-   Sidebar & Stage) dan sesi kuis mandiri `#/kuis/:mode/:bankId` (jalur
-   non-split). Keduanya memakai `QuizEngine` tapi wadahnya berbeda.
-
-**Berkas.** `css/phase10.css`, `css/phase9.css`.
-
-**Cara membuktikan.** Ukur selisih jarak kiri-kanan kartu terhadap wadahnya di
-1280, 1920, dan 2560 — harus ≤2px di ketiganya.
-
----
-
-### 0.3 Berkas yang paling mungkin disentuh
-
-| Berkas | Isu |
+## 0. FASE 11 — BUG SQUASHING (SELESAI)
+
+Sembilan temuan QA manual, semuanya tertutup. Urutan pengerjaannya mengikuti
+cetak biru: fondasi pembongkaran dulu (#5, #7, #3), lalu interaksi (#8, #4),
+lalu murni tampilan (#2, #1, #9, #6).
+
+### 0.1 Ringkasan perbaikan
+
+| Isu | Keluhan | Akar masalah sebenarnya | Perbaikan |
+|---|---|---|---|
+| **5** | Animasi GSAP jalan terus setelah pindah layar | `mountScreen()` membuang HTML, tapi timeline GSAP hidup di objek global dan chip terbang menempel di `document.body` — keduanya selamat dari `innerHTML = ''` | Modul baru `js/interactions/motion.js` dengan `killAllMotion()`, dipanggil di `mountScreen()` **sebelum** pembongkaran. Plus `this.later()` / `this.wait()` berjejak di `Simulation`; seluruh `setTimeout` di `sim*.js` sudah dimigrasikan |
+| **7** | Slider paginasi dobel/tripel | `useSteps()` dipanggil ulang tiap render, sementara slider mendarat di **panel kendali** lewat `addHint()` — bukan di `.stage`, jadi `resetStage()` tidak pernah menyapunya | `useSteps()` dibuat idempoten lewat `disposeSlider()` yang mencabut node lamanya lebih dulu |
+| **3a** | Seret mati total setelah pindah kasus | Peta `zones` dan `tapSource` adalah state tingkat-**modul** di `dragDrop.js`; mengosongkan `caseHost` tidak menyentuhnya, dan pelepas drop-zone terpanggil dua kali | `resetDragSystem()` baru di `dragDrop.js`, dipanggil dari `teardownCase()`, `resetStage()`, dan `Simulation.destroy()`. Pelepas drop-zone kini **idempoten** |
+| **3b** | Progres kasus hilang saat bolak-balik | `buildCase()` selalu membangun ulang dari nol; hanya kasus TUNTAS yang diingat | `caseProgress: Map<indeks, Set<"i,j">>` + `repaintSolvedCells()`. Dititipkan ke `sessionState` lewat `simState`, jadi bertahan saat siswa keluar ke menu. **Hanya "Ulangi Simulasi" yang menghapusnya** |
+| **8** | Jumlah/Kurang masih menuntut seret | — | `makeDraggable` dan `registerDropZone` **dicabut total** dari `ElementwiseOpSim`; alurnya kini persis `Det2x2Sim`: ketuk di $A$ → pasangan di $B$ menyala → ketuk pasangan → langsung terbang ke sel hasil. Teks di `02_operasi_aljabar.json` ikut diperbarui |
+| **4** | Login bisa dilewati lewat ikon rumah | Penjaga identitas hanya jalan **sekali** di `init()` | Dua lapis: `router.setGuard()` baru yang berjalan di **setiap** perpindahan rute (menutup deep-link manual juga), dan tombol rumah + cincin progres disembunyikan & dimatikan di `/login` |
+| **2** | Denyut cuma menggerakkan garis tepi | — | Keyframe `hlPulse*Fill` baru menganimasikan `background-color` penuh per peran (biru/magenta/kuning). Warna teks ikut dipekatkan supaya kontras tetap **≥4,5:1 pada latar TERPEKAT** — diukur, bukan dikira |
+| **1** | Isi panggung mungil di layar besar | Ukuran sel dipaku piksel tetap | Sel, huruf, panggung, nama matriks, dan operator memakai `clamp()` terikat viewport. Lebar baca naik bertingkat 920 → 1040 → 1120 → 1220px |
+| **9** | Kartu Mini Kuis kecil & melenceng | `layout.css` memberi `.workspace__body` sebuah `padding-right: 4px` **tanpa pasangan di kiri** | Talang scrollbar dicerminkan; pemusatan dinyatakan eksplisit lewat `align-self`/`justify-self`, tidak lagi bergantung pada `margin-inline: auto` sendirian |
+| **6** | Menu bab tidak bisa digulir | Aturan gulir Fase 10 hanya diberikan ke jalur Sidebar & Stage; jalur `.workspace` biasa tidak punya `overflow-y` | `overflow-y: auto` + **`min-height: 0`** untuk `.workspace:not(.workspace--split) > .workspace__body`. Kartu bab juga memakai `clamp()` dan grid dua kolom di ≥1280px |
+
+### 0.2 Berkas yang berubah
+
+| Berkas | Peran |
 |---|---|
-| `js/interactions/dragDrop.js` | 3a |
-| `js/interactions/flyToAnimation.js` | 5 |
-| `js/modules/belajar/simulations/simCore.js` | 5, 7 |
-| `js/modules/belajar/simulations/simOperations.js` | 3a, 3b, 7, 8 |
-| `js/app.js` | 4, 5 |
-| `js/router.js` | 4 |
-| `js/state/sessionState.js` | 3b |
-| `data/chapters/02_operasi_aljabar.json` | 8 |
-| `css/animations.css`, `css/matrix.css` | 2 |
-| `css/phase9.css`, `css/phase10.css` (atau `phase11.css` baru) | 1, 4, 6, 9 |
-| `tests/smoke.py` | semua — setiap perbaikan dapat pengujian regresi |
+| `js/interactions/motion.js` | **BARU** — `killAllMotion()`, satu titik pembersihan gerak |
+| `css/phase11.css` | **BARU** — dimuat PALING AKHIR, hanya berisi perbaikan sembilan isu |
+| `js/interactions/dragDrop.js` | `resetDragSystem()`, pelepas zona idempoten |
+| `js/modules/belajar/simulations/simCore.js` | `later()` / `wait()` / `clearTimers()`, `disposeSlider()`, `saveState()`, `destroy()` & `resetStage()` diperkuat |
+| `js/modules/belajar/simulations/simOperations.js` | Isu 3a, 3b, 8 |
+| `js/modules/belajar/simulations/sim{Basics,DetInv,Modeling}.js` | Migrasi `setTimeout` → `this.later()` / `this.wait()` |
+| `js/router.js` | `setGuard()` + penjaga dijalankan di `resolve()` |
+| `js/app.js` | `identityGuard()`, `killAllMotion()` di `mountScreen()`, header di layar masuk |
+| `js/modules/belajar/{lessonRenderer,simulations/index}.js` | Menyalurkan `resumeState` / `onStateChange` |
+| `data/chapters/02_operasi_aljabar.json` | Teks Jumlah/Kurang: seret → ketuk |
+| `index.html` | Memuat `css/phase11.css` |
+| `tests/smoke.py` | Bagian 77–86 (46 pengujian baru) + `clear_session()` diperbaiki |
 
----
+### 0.3 Angka hasil pengukuran (bukan klaim)
 
-### 0.4 ⚠️ CATATAN PENGUJIAN — BACA SEBELUM MENGKLAIM SELESAI
+Diukur di peramban sungguhan, bukan disimpulkan dari kode:
+
+| Ukuran | 1280×720 | 1920×1080 | 2560×1440 | 844×390 |
+|---|---|---|---|---|
+| Lebar sel matriks | 52 px | **76,8 px** | **88 px** | 44 px (ambang sentuh) |
+| Huruf sel | 18,6 px | **27,8 px** | **32 px** | 16 px |
+| Tinggi panggung | 331 px | **497 px** | **560 px** | 206 px |
+| Lebar kartu materi | 869 px | **1120 px** | **1220 px** | 589 px |
+| Melencengnya kartu kuis | 0 px | 0 px | 0 px | 0 px |
+| Luapan horizontal | tidak ada | tidak ada | tidak ada | tidak ada |
+
+Sebelum Fase 11, tiga baris pertama **datar 52 px / 18 px / 300 px** di ketiga
+layar besar — itulah isu 1.
+
+Kontras teks pada puncak denyut (latar terpekat): biru **7,10:1**,
+kuning **5,65:1**, magenta **5,59:1**. Ketiganya lulus ambang 4,5:1.
+
+### 0.4 ⚠️ CATATAN PENGUJIAN — MASIH BERLAKU UNTUK SESI BERIKUTNYA
 
 > **For UI/UX and animation tests, rely on direct Web App Testing / UI rendering
 > (HTML/CSS/JS) to visually confirm the fixes, rather than just relying on Python
 > smoke tests which cannot see overlapping elements or scale issues.**
 
-Kesembilan bug ini **lolos dari suite 300/300 yang hijau**. Itu bukan kebetulan:
-`smoke.py` memeriksa keberadaan node, kelas, dan angka geometri yang sudah
-diketahui — ia tidak bisa melihat elemen yang saling menimpa, animasi yang
-masih berjalan, skala yang terasa salah, atau daftar yang tidak bisa digulir.
+Peringatan ini **tidak dicabut**, karena Fase 11 justru membuktikannya dua kali:
 
-Karena itu, untuk Fase 11:
+1. Kesembilan bug lolos dari suite 300/300 yang hijau.
+2. Saat menulis pengujian regresinya, deteksi tumpang-tindih berbasis
+   `getBoundingClientRect()` melaporkan slider "menimpa" bilah aksi — padahal
+   ia hanya **terpotong** oleh wadah gulirnya dan tidak tergambar di mana pun.
+   Yang membuktikannya bukan geometri, melainkan `elementFromPoint()`.
 
-1. **Render aplikasinya dan LIHAT.** Ambil tangkapan layar di beberapa ukuran
-   (1280×720, 1920×1080, 844×390 lanskap ponsel) dan periksa dengan mata.
-2. **Jalankan interaksinya seperti siswa**, bukan hanya memeriksa DOM: klik,
-   ketuk, pindah kasus, tekan Home di tengah animasi.
-3. **Ukur di peramban** — `getBoundingClientRect()`, `scrollHeight` vs
-   `clientHeight`, `elementFromPoint()` untuk membuktikan sebuah tombol
-   benar-benar bisa ditekan dan tidak tertimpa.
-4. **Baru setelah itu** tulis pengujian regresi di `smoke.py` supaya bug yang
-   sama tidak kembali.
+Jadi untuk perubahan UI: **render, lihat, ukur di peramban, baru tulis
+pengujiannya.** Pengujian Python tetap wajib sebagai jaring pengaman.
 
-Pengujian Python tetap wajib sebagai jaring pengaman — ia hanya tidak boleh
-jadi satu-satunya bukti bahwa sebuah perbaikan UI berhasil.
+### 0.5 Yang SENGAJA ditinggalkan
 
----
-
-### 0.5 Status saat serah-terima
-
-| Hal | Keadaan |
+| Hal | Alasan |
 |---|---|
-| `node tests/engine.test.mjs` | 21/21 lolos |
-| `python tests/smoke.py` | 300/300 lolos |
-| Git | repo lokal aktif, tidak ada remote |
-| Fase 10 | tuntas dan sudah di-commit |
-| Fase 11 | **belum disentuh sama sekali** — tidak ada kode yang ditulis untuk kesembilan isu di atas |
+| Bilah progres di kartu bab gepeng jadi 2×21 px | **Pra-Fase 11** — diukur 2×21 px juga sebelum perubahan, jadi bukan regresi. Di luar sembilan isu, sengaja tidak disentuh. Perbaikannya kemungkinan `width: 100%` pada `.chapter-item__body .progressbar` |
+| Panggung terasa lapang di 1920+ | Persamaan berada di atas, menyisakan ruang kosong di bawah. Bukan bug — konsekuensi panggung yang memang sengaja ditinggikan agar matriks 3×3 muat |
+| Slider langkah harus digulir di sidebar pendek | Perilaku yang diinginkan: sidebar memang menggulir. Bilah aksi tetap terjangkau (diuji dengan `elementFromPoint`) |
 
 ---
 
@@ -388,7 +120,7 @@ jadi satu-satunya bukti bahwa sebuah perbaikan UI berhasil.
 | Bahasa komentar kode | **Bahasa Indonesia**, menjelaskan *mengapa*, bukan *apa* |
 | Rendering matematika | **KaTeX** |
 | Direktori kerja | `F:\MATERI MATEMATIKA\MATEMATIKA TINGKAT LANJUT\KELAS 11\MATRIKS\matriks-lab-interaktif` |
-| Version control | **Bukan repo git.** Tidak ada riwayat commit — perubahan langsung di disk |
+| Version control | **Repo git lokal aktif** (sejak Fase 10). Belum ada remote |
 
 **Pustaka eksternal (CDN, dimuat di `index.html`):** KaTeX 0.16.9, GSAP 3.12.5 + MotionPathPlugin, Google Fonts (**Montserrat / Roboto / Roboto Mono**). SortableJS dilepas di Fase 9 — ia tidak pernah dipakai.
 
@@ -426,17 +158,26 @@ python tests/smoke.py
 pip install playwright && playwright install chromium
 ```
 
-### Status pengujian per 27 Agustus 2026 — **terverifikasi, bukan klaim**
+### Status pengujian per 30 Agustus 2026 — **terverifikasi, bukan klaim**
 
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **300/300 lolos** |
+| `python tests/smoke.py` | **346/346 lolos** |
 
 Fase 9 menambah bagian 63–69; Fase 10 menambah bagian 70–76: identitas aplikasi,
 sapaan masuk & hak cipta, penempatan header, arsitektur Sidebar & Stage (diukur di
 tiga viewport), ruang napas matriks 3×3, presisi ordo & operator, dan akurasi
 koordinat animasi setelah tata letak berubah.
+
+Fase 11 menambah bagian 77–86 (46 pengujian): slider tidak kembar, Jumlah/Kurang
+murni ketuk, gerak & timer benar-benar mati saat pindah layar, kemajuan
+multi-kasus, penjaga layar masuk, gulir daftar bab, skala di tiga viewport, dan
+kontras warna pada puncak denyut.
+
+> ⚠️ `clear_session()` di `smoke.py` sengaja **mempertahankan** kunci identitas.
+> Sejak penjaga rute Fase 11 berjalan di setiap perpindahan, `sessionStorage.clear()`
+> polos akan melempar pengujian ke `#/login` di tengah jalan.
 
 ---
 
@@ -474,8 +215,10 @@ matriks-lab-interaktif/
 │   ├── phase8.css                     Densitas lanskap, komponen ketuk-ketuk
 │   ├── phase9.css                     Sistem desain TRANSFORMASI, blob, pengunci
 │   │                                    orientasi, login, papan huruf
-│   └── phase10.css                    ← DIMUAT TERAKHIR: Sidebar & Stage, header,
-│                                        ordo & operator, poles presisi
+│   ├── phase10.css                    Sidebar & Stage, header, ordo & operator
+│   └── phase11.css                    ← DIMUAT TERAKHIR: perbaikan sembilan isu
+│                                        QA (skala clamp, gulir daftar, denyut
+│                                        berlatar, penjaga layar masuk)
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -490,9 +233,11 @@ matriks-lab-interaktif/
 │   │   └── katexRenderer.js       99  renderMixed(): markdown + LaTeX
 │   │
 │   ├── interactions/
-│   │   ├── dragDrop.js           417  Pointer Events + fallback ketuk-ketuk
+│   │   ├── dragDrop.js                Pointer Events + ketuk-ketuk + resetDragSystem()
 │   │   ├── flyToAnimation.js     434  Fly/Merge 4 fase, isyarat seret, confetti
-│   │   └── mergeAnimation.js     510  morph, tracer diagonal, swapArc, flipSign
+│   │   ├── mergeAnimation.js     510  morph, tracer diagonal, swapArc, flipSign
+│   │   └── motion.js                  ← FASE 11: killAllMotion(), satu titik
+│   │                                     pembersihan gerak lintas-layar
 │   │
 │   ├── ui/
 │   │   ├── mathpad.js            490  SATU-SATUNYA jalur input angka
@@ -583,7 +328,7 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 9. **Kecepatan animasi konstan.** Pengatur 0.5x/1x/2x sudah dihapus permanen. Satu-satunya penyimpangan: `prefers-reduced-motion`.
 10. **Toast error singleton.** Hanya satu toast error aktif; yang baru menggantikan yang lama.
 11. **Opsi salah dikunci permanen** supaya siswa mengerucut, bukan menebak berulang.
-12. **Setiap seret punya pasangan ketuk-ketuk.** Ketuk sumber → semua tujuan sah berdenyut hijau → ketuk tujuan. Keduanya memanggil callback yang sama.
+12. **Ketukan adalah jalur wajib; seret hanya pelengkap.** Setiap interaksi HARUS bisa diselesaikan dengan ketuk-ketuk: ketuk sumber → tujuan yang sah menyala → ketuk tujuan. Kalau sebuah engine juga menyediakan seret, keduanya wajib memanggil callback yang sama. **Menghapus seret sama sekali tidak melanggar butir ini** — yang dilarang adalah seret tanpa alternatif ketuk. (Diperjelas di Fase 11 saat Jumlah/Kurang dipindah sepenuhnya ke ketukan; lihat butir 29.)
 13. **State slide tidak bocor.** Slide yang sudah selesai tetap terlihat selesai saat dikunjungi ulang.
 14. **Nol pergeseran tata letak.** Detailnya di bagian 6.
 15. **Footer wajib berbunyi persis:** `© Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang.` (simbol, bukan kata "Copyright" — diubah di Fase 10)
@@ -600,9 +345,21 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 26. **Footer berbunyi `© Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang.`** dan terpusat. Kata "Copyright" diganti simbol di Fase 10.
 27. **Berpindah layar/kasus wajib membongkar tuntas.** Tidak boleh ada slider, panggung, atau drop-zone kembar. (Fase 9, bagian uji 67.)
 28. **Posisi siswa diingat sepanjang sesi.** Keluar ke menu lalu masuk lagi harus mendarat di langkah/slide/soal yang sama. Reset hanya terjadi kalau siswa menekan "Ulangi", menyelesaikan modulnya, atau mereset progres. (Fase 8, bagian uji 53.)
-29. **Interaksi presisi tinggi memakai KETUKAN, bukan seretan.** Diagonal determinan, tukar posisi, dan balik tanda semuanya ketuk-ketuk. Seret hanya untuk perpindahan yang targetnya besar. (Fase 8, bagian uji 55–57.)
+29. **Interaksi presisi tinggi memakai KETUKAN, bukan seretan.** Diagonal determinan, tukar posisi, balik tanda, **dan sejak Fase 11 seluruh Penjumlahan/Pengurangan** semuanya ketuk-ketuk — `ElementwiseOpSim` tidak lagi memanggil `makeDraggable` maupun `registerDropZone`. Seret hanya untuk perpindahan yang targetnya besar. (Fase 8, bagian uji 55–57; Fase 11, bagian uji 78.)
 30. **Lanskap tidak pernah menggulirkan halaman.** Menu, materi, simulasi, dan kuis semuanya muat satu layar; yang boleh menggulir hanya panggung simulasi di dalam dirinya sendiri. (Fase 8, bagian uji 50, 61, 62.)
-31. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
+31. **Pembongkaran harus menyentuh state tingkat-MODUL, bukan hanya DOM.** Timeline GSAP, chip di `document.body`, peta `zones` di `dragDrop.js`, dan `setTimeout` yang tertunda semuanya SELAMAT dari `innerHTML = ''`. Pindah layar wajib memanggil `killAllMotion()`; pindah kasus wajib memanggil `resetDragSystem()`. `setTimeout` yang menyentuh DOM di dalam simulasi harus lewat `this.later()` / `this.wait()`. (Fase 11, bagian uji 79–80.)
+
+32. **Rute dijaga di SETIAP perpindahan, bukan sekali saat boot.** Tanpa identitas, rute apa pun dialihkan ke `#/login` lewat `router.setGuard()` — termasuk deep-link yang diketik manual. Menyembunyikan tombolnya saja tidak pernah cukup. (Fase 11, bagian uji 83.)
+
+33. **Kemajuan sebagian juga kemajuan.** Berpindah kasus/slide TIDAK boleh menghapus sel yang sudah dikerjakan; hanya "Ulangi Simulasi" yang berhak. (Fase 11, bagian uji 81–82.)
+
+34. **Denyut mengubah latar, bukan hanya tepi** — dan teksnya tetap ≥4,5:1 pada latar TERPEKAT, diukur bukan dikira. (Fase 11, bagian uji 86.)
+
+35. **Ukuran isi panggung terikat viewport lewat `clamp()`**, dengan 44px sebagai batas bawah sentuh. Piksel tetap membuat matriks menyusut secara optis di monitor lebar. (Fase 11, bagian uji 85.)
+
+36. **Setiap wadah yang bisa meluap butuh `overflow-y: auto` DAN `min-height: 0`.** Tanpa yang kedua, flex item menolak menyusut dan gulirnya tidak pernah aktif. (Fase 11, bagian uji 84.)
+
+37. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
 
 ---
 
@@ -894,7 +651,7 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Bukan repo git.** Tidak ada jaring pengaman untuk membatalkan perubahan. Pertimbangkan `git init` sebelum pekerjaan besar berikutnya.
+6. **Repo git lokal sudah ada** (sejak Fase 10), tetapi **belum punya remote** — jadi belum ada cadangan di luar mesin ini.
 
 ---
 

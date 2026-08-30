@@ -412,7 +412,7 @@ export class MultiStatementSim extends Simulation {
     // Isi berurutan agar terlihat tiap cabang dihitung terpisah.
     for (let j = 0; j < result[0].length; j++) {
       const cell = this.revCells.get(`0,${j}`);
-      await new Promise((r) => setTimeout(r, 320));
+      await this.wait(320);
       cell.textContent = formatNumber(result[0][j]);
       cell.classList.add('cell--done', 'anim-flash-success');
     }
@@ -492,7 +492,7 @@ export class MultiStatementSim extends Simulation {
     } else {
       toast.error(this.msg('partialWrong'));
       // Tetap izinkan lanjut — pembahasan per kartu sudah terlihat.
-      setTimeout(() => this.complete(''), 900);
+      this.later(() => this.complete(''), 900);
     }
   }
 }

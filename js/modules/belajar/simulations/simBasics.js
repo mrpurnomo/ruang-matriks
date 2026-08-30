@@ -118,7 +118,7 @@ export class IdentifyElementSim extends Simulation {
           btn.classList.add('anim-flash-success');
           this.markSlideSolved(this.stepIndex);
           this.stepIndex += 1;
-          setTimeout(() => this.runStep(), 520);
+          this.later(() => this.runStep(), 520);
         } else {
           // Opsi salah dimatikan supaya siswa memilih dari sisa yang benar.
           this.reject(btn, wrongKey);
@@ -140,7 +140,7 @@ export class IdentifyElementSim extends Simulation {
           sourceEl.remove();
           this.markSlideSolved(this.stepIndex);
           this.stepIndex += 1;
-          setTimeout(() => this.runStep(), 620);
+          this.later(() => this.runStep(), 620);
         } else {
           this.reject(sourceEl, 'wrongLabel');
           lockWrongOption(sourceEl);
@@ -303,7 +303,7 @@ export class OrdoBuilderSim extends Simulation {
 
       toast.success(this.msg('success') || 'Pas!');
       this.index += 1;
-      setTimeout(() => this.runChallenge(), 1200);
+      this.later(() => this.runChallenge(), 1200);
       return;
     }
 
@@ -425,7 +425,7 @@ export class LabelMatrixTypesSim extends Simulation {
     this.shelf.appendChild(badge);
 
     this.matrixView.bracket.classList.add('anim-flash-success');
-    setTimeout(() => this.matrixView.bracket.classList.remove('anim-flash-success'), 620);
+    this.later(() => this.matrixView.bracket.classList.remove("anim-flash-success"), 620);
 
     if (this.attached.size >= this.needed.size) {
       toast.success(
@@ -435,7 +435,7 @@ export class LabelMatrixTypesSim extends Simulation {
       );
       this.markSlideSolved(this.index, { attached: [...this.attached] });
       this.index += 1;
-      setTimeout(() => this.runCard(), 1300);
+      this.later(() => this.runCard(), 1300);
     } else {
       const left = this.needed.size - this.attached.size;
       toast.info(`Benar! Masih ada ${left} label lagi yang cocok untuk matriks ini.`);
@@ -778,7 +778,7 @@ export class EqualityLinkSim extends Simulation {
         }
 
         input.classList.add('numfield--no');
-        setTimeout(() => input.classList.remove('numfield--no'), 600);
+        this.later(() => input.classList.remove("numfield--no"), 600);
 
         // Isian DIKOSONGKAN setelah jawaban keliru. Tanpa ini, Mathpad dibuka
         // lagi dengan angka lama masih di dalamnya dan ketukan berikutnya
@@ -816,7 +816,7 @@ export class EqualityLinkSim extends Simulation {
 
     if (this.checked.size >= this.total()) {
       this.setPrompt('Semua pasangan sudah dicek — kedua matriks terbukti sama.', 'Selesai');
-      setTimeout(() => this.complete(), 500);
+      this.later(() => this.complete(), 500);
       return;
     }
 

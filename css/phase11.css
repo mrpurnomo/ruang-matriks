@@ -1,0 +1,370 @@
+/* ============================================================
+   phase11.css — Fase 11: Bug Squashing & Poles UI/UX
+   DIMUAT PALING AKHIR. Berkas ini hanya berisi PERBAIKAN atas
+   sembilan temuan QA manual; ia tidak memperkenalkan komponen baru.
+
+   Aturan yang dijaga di sini:
+   · Arsitektur Sidebar & Stage dari Fase 10 TIDAK boleh berubah —
+     kolom kiri tetap kendali, kolom kanan tetap kanvas.
+   · Ambang sentuh 44px tetap jadi batas bawah setiap `clamp()`.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   ISU 4 — Layar masuk tidak boleh punya pintu belakang
+   Tombol rumah & cincin progres disembunyikan di rute /login.
+   Ini LAPIS 2; penjaga rute di router.js adalah lapis 1 dan
+   dialah yang benar-benar menutup deep-link manual.
+   ------------------------------------------------------------ */
+body.is-login-screen .brand__mark {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.is-login-screen .header-center {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Merek tetap terbaca sebagai identitas, hanya tidak bisa diklik. */
+body.is-login-screen .brand {
+  cursor: default;
+}
+
+/* ------------------------------------------------------------
+   ISU 2 — Denyut mengubah SELURUH latar sel, bukan hanya tepinya
+
+   Denyut lama hanya menggerakkan `box-shadow`. Dari bangku belakang
+   kelas — yang jaraknya bisa 6–8 meter dari proyektor — cincin
+   setipis itu praktis tak terlihat. Yang terbaca dari jauh adalah
+   BIDANG WARNA, jadi latarnya yang harus berdenyut.
+
+   Warna tiap peran mengikuti bahasa warna yang sudah dipakai
+   (kontrak §5 butir 8), sehingga "yang berwarna biru" di prompt
+   tetap menunjuk sel yang sama:
+
+     biru    → sumber & baris dari A
+     magenta → kolom dari B
+     kuning  → sel target yang sedang dihitung
+
+   Warna teks ikut dipekatkan supaya kontrasnya tetap >= 4.5:1
+   pada titik latar TERPEKAT, bukan hanya saat pucat.
+   ------------------------------------------------------------ */
+
+/* --- Biru: sumber & baris --- */
+.cell--pulse,
+.cell--row-hl,
+.cell--diag-main {
+  color: var(--brand-primary-dark);
+  animation-name: hlPulseBlueFill;
+}
+
+@keyframes hlPulseBlueFill {
+  0%, 100% {
+    background-color: var(--blue-50);
+    border-color: var(--royal);
+    box-shadow: 0 0 0 0 rgba(29, 78, 216, .50), 0 0 12px rgba(29, 78, 216, .22);
+  }
+  50% {
+    background-color: var(--blue-100);
+    border-color: var(--royal);
+    box-shadow: 0 0 0 8px rgba(29, 78, 216, 0), 0 0 20px rgba(29, 78, 216, .42);
+  }
+}
+
+/* --- Magenta: kolom --- */
+/* Teksnya lebih pekat daripada `--accent-coral-hi`: pada latar denyut
+   terpekat (`--magenta-100`), magenta merek hanya mencapai 4,43:1 —
+   di bawah ambang 4,5:1. Nada ini mengukur 5,6:1 dan masih terbaca
+   jelas sebagai magenta, bukan cokelat. */
+.cell--col-hl,
+.cell--diag-anti {
+  color: #A80A66;
+  animation-name: hlPulseCoralFill;
+}
+
+@keyframes hlPulseCoralFill {
+  0%, 100% {
+    background-color: #FFEAF6;
+    border-color: var(--magenta);
+    box-shadow: 0 0 0 0 rgba(236, 15, 140, .50), 0 0 12px rgba(236, 15, 140, .22);
+  }
+  50% {
+    background-color: var(--magenta-100);
+    border-color: var(--magenta);
+    box-shadow: 0 0 0 8px rgba(236, 15, 140, 0), 0 0 20px rgba(236, 15, 140, .42);
+  }
+}
+
+/* --- Kuning: sel target yang sedang dihitung --- */
+/* Kuning adalah warna paling terang di palet, jadi teks di atasnya harus
+   paling gelap. Nada ini sama persis dengan yang sudah dipakai
+   `.cell--picked` sejak Fase 9 — satu nada untuk seluruh peran kuning. */
+.cell--target,
+.cell--invite {
+  color: #7A5A00;
+  animation-name: hlPulseAmberFill;
+}
+
+@keyframes hlPulseAmberFill {
+  0%, 100% {
+    background-color: #FFF9E3;
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 0 rgba(255, 200, 0, .55), 0 0 12px rgba(255, 200, 0, .24);
+  }
+  50% {
+    background-color: var(--yellow-100);
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 8px rgba(255, 200, 0, 0), 0 0 20px rgba(255, 200, 0, .46);
+  }
+}
+
+/* `cell--invite` memakai tepi putus-putus sebagai "belum diisi"; itu
+   dipertahankan, hanya latarnya yang kini ikut bernapas. */
+.cell--invite { border-style: dashed; }
+
+/* Sel silang (baris x kolom) menahan kedua warna sekaligus, jadi ia
+   TIDAK ikut berdenyut penuh — dua bidang warna yang berdenyut di satu
+   kotak justru membingungkan. Tepinya saja yang berdenyut. */
+.cell--cross {
+  animation-name: hlPulseBlue;
+}
+
+/* Sel terpilih lewat ketukan sudah kuning pekat sejak Fase 9 — ia
+   ditinggalkan apa adanya, hanya dipastikan menang atas denyut di atas
+   supaya "yang sudah kupilih" tidak ikut berkedip-kedip. */
+.cell--picked {
+  animation: none;
+  background-color: var(--yellow-100);
+  border-color: var(--yellow);
+  color: #7A5A00;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Gerak dimatikan, tapi PERANNYA tetap harus terbaca — jadi latar
+     pekatnya dipasang statis, bukan dihilangkan. */
+  .cell--pulse,
+  .cell--row-hl,
+  .cell--diag-main {
+    animation: none !important;
+    background-color: var(--blue-100);
+    border-color: var(--royal);
+  }
+
+  .cell--col-hl,
+  .cell--diag-anti {
+    animation: none !important;
+    background-color: var(--magenta-100);
+    border-color: var(--magenta);
+  }
+
+  .cell--target,
+  .cell--invite {
+    animation: none !important;
+    background-color: var(--yellow-100);
+    border-color: var(--yellow);
+  }
+}
+
+/* ------------------------------------------------------------
+   ISU 6 — Daftar bab & sub-topik harus BISA DIGULIR
+
+   Fase 10 memberi aturan gulir hanya kepada `.ws-stage > .workspace__body`
+   (jalur Sidebar & Stage). Daftar bab, daftar sub-topik, dan menu kuis
+   memakai `.workspace` biasa, dan di jalur itu `.workspace__body` adalah
+   `display:flex` TANPA `overflow-y` — jadi di lanskap ponsel isinya
+   terpotong dan bab terakhir benar-benar tak terjangkau.
+
+   `min-height: 0` WAJIB menyertainya. Tanpa itu, flex item menolak
+   menyusut di bawah tinggi kontennya, tinggi kotaknya ikut membesar,
+   dan `overflow-y` tidak pernah punya alasan untuk aktif. Jebakan ini
+   sudah menggigit dua kali — lihat §6 di HANDOFF.
+   ------------------------------------------------------------ */
+.workspace:not(.workspace--split) > .workspace__body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--blue-100) transparent;
+}
+
+.workspace:not(.workspace--split) > .workspace__body::-webkit-scrollbar { width: 10px; }
+.workspace:not(.workspace--split) > .workspace__body::-webkit-scrollbar-track { background: transparent; }
+.workspace:not(.workspace--split) > .workspace__body::-webkit-scrollbar-thumb {
+  background: var(--blue-100);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.workspace:not(.workspace--split) > .workspace__body::-webkit-scrollbar-thumb:hover {
+  background: var(--royal);
+  background-clip: content-box;
+}
+
+/* Isi daftar tidak boleh dimampatkan oleh flex sampai teksnya bertumpuk;
+   ia harus mempertahankan tinggi aslinya lalu MENGGULIR. */
+.workspace:not(.workspace--split) > .workspace__body > * { flex: 0 0 auto; }
+
+/* --- Ukuran daftar ikut lebar layar (bagian "terlalu kecil di layar lebar") --- */
+.chapter-list {
+  gap: clamp(var(--sp-2), 1.1vw, var(--sp-4));
+}
+
+.chapter-item,
+.chapter-card {
+  padding: clamp(var(--sp-3), 1.2vw, var(--sp-5));
+}
+
+.chapter-item__title,
+.chapter-card__title {
+  font-size: clamp(var(--fs-base), 1.25vw, var(--fs-lg));
+}
+
+/* Di layar lebar, satu lajur panjang menyisakan jalur kosong di kiri-kanan
+   dan memaksa menggulir tanpa alasan. Dua kolom memakai ruang itu. */
+@media (min-width: 1280px) {
+  .chapter-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+}
+
+@media (min-width: 1900px) {
+  .chapter-list { gap: var(--sp-5); }
+}
+
+/* ------------------------------------------------------------
+   ISU 1 — Isi panggung harus TUMBUH di layar besar
+
+   Ukuran sel dipaku di piksel tetap, jadi 52x50 px di 1280 tetap
+   52x50 px di 2560 — matriksnya menyusut secara optis sementara
+   ruang kosong di sekelilingnya membengkak. Sekarang ukurannya
+   terikat viewport lewat `clamp()`.
+
+   Batas BAWAH setiap clamp menjaga kontrak ambang sentuh 44px;
+   batas ATAS mencegah sel menjadi papan iklan di monitor 4K.
+
+   Diberi pagar `min-height: 561px` supaya blok lanskap-pendek di
+   phase10.css (yang sengaja memampatkan segalanya agar muat satu
+   layar) tetap yang berkuasa di ponsel.
+   ------------------------------------------------------------ */
+@media (min-height: 561px) {
+  .ws-stage .cell {
+    min-width: clamp(52px, 4vw, 88px);
+    min-height: clamp(50px, 3.6vw, 80px);
+    font-size: clamp(1.125rem, 1.45vw, 2rem);
+  }
+
+  .ws-stage .cell--building { min-width: clamp(116px, 8.5vw, 184px); }
+
+  /* Matriks 3 kolom ke atas: tumbuh juga, hanya lebih hemat — tiga
+     matriks 3x3 harus tetap muat berdampingan dalam satu persamaan. */
+  .ws-stage .stage[data-span="wide"] .cell {
+    min-width: clamp(46px, 3.1vw, 74px);
+    min-height: clamp(44px, 2.8vw, 68px);
+    font-size: clamp(1rem, 1.15vw, 1.6rem);
+  }
+  .ws-stage .stage[data-span="wide"] .cell--building { min-width: clamp(100px, 6.5vw, 150px); }
+
+  /* Kanvasnya ikut tumbuh; kalau tidak, sel yang membesar justru
+     terasa sesak di dalam panggung yang tingginya tetap.
+
+     Selektornya sengaja sepanjang ini: `phase9.css` memasang
+     `.workspace__body > .content-card--tight .stage` (0,3,0) yang
+     mengunci tingginya di 300px. Menyamai spesifisitas saja tidak
+     cukup — ia harus DILAMPAUI. */
+  .ws-stage > .workspace__body > .content-card--tight .stage,
+  .ws-stage .stage { min-height: clamp(220px, 46vh, 560px); }
+
+  /* Nama matriks, kurung, dan label ordo ikut berskala supaya
+     proporsinya tidak pecah saat selnya membesar. */
+  .ws-stage .matrix__name { font-size: clamp(var(--fs-lg), 1.6vw, 2.2rem); }
+  .ws-stage .matrix__ordo { font-size: clamp(var(--fs-xs), .78vw, var(--fs-base)); }
+  .ws-stage .op-glyph {
+    min-width: clamp(32px, 2.4vw, 52px);
+    height: clamp(32px, 2.4vw, 52px);
+    font-size: clamp(var(--fs-md), 1.5vw, 1.9rem);
+  }
+}
+
+/* --- Lebar baca bertingkat ---------------------------------
+   920px pas di 1280, tapi di 2560 ia menyisakan 432px kosong di
+   KEDUA sisi. Naik bertahap, bukan melar tanpa batas: baris teks
+   yang terlalu panjang justru lebih sulit diikuti mata.
+   ----------------------------------------------------------- */
+@media (min-width: 1500px) {
+  /* `.workspace__body > *` di phase9.css mengunci SETIAP anak panggung di
+     1000px — termasuk pembungkus kuis, yang bukan `.content-card--tight`
+     sehingga luput dari aturan phase10. Batas itu dinaikkan di sini untuk
+     seluruh anak, bukan hanya kartu materi. */
+  .ws-stage > .workspace__body > * { width: min(1040px, 100%); }
+  .ws-stage .materi-card,
+  .ws-stage > .workspace__body > .content-card--tight { width: min(1040px, 100%); }
+}
+
+@media (min-width: 1900px) {
+  .ws-stage > .workspace__body > * { width: min(1120px, 100%); }
+  .ws-stage .materi-card,
+  .ws-stage > .workspace__body > .content-card--tight { width: min(1120px, 100%); }
+  .ws-stage .materi { font-size: clamp(var(--fs-base), .92vw, var(--fs-lg)); }
+}
+
+@media (min-width: 2300px) {
+  .ws-stage > .workspace__body > * { width: min(1220px, 100%); }
+  .ws-stage .materi-card,
+  .ws-stage > .workspace__body > .content-card--tight { width: min(1220px, 100%); }
+}
+
+/* ------------------------------------------------------------
+   ISU 9 — Kartu Mini Kuis: cukup besar dan BENAR-BENAR di tengah
+
+   Pemusatan tidak boleh bergantung pada `margin-inline: auto`
+   sendirian. Di konteks flex, margin auto pada sumbu silang
+   membatalkan peregangan dan hasilnya bisa melenceng (jebakan yang
+   sudah tercatat di §6 HANDOFF). Karena itu pemusatannya dinyatakan
+   EKSPLISIT lewat `align-self`/`justify-self` sekaligus.
+
+   Dua jalur harus diperlakukan sama: kuis di dalam workspace
+   (langkah 3 sub-topik) dan sesi kuis mandiri `#/kuis/:mode/:bankId`.
+   Keduanya memakai QuizEngine tetapi wadahnya berbeda.
+   ------------------------------------------------------------ */
+.quiz-slider {
+  margin-inline: auto;
+  align-self: center;
+  justify-self: center;
+  width: 100%;
+}
+
+.ws-stage .quiz-slider,
+.workspace__body > div:has(> .quiz-slider) {
+  margin-inline: auto;
+  align-self: center;
+  justify-self: center;
+}
+
+@media (min-width: 1500px) {
+  .quiz-slider { max-width: 1120px; }
+}
+
+@media (min-width: 1900px) {
+  .quiz-slider { max-width: 1220px; }
+  .quiz__question { font-size: clamp(var(--fs-lg), 1.15vw, 1.9rem); }
+  .quiz__option { font-size: clamp(var(--fs-base), .92vw, var(--fs-lg)); }
+}
+
+@media (min-width: 2300px) {
+  .quiz-slider { max-width: 1320px; }
+}
+
+/* --- Pemusatan: talang scrollbar harus SIMETRIS ---------------
+   `layout.css` memberi `.workspace__body` sebuah `padding-right: 4px`
+   sebagai talang scrollbar, tanpa pasangan di kiri. Akibatnya kartu
+   kuis duduk 24px dari tepi kiri tapi 28px dari tepi kanan — melenceng
+   4px, persis keluhan pada isu 9. Talangnya dicerminkan supaya kartunya
+   benar-benar di tengah, ada scrollbar maupun tidak.
+   ----------------------------------------------------------- */
+.workspace:not(.workspace--split) > .workspace__body {
+  padding-left: 4px;
+  padding-right: 4px;
+}

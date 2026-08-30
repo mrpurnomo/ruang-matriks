@@ -32,7 +32,7 @@
       "simulation": {
         "engine": "elementwise_op",
         "title": "Simulasi: Merge Elemen Seletak",
-        "brief": "Ketuk satu elemen di A — pasangan seletaknya di B akan menyala. Bawa pasangan itu ke sel hasil, lalu tekan tombol hitungnya.",
+        "brief": "Ketuk satu elemen di $A$ — pasangan seletaknya di $B$ akan menyala biru. Ketuk pasangan itu, lalu tekan tombol hitungnya.",
         "config": {
           "operator": "+",
           "matrixA": [
@@ -84,12 +84,12 @@
         },
         "toasts": {
           "notAligned": "Posisi tidak seletak — $a_{{ai}}{{aj}}$ ada di baris {{ai}} kolom {{aj}}, sedangkan $b_{{bi}}{{bj}}$ ada di baris {{bi}} kolom {{bj}}. Pasangkan elemen yang alamat baris-kolomnya identik.",
-          "wrongOrder": "Urutan terbalik! Kamu meletakkan elemen $B$ lebih dulu, jadi ini akan dihitung sebagai $B - A$, bukan $A - B$ yang diminta — hasilnya akan berbeda tanda.",
+          "wrongOrder": "Urutan terbalik! Kamu mengetuk elemen $B$ lebih dulu, jadi ini akan dihitung sebagai $B - A$, bukan $A - B$ yang diminta — hasilnya akan berbeda tanda.",
           "ordoMismatch": "Belum bisa dijumlahkan — ordo A adalah {{ordoA}} sedangkan B adalah {{ordoB}}. Penjumlahan matriks butuh ordo yang sama persis.",
           "success": "Mantap! Matriks hasil sudah lengkap.",
           "startFromA": "Mulai dari matriks $A$. Ketuk dulu elemen di $A$, baru pasangannya di $B$ akan menyala.",
-          "needPartner": "Sekarang giliran pasangannya dari $B$ — elemen yang sedang berkedip di baris {{ai}} kolom {{aj}}.",
-          "cellBusy": "Selesaikan dulu sel yang sedang dihitung. Tekan tombol hitungnya, baru pilih pasangan berikutnya.",
+          "needPartner": "Sekarang giliran pasangannya dari $B$ — ketuk elemen yang sedang berkedip di baris {{ai}} kolom {{aj}}.",
+          "cellBusy": "Selesaikan dulu sel yang sedang dihitung. Tekan tombol hitungnya, baru ketuk pasangan berikutnya.",
           "cellDone": "Sel $c_{{row}}{{col}}$ selesai."
         }
       },

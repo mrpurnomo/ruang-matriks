@@ -9,7 +9,8 @@ import { renderMixed } from '../../../engine/katexRenderer.js';
 import { fillTemplate } from '../../../engine/validator.js';
 import { icon } from '../../../ui/icons.js';
 import toast from '../../../ui/toast.js';
-import { rejectShake } from '../../../interactions/flyToAnimation.js';
+import { rejectShake, hideDragCue } from '../../../interactions/flyToAnimation.js';
+import { resetDragSystem } from '../../../interactions/dragDrop.js';
 
 export function el(tag, className, html) {
   const node = document.createElement(tag);
@@ -410,6 +411,15 @@ export class Simulation {
     this.busy = false;    // true selama animasi berjalan → kunci semua klik
 
     /**
+     * Timer tertunda milik simulasi ini. `setTimeout` yang menyentuh DOM
+     * HARUS lewat `this.later()` supaya ia ikut mati saat siswa pindah layar
+     * di tengah animasi — kalau tidak, ia menyala beberapa detik kemudian dan
+     * menulis ke node yang sudah lenyap (Fase 11, isu 5).
+     */
+    this.timers = new Set();
+    this.destroyed = false;
+
+    /**
      * Ke mana petunjuk (brief, legenda, prompt, checklist) harus ditempatkan.
      * Sejak Fase 10, mode Belajar mengisinya dengan panel kiri sehingga
      * panggung di kanan benar-benar hanya berisi matriks. Bila null, petunjuk
@@ -423,6 +433,22 @@ export class Simulation {
      * dijalankan ulang. Kunci = indeks slide, nilai = ringkasan hasilnya.
      */
     this.solvedSlides = new Map();
+
+    /**
+     * Kemajuan yang dipulihkan dari sesi sebelumnya, dipasang oleh
+     * `mountSimulation()` SEBELUM `build()`. Bentuknya bebas — masing-masing
+     * engine yang menentukan apa yang layak diingat.
+     */
+    this.savedState = null;
+    this.onStateChange = null;
+  }
+
+  /**
+   * Titipkan kemajuan agar bertahan saat siswa keluar sejenak ke menu.
+   * Hanya "Ulangi Simulasi" yang boleh menghapusnya (kontrak §5 butir 28).
+   */
+  saveState(payload) {
+    if (typeof this.onStateChange === 'function') this.onStateChange(payload);
   }
 
   markSlideSolved(index, payload = true) {
@@ -498,6 +524,13 @@ export class Simulation {
   }
 
   useSteps(labels, { allowJump = false, onJump = null } = {}) {
+    // IDEMPOTEN (Fase 11, isu 7). Beberapa engine memanggil `useSteps()` di
+    // setiap render slide, sementara slider mendarat di PANEL KENDALI lewat
+    // `addHint()` — bukan di `.stage`. Karena `resetStage()` hanya mengosongkan
+    // panggung, slider lama tidak pernah tersapu dan navigasi titik menumpuk
+    // dua sampai tiga lapis. Jadi: buang yang lama dulu, selalu.
+    this.disposeSlider();
+
     // Disimpan agar pemulihan sesi bisa memanggil jalur lompat MILIK engine
     // sendiri, bukan menebak-nebak cara tiap engine menggambar slide-nya.
     this.stepJump = typeof onJump === 'function' ? onJump : null;
@@ -515,6 +548,27 @@ export class Simulation {
     // Navigasi langkah adalah KENDALI, jadi ia ikut ke panel samping.
     this.addHint(this.slider);
     return this.slider;
+  }
+
+  /**
+   * Lepaskan slider langkah dari DOM dan nolkan rujukannya.
+   *
+   * Menolkan `this.slider` saja tidak cukup: node-nya tinggal di panel
+   * kendali dan tetap terlihat. Ia harus benar-benar dicabut.
+   */
+  disposeSlider() {
+    if (this.slider) {
+      this.slider.remove();
+      this.slider = null;
+    }
+    // Jaring pengaman: kalau ada slider yatim yang terlanjur tertinggal dari
+    // render sebelumnya, sapu juga — hanya di dalam wadah milik simulasi ini.
+    const hosts = [this.hintHost, this.root].filter(Boolean);
+    hosts.forEach((host) => {
+      host.querySelectorAll(':scope > .slider__nav').forEach((node) => node.remove());
+    });
+    this.stepJump = null;
+    this.stepCount = 0;
   }
 
   setStep(index) {
@@ -546,14 +600,61 @@ export class Simulation {
   markStepDone(index) { if (this.slider) this.slider.markDone(index); }
 
   track(cleanupFn) {
-    if (typeof cleanupFn === 'function') this.cleanups.push(cleanupFn);
+    if (typeof cleanupFn !== 'function') return cleanupFn;
+    // Jangan daftarkan fungsi yang sama dua kali. Beberapa engine memanggil
+    // `track()` pada pelepas drop-zone yang juga mereka simpan sendiri di
+    // sebuah field, sehingga ia mudah masuk daftar berulang kali.
+    if (!this.cleanups.includes(cleanupFn)) this.cleanups.push(cleanupFn);
+    return cleanupFn;
+  }
+
+  /**
+   * `setTimeout` berjejak. Callback-nya TIDAK dijalankan kalau simulasinya
+   * sudah dibongkar, jadi aman dipakai untuk apa pun yang menyentuh DOM.
+   */
+  later(fn, ms = 0) {
+    if (this.destroyed) return null;
+    const id = setTimeout(() => {
+      this.timers.delete(id);
+      if (this.destroyed) return;
+      try { fn(); } catch (err) { console.warn('[sim] timer gagal:', err); }
+    }, ms);
+    this.timers.add(id);
+    return id;
+  }
+
+  /**
+   * Jeda berjejak untuk dipakai dengan `await`. Kalau simulasinya dibongkar
+   * selama jeda, promise-nya sengaja TIDAK PERNAH selesai — dengan begitu
+   * sisa fungsi async (yang biasanya langsung menulis ke sel) tidak pernah
+   * berjalan, tanpa perlu menaruh penjaga `if (this.destroyed)` di tiap baris
+   * sesudah `await`.
+   */
+  wait(ms = 0) {
+    return new Promise((resolve) => {
+      if (this.destroyed) return;
+      this.later(resolve, ms);
+    });
+  }
+
+  clearTimers() {
+    this.timers.forEach((id) => clearTimeout(id));
+    this.timers.clear();
   }
 
   destroy() {
+    this.destroyed = true;
+    this.clearTimers();
+
     this.cleanups.forEach((fn) => {
       try { fn(); } catch (err) { console.warn('[sim] cleanup gagal:', err); }
     });
     this.cleanups = [];
+
+    // State seret/ketuk hidup di level modul, bukan di pohon DOM ini — ia
+    // harus dinolkan secara eksplisit atau zona kasus lama ikut terbawa.
+    resetDragSystem();
+    hideDragCue();
   }
 
   /**
@@ -607,11 +708,19 @@ export class Simulation {
    * yang tertinggal dari langkah sebelumnya.
    */
   resetStage() {
+    // Timer milik slide lama tidak boleh menyala di atas slide baru.
+    this.clearTimers();
+
     // Buang drop-zone lama supaya tidak menangkap drop dari slide baru.
     this.cleanups.forEach((fn) => {
       try { fn(); } catch (err) { /* diabaikan */ }
     });
     this.cleanups = [];
+
+    // Zona & pilihan ketuk hidup di level modul: mengosongkan `.stage` tidak
+    // menyentuhnya sama sekali.
+    resetDragSystem();
+    hideDragCue();
 
     if (this.stage) this.stage.innerHTML = '';
 
