@@ -410,6 +410,14 @@ export class Simulation {
     this.busy = false;    // true selama animasi berjalan → kunci semua klik
 
     /**
+     * Ke mana petunjuk (brief, legenda, prompt, checklist) harus ditempatkan.
+     * Sejak Fase 10, mode Belajar mengisinya dengan panel kiri sehingga
+     * panggung di kanan benar-benar hanya berisi matriks. Bila null, petunjuk
+     * kembali menempel di atas panggung seperti sebelumnya.
+     */
+    this.hintHost = null;
+
+    /**
      * Ingatan per-slide. Sebuah slide yang sudah diselesaikan HARUS tetap
      * terlihat selesai saat siswa menavigasi bolak-balik — bukan direset dan
      * dijalankan ulang. Kunci = indeks slide, nilai = ringkasan hasilnya.
@@ -504,7 +512,8 @@ export class Simulation {
         if (typeof onJump === 'function') onJump(index);
       },
     });
-    if (this.root) this.root.appendChild(this.slider);
+    // Navigasi langkah adalah KENDALI, jadi ia ikut ke panel samping.
+    this.addHint(this.slider);
     return this.slider;
   }
 
@@ -547,20 +556,31 @@ export class Simulation {
     this.cleanups = [];
   }
 
+  /**
+   * Sisipkan sebuah node petunjuk. Ia mendarat di panel samping bila ada;
+   * kalau tidak, di atas panggung seperti perilaku lama.
+   */
+  addHint(node) {
+    if (!node) return node;
+    if (this.hintHost) this.hintHost.appendChild(node);
+    else if (this.root) this.root.appendChild(node);
+    return node;
+  }
+
   /** Kerangka standar: brief → legenda → prompt → panggung. */
   scaffold({ brief, promptText, promptStep, legend }) {
     const root = el('div', 'sim');
-    if (brief) root.appendChild(createBrief(brief));
-    if (legend && legend.length) root.appendChild(createColorLegend(legend));
+    this.container.appendChild(root);
+    this.root = root;
 
-    this.promptEl = createPrompt(promptText || '', promptStep || 'Langkah 1');
-    root.appendChild(this.promptEl);
+    if (brief) this.addHint(createBrief(brief));
+    if (legend && legend.length) this.addHint(createColorLegend(legend));
+
+    this.promptEl = this.addHint(createPrompt(promptText || '', promptStep || 'Langkah 1'));
 
     this.stage = createStage();
     root.appendChild(this.stage);
 
-    this.container.appendChild(root);
-    this.root = root;
     return root;
   }
 

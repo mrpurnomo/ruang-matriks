@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <!-- Jangan pernah nonaktifkan zoom (aksesibilitas) -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Platform belajar matriks interaktif untuk Matematika Tingkat Lanjut Kelas 11 — seret elemennya, saksikan proses hitungnya bergerak.">
+  <meta name="description" content="Ruang Matriks — media belajar matriks interaktif untuk Matematika Tingkat Lanjut - Kelas 11. Dimainkan dalam mode lanskap.">
   <meta name="theme-color" content="#EFF4FF">
-  <title>Matriks Lab Interaktif — Matematika Tingkat Lanjut Kelas 11</title>
+  <title>Ruang Matriks — Matematika Tingkat Lanjut - Kelas 11</title>
 
   <!-- Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="css/phase7.css">
   <link rel="stylesheet" href="css/phase8.css">
   <link rel="stylesheet" href="css/phase9.css">
+  <link rel="stylesheet" href="css/phase10.css">
 
   <!-- Favicon: kotak biru TERANG dengan glif navy gelap — terbaca di tab
        terang maupun gelap (versi lama gelap-di-atas-gelap tidak terlihat). -->
@@ -65,7 +66,7 @@
       <p class="rotate-lock__text" id="rotate-text">
         Mohon putar perangkat Anda ke mode Landscape untuk pengalaman belajar terbaik.
       </p>
-      <span class="rotate-lock__hint">Matriks Lab Interaktif</span>
+      <span class="rotate-lock__hint">Ruang Matriks</span>
     </div>
   </div>
 
@@ -84,14 +85,16 @@
           </svg>
         </button>
         <div class="brand__text">
-          <div class="brand__title">Matriks Lab</div>
-          <div class="brand__sub">Matematika Tingkat Lanjut · Kelas 11</div>
+          <div class="brand__title">Ruang Matriks</div>
+          <div class="brand__sub">Matematika Tingkat Lanjut - Kelas 11</div>
         </div>
       </div>
 
-      <div class="header-spacer"></div>
-
-      <div class="header-actions">
+      <!-- Progres duduk di TENGAH atas: ia milik seluruh aplikasi, bukan
+           milik salah satu sisi. Tombol layar penuh mengambang di kanan atas
+           (di luar #app), jadi kolom kanan header sengaja disisakan kosong
+           selebar tombol itu agar keduanya tidak pernah bertabrakan. -->
+      <div class="header-center">
         <div class="progress-ring" role="img" aria-label="Persentase penguasaan kurikulum">
           <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
             <circle class="progress-ring__track" cx="20" cy="20" r="16" fill="none" stroke-width="4"/>
@@ -101,6 +104,8 @@
           <span class="progress-ring__label">0%</span>
         </div>
       </div>
+
+      <div class="header-slot" aria-hidden="true"></div>
     </header>
 
     <!-- Satu layar terlihat pada satu waktu; tidak ada scroll di level body -->
@@ -116,9 +121,8 @@
     </main>
 
     <footer class="app-footer">
-      <span class="app-footer__mark" aria-hidden="true"></span>
       <span class="app-footer__text">
-        Copyright Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang.
+        © Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang.
       </span>
     </footer>
 

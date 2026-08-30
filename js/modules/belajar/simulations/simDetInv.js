@@ -651,7 +651,8 @@ export class Inverse2x2Sim extends Simulation {
       'Susun adjoin: tukar & balik tanda',
       'Kalikan $\\frac{1}{\\det}$ ke tiap elemen',
     ]);
-    this.container.querySelector('.sim').insertBefore(this.checklist, this.stage);
+    // Checklist adalah PETUNJUK, bukan kanvas — ia ikut ke panel kendali.
+    this.addHint(this.checklist);
 
     const m = renderMatrix(matrix, { name, showAddress: true });
     this.cells = m.cells;

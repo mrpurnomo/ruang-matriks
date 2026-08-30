@@ -195,28 +195,46 @@ export class LessonView {
     markSubtopicStarted(chapter.id, subtopic.id);
 
     this.host.innerHTML = '';
-    const workspace = el('div', 'workspace');
 
-    const bar = el('div', 'workspace__bar');
+    /**
+     * Kerangka "Sidebar & Stage" (Fase 10).
+     *
+     * Sebelumnya semuanya bertumpuk vertikal: judul, tab, petunjuk, lalu
+     * matriks. Di lanskap pendek, tumpukan itu meremas matriks sampai
+     * $3\times3$ nyaris tak terbaca. Sekarang layar dibelah dua:
+     *
+     *   KIRI  (±28%) — kendali: tombol kembali, judul, tab langkah,
+     *                  petunjuk langkah-demi-langkah, dan aksi utama.
+     *   KANAN (±72%) — panggung: HANYA kanvas. Matriks, persamaan, atau
+     *                  teks teori punya seluruh ruang itu untuk bernapas.
+     */
+    const workspace = el('div', 'workspace workspace--split');
 
-    const back = el('button', 'btn btn--icon btn--ghost');
+    const side = el('aside', 'ws-side');
+    side.setAttribute('aria-label', 'Panel kendali sub-topik');
+
+    const sideHead = el('div', 'ws-side__head');
+
+    const back = el('button', 'btn btn--icon btn--ghost ws-side__back');
     back.type = 'button';
     back.setAttribute('aria-label', 'Kembali ke daftar sub-topik');
     back.title = 'Kembali ke daftar sub-topik';
     back.innerHTML = icon('arrow-left', { size: 18 });
     back.addEventListener('click', () => this.ctx.onExit());
-    bar.appendChild(back);
+    sideHead.appendChild(back);
 
     const titles = el('div', 'workspace__titles');
     titles.appendChild(el('div', 'workspace__eyebrow', `Bab ${chapter.number} · ${chapter.title}`));
     titles.appendChild(el('div', 'workspace__title', renderMixed(subtopic.title)));
-    bar.appendChild(titles);
+    sideHead.appendChild(titles);
+
+    side.appendChild(sideHead);
 
     if (this.reviewMode) {
       const flag = el('div', 'review-flag');
       flag.innerHTML = `${icon('check-circle', { size: 13 })}<span>Mode Review</span>`;
       flag.title = 'Sub-topik ini sudah selesai — kamu bebas melompat ke bagian mana pun.';
-      bar.appendChild(flag);
+      side.appendChild(flag);
     }
 
     // Tab langkah
@@ -241,16 +259,29 @@ export class LessonView {
       this.stepsEl.appendChild(item);
     });
 
-    bar.appendChild(this.stepsEl);
-    workspace.appendChild(bar);
+    side.appendChild(this.stepsEl);
+
+    /**
+     * Tempat petunjuk langkah. Simulasi menaruh brief, legenda warna, prompt,
+     * dan checklist-nya DI SINI, bukan di atas panggung — supaya panggung
+     * benar-benar hanya berisi matriks.
+     */
+    this.hintHost = el('div', 'ws-side__hint');
+    side.appendChild(this.hintHost);
+
+    // Bilah aksi hidup DI LUAR area gulir: aksi utama ("Lanjut ke …") harus
+    // selalu terlihat tanpa siswa perlu menggulir apa pun.
+    this.actionHost = el('div', 'workspace__actions ws-side__actions');
+    side.appendChild(this.actionHost);
+
+    workspace.appendChild(side);
+
+    const stage = el('section', 'ws-stage');
+    stage.setAttribute('aria-label', 'Area kerja');
 
     this.body = el('div', 'workspace__body');
-    workspace.appendChild(this.body);
-
-    // Bilah aksi hidup DI LUAR area scroll: aksi utama ("Lanjut ke …") harus
-    // selalu terlihat tanpa siswa perlu menggulir apa pun.
-    this.actionHost = el('div', 'workspace__actions');
-    workspace.appendChild(this.actionHost);
+    stage.appendChild(this.body);
+    workspace.appendChild(stage);
 
     this.workspace = workspace;
     this.host.appendChild(workspace);
@@ -285,6 +316,7 @@ export class LessonView {
 
     this.body.innerHTML = '';
     if (this.actionHost) this.actionHost.innerHTML = '';
+    if (this.hintHost) this.hintHost.innerHTML = '';
 
     if (this.step === 0) return this.renderMateri();
     if (this.step === 1) return this.renderSimulation();
@@ -300,6 +332,11 @@ export class LessonView {
     // memotong-motong bacaan menjadi kolom sempit yang justru sulit diikuti.
     // Teori panjang sekarang digulir dengan tenang DI DALAM kartunya sendiri
     // (lihat `.materi-card` di phase9.css), sementara halamannya tetap 100vh.
+    this.setHint(
+      'Materi',
+      'Baca dulu penjelasannya. Kalau sudah paham, lanjutkan ke simulasi lewat tombol di bawah.'
+    );
+
     const card = el('div', 'content-card materi-card anim-rise');
     const wrap = el('div', 'materi');
     subtopic.materi.forEach((block) => wrap.appendChild(renderBlock(block)));
@@ -378,6 +415,7 @@ export class LessonView {
       next.classList.add('btn--pulse');
       next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, {
+      hintHost: this.hintHost,
       resumeSlide: this.resumeSimSlide,
       onSlideChange: (index) => {
         this.resumeSimSlide = index;
@@ -393,9 +431,24 @@ export class LessonView {
     }, 30000);
   }
 
+  /** Tulis judul + kalimat konteks di panel kiri. */
+  setHint(label, text) {
+    if (!this.hintHost) return;
+    this.hintHost.innerHTML = '';
+    this.hintHost.appendChild(el('div', 'ws-hint__label', label));
+    this.hintHost.appendChild(el('p', 'ws-hint__text', renderMixed(text)));
+  }
+
   /* ---------------- C. Mini Kuis ---------------- */
   renderQuiz() {
     const { chapter, subtopic } = this.ctx;
+
+    this.setHint(
+      'Mini Kuis',
+      this.reviewMode
+        ? 'Sub-topik ini sudah selesai. Baca ulang soal beserta kunci dan pembahasannya.'
+        : 'Jawab soalnya untuk membuka sub-topik berikutnya. Salah tidak apa-apa — kamu boleh mencoba lagi.'
+    );
 
     const host = el('div');
     this.body.appendChild(host);

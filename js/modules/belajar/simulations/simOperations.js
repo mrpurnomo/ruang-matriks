@@ -601,7 +601,7 @@ export class ComboOpSim extends Simulation {
       `Kalikan setiap elemen $A$ dengan $${scalarA}$ (manual)`,
       `Jumlahkan hasilnya dengan $B$ elemen demi elemen (manual)`,
     ]);
-    this.root.insertBefore(this.checklist, this.stage);
+    this.addHint(this.checklist);
 
     const a = renderMatrix(matrixA, { name: 'A', showAddress: true });
     const b = renderMatrix(matrixB, { name: 'B', showAddress: true, addressPrefix: 'b' });
@@ -905,7 +905,7 @@ export class MatrixMultiplySim extends Simulation {
     this.root = el('div', 'sim');
     this.container.appendChild(this.root);
 
-    if (this.config.brief) this.root.appendChild(createBrief(this.config.brief));
+    if (this.config.brief) this.addHint(createBrief(this.config.brief));
 
     // Sub-navigasi kasus. Dibangun SEKALI dan tidak pernah ikut dibongkar,
     // supaya berpindah kasus tidak membuat tombolnya berkedip hilang-muncul.
@@ -923,7 +923,9 @@ export class MatrixMultiplySim extends Simulation {
       return btn;
     });
 
-    if (this.cases.length > 1) this.root.appendChild(this.caseBar);
+    // Pemilih kasus juga kendali, jadi ia duduk di panel kiri bersama
+    // petunjuk — panggung tetap murni berisi matriks.
+    if (this.cases.length > 1) this.addHint(this.caseBar);
 
     this.caseHost = el('div', 'case-host');
     this.root.appendChild(this.caseHost);
@@ -984,17 +986,22 @@ export class MatrixMultiplySim extends Simulation {
     this.terms = [];
     this.total = this.result.length * this.result[0].length;
 
+    // Petunjuk per-kasus hidup di wadahnya sendiri (`caseHints`) supaya ikut
+    // terbongkar bersama kasusnya, tetapi TAMPIL di panel kendali.
+    this.caseHints = el('div', 'case-hints');
+    this.addHint(this.caseHints);
+
     this.promptEl = createPrompt(
       'Klik satu **sel kosong** di matriks hasil untuk mulai menghitungnya.',
       `0 / ${this.total} sel`
     );
-    this.caseHost.appendChild(this.promptEl);
+    this.caseHints.appendChild(this.promptEl);
 
     if (current.note) {
-      this.caseHost.appendChild(el('div', 'case-note', renderMixed(current.note)));
+      this.caseHints.appendChild(el('div', 'case-note', renderMixed(current.note)));
     }
 
-    this.caseHost.appendChild(createColorLegend([
+    this.caseHints.appendChild(createColorLegend([
       { tone: 'blue', label: `Biru = baris dari $${nameA}$` },
       { tone: 'coral', label: `Oranye = kolom dari $${nameB}$` },
       { tone: 'amber', label: 'Kuning = sel yang sedang dihitung' },
@@ -1072,10 +1079,11 @@ export class MatrixMultiplySim extends Simulation {
       },
     });
 
-    // `useSteps` menempelkan slider ke `this.root`, yang di sini dipakai
-    // bersama seluruh kasus. Ia dipindahkan ke wadah kasus supaya ikut
-    // terbongkar saat kasusnya berganti — inilah sumber "slider dobel".
-    if (this.slider) this.caseHost.appendChild(this.slider);
+    // `useSteps` menempelkan slider lewat addHint(), yang di sini mendarat di
+    // panel kendali bersama seluruh kasus. Ia dipindahkan ke wadah petunjuk
+    // MILIK KASUS supaya ikut terbongkar saat kasusnya berganti — inilah
+    // sumber bug "slider dobel".
+    if (this.slider) this.caseHints.appendChild(this.slider);
 
     // Semua sel hasil berdenyut sampai salah satunya dipilih.
     this.cellsC.forEach((cell) => cell.classList.add('cell--invite'));
@@ -1111,6 +1119,13 @@ export class MatrixMultiplySim extends Simulation {
     this.activeCell = null;
     this.terms = [];
     this.caseHost.innerHTML = '';
+
+    // Petunjuk kasus hidup di panel kendali, bukan di caseHost — jadi ia
+    // harus dibuang terpisah, kalau tidak ia menumpuk tiap ganti kasus.
+    if (this.caseHints) {
+      this.caseHints.remove();
+      this.caseHints = null;
+    }
   }
 
   wireDrag(cells, which) {

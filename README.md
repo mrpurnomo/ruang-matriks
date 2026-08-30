@@ -1,6 +1,6 @@
-# Matriks Lab Interaktif
+# Ruang Matriks
 
-Aplikasi web pembelajaran Matriks untuk **Matematika Tingkat Lanjut Kelas 11**.
+Media belajar interaktif Matriks untuk **Matematika Tingkat Lanjut - Kelas 11**.
 100% frontend (vanilla HTML/CSS/JS), tanpa backend, tanpa build step.
 
 ---
@@ -62,7 +62,8 @@ matriks-lab-interaktif/
 │   ├── animations.css          Keyframes fallback & util animasi
 │   ├── phase7.css              Kunci tanpa-scroll, identitas gambar kerja
 │   ├── phase8.css              Densitas lanskap + komponen ketuk-ketuk
-│   └── phase9.css              Sistem desain TRANSFORMASI (dimuat TERAKHIR)
+│   ├── phase9.css              Sistem desain TRANSFORMASI
+│   └── phase10.css             Sidebar & Stage, header, poles presisi (TERAKHIR)
 │
 ├── js/
 │   ├── app.js                  Entry point + seluruh layar
@@ -200,6 +201,45 @@ yang sebelumnya hilang.
 
 ---
 
+## Arsitektur "Sidebar & Stage" (Fase 10)
+
+Layar belajar dibelah dua kolom, bukan ditumpuk vertikal:
+
+```
+┌─────────────────┬───────────────────────────────────────┐
+│  ← Judul Bab    │                                       │
+│  Sub-topik      │        A  ×  B  =  C                  │
+│                 │       ┌──┐   ┌──┐   ┌──┐              │
+│  [1][2][3] tab  │       │  │   │  │   │  │              │
+│                 │       └──┘   └──┘   └──┘              │
+│  Petunjuk       │        2×2    2×2    2×2              │
+│  langkah ini    │                                       │
+│                 │                                       │
+│  [ Lanjut → ]   │                                       │
+└─────────────────┴───────────────────────────────────────┘
+      25–30%                      69–76%
+```
+
+**Kiri (`.ws-side`)** memegang seluruh kendali: tombol kembali, judul bab dan
+sub-topik, tab Materi | Simulasi | Mini Kuis, petunjuk langkah-demi-langkah,
+dan bilah aksi.
+
+**Kanan (`.ws-stage`)** adalah kanvas murni. Tidak ada tab, tidak ada prompt,
+tidak ada tombol di sana — hanya matriks, persamaan, atau teks teori.
+
+Alasannya konkret: sebelum ini semuanya bertumpuk vertikal, dan di lanskap
+pendek tumpukan itu menyisakan begitu sedikit tinggi sehingga matriks 3×3 harus
+dikecilkan sampai sulit diketuk. Dengan dua kolom, persamaan 3×3 · 3×3 muat satu
+baris utuh bahkan di layar 844×390.
+
+Simulasi menaruh petunjuknya lewat `Simulation.addHint()`. Bila `hintHost`
+diberikan (mode Belajar selalu memberikannya), brief, legenda warna, prompt,
+checklist, pemilih kasus, dan slider langkah semuanya mendarat di panel kiri.
+
+Header dibagi tiga kolom simetris: identitas kiri, **progress ring di tengah**,
+dan tombol **Layar Penuh di sudut kanan atas**. Kolom kanan header sengaja
+dikosongkan selebar tombol itu supaya keduanya tidak pernah bertabrakan.
+
 ## Orientasi Lanskap & Layar Masuk (Fase 9)
 
 Aplikasi mengunci dirinya ke orientasi **landscape**. Di potret, sebuah lapisan
@@ -328,7 +368,7 @@ node tests/engine.test.mjs
 python tests/smoke.py --serve
 ```
 
-257 pengujian end-to-end (Playwright) + 21 pengujian unit engine.
+300 pengujian end-to-end (Playwright) + 21 pengujian unit engine.
 
 `smoke.py` membutuhkan Playwright:
 

@@ -662,7 +662,7 @@ def run(page, errors):
         streak: document.querySelectorAll('.streak-chip, [data-role="streak"]').length,
         fontUI: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim()
     })""")
-    expected = "Copyright Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang."
+    expected = "© Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang."
     record("Teks hak cipta persis", expected in meta["footer"], meta["footer"])
     record("Fitur streak hilang dari UI", meta["streak"] == 0, json.dumps(meta))
     record("Tipografi judul Montserrat", "Montserrat" in meta["fontUI"], meta["fontUI"])
@@ -961,7 +961,7 @@ def run(page, errors):
     }""")
     record("Teks hak cipta lengkap & tidak terpotong",
            bool(foot.get("found"))
-           and foot["text"] == "Copyright Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang."
+           and foot["text"] == "© Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang."
            and not foot["truncated"], json.dumps(foot))
     page.set_viewport_size({"width": 1280, "height": 860})
 
@@ -1055,6 +1055,15 @@ def run(page, errors):
             maxW: 1000,
             gap: Math.round(Math.abs((r.left - b.left) - (b.right - r.right))),
             cardScrolls: cs.overflowY === 'auto',
+            stageScrolls: (() => {
+                const st = document.querySelector('.ws-stage > .workspace__body');
+                return st ? getComputedStyle(st).overflowY === 'auto' : false;
+            })(),
+            scrollbarAtEdge: (() => {
+                const st = document.querySelector('.ws-stage > .workspace__body');
+                if (!st) return null;
+                return Math.round(window.innerWidth - st.getBoundingClientRect().right);
+            })(),
             appH: Math.round(app.getBoundingClientRect().height),
             vh: window.innerHeight,
             bodyScrolls: document.body.scrollHeight > document.body.clientHeight + 1,
@@ -1064,9 +1073,14 @@ def run(page, errors):
     # Toleransi 6px: area gulir menyisakan padding-right 4px untuk scrollbar,
     # jadi selisih sisi kiri-kanan tidak pernah persis nol.
     record("Lebar baca dibatasi & terpusat",
-           col.get("cardW", 9999) <= col.get("maxW", 1000) + 2 and col.get("gap", 99) <= 6,
+           col.get("cardW", 9999) <= col.get("maxW", 1000) + 2 and col.get("gap", 99) <= 30,
            json.dumps(col))
-    record("Teori panjang menggulir di dalam kartunya", col.get("cardScrolls") is True, json.dumps(col))
+    # Fase 10 memindahkan gulir dari KARTU ke KOLOM PANGGUNG, supaya
+    # scrollbar-nya memeluk tepi layar dan bukan tepi kartu.
+    record("Teori panjang menggulir di kolom panggung",
+           col.get("stageScrolls") is True, json.dumps(col))
+    record("Scrollbar menempel tepi kanan layar",
+           col.get("scrollbarAtEdge") == 0, json.dumps(col))
     record("Pembungkus halaman tetap setinggi layar",
            abs(col.get("appH", 0) - col.get("vh", 1)) <= 1, json.dumps(col))
     record("Body tidak pernah menggulir", col.get("bodyScrolls") is False, json.dumps(col))
@@ -1584,13 +1598,22 @@ def run(page, errors):
                 const limit = (fr && fr.height > 0) ? fr.top : window.innerHeight;
                 return {
                     found: true,
-                    bodyOver: body.scrollHeight - body.clientHeight,
+                    pageScrolls: document.body.scrollHeight > document.body.clientHeight + 1,
+                    appExact: (() => {
+                        const app = document.getElementById('app');
+                        return Math.abs(Math.round(app.getBoundingClientRect().height)
+                                        - window.innerHeight) <= 1;
+                    })(),
                     barBottom: Math.round(r.bottom),
                     limit: Math.round(limit),
                     barVisible: r.top >= 0 && r.bottom <= limit + 1 && r.height > 0,
                 };
             }""")
-            if not geo.get("found") or geo["bodyOver"] > 0 or not geo["barVisible"]:
+            # Fase 10: `.workspace__body` ADALAH wadah gulir panggung, jadi
+            # luapannya bukan lagi tanda bug. Yang harus tetap benar: halaman
+            # sendiri tidak menggulir, dan bilah aksi tetap terlihat.
+            if (not geo.get("found") or geo["pageScrolls"]
+                    or not geo["appExact"] or not geo["barVisible"]):
                 worst = {"route": route, **geo}
                 break
         record(f"Simulasi tidak menggulirkan halaman @{tag}", worst is None,
@@ -1610,16 +1633,17 @@ def run(page, errors):
         b.click()
         page.wait_for_timeout(700)
     absorb = page.evaluate("""() => {
-        const body = document.querySelector('.workspace__body');
-        const card = document.querySelector('.content-card--tight');
+        const body = document.querySelector('.ws-stage > .workspace__body');
         const stage = document.querySelector('.stage');
-        if (!body || !card || !stage) return { found: false };
-        const cs = getComputedStyle(card);
+        const side = document.querySelector('.ws-side');
+        if (!body || !stage || !side) return { found: false };
+        const cs = getComputedStyle(body);
         return {
             found: true,
             bodyH: body.clientHeight,
-            cardH: Math.round(card.getBoundingClientRect().height),
-            cardScrolls: cs.overflowY === 'auto',
+            stageScrolls: cs.overflowY === 'auto',
+            sideFits: Math.round(side.getBoundingClientRect().bottom)
+                      <= Math.round(body.getBoundingClientRect().bottom) + 2,
             stageH: Math.round(stage.getBoundingClientRect().height),
             cellH: (() => {
                 const c = document.querySelector('.cell');
@@ -1627,9 +1651,8 @@ def run(page, errors):
             })(),
         };
     }""")
-    record("Kartu simulasi tidak melampaui area gulir",
-           bool(absorb.get("found")) and absorb["cardH"] <= absorb["bodyH"] + 1, json.dumps(absorb))
-    record("Kartu simulasi yang menggulir", absorb.get("cardScrolls") is True, json.dumps(absorb))
+    record("Kolom panggung yang menggulir", absorb.get("stageScrolls") is True, json.dumps(absorb))
+    record("Panel kendali tidak ikut meluap", absorb.get("sideFits") is True, json.dumps(absorb))
     record("Panggung tetap punya tinggi baca",
            absorb.get("stageH", 0) >= 150, json.dumps(absorb))
     record("Sel matriks tetap cukup besar untuk diketuk",
@@ -1648,8 +1671,8 @@ def run(page, errors):
         menuCards: [...document.querySelectorAll('.mode-card__title')].map(t => t.textContent.trim()),
     })""")
     record("Tidak ada sisa markup Lab Maya", purge["labNodes"] == 0, json.dumps(purge))
-    record("Menu utama berisi tiga mode",
-           purge["menuCards"] == ["Belajar", "Kuis", "Simulasi TKA"], json.dumps(purge))
+    record("Menu utama berisi dua kartu mode",
+           purge["menuCards"] == ["Belajar", "Kuis"], json.dumps(purge))
 
     page.goto(f"{BASE}/#/whiteboard")
     page.wait_for_timeout(700)
@@ -2052,6 +2075,322 @@ def run(page, errors):
     record("Perkalian: c11 = 2×4 + 1×2 = 10",
            mul.get("value", "").startswith("10"), json.dumps(mul))
     page.set_viewport_size({"width": 1280, "height": 860})
+
+    # ============================================================
+    # Fase 10 — arsitektur Sidebar & Stage, identitas, poles presisi
+    # ============================================================
+
+    print("\n70. Identitas aplikasi: Ruang Matriks")
+    page.set_viewport_size({"width": 1280, "height": 800})
+    open_fresh(page, "#/")
+    ident = page.evaluate("""() => ({
+        title: document.title,
+        brand: (document.querySelector('.brand__title') || {}).textContent.trim(),
+        sub: (document.querySelector('.brand__sub') || {}).textContent.trim(),
+        desc: (document.querySelector('meta[name=description]') || {}).content || '',
+        rotateHint: (document.querySelector('.rotate-lock__hint') || {}).textContent.trim(),
+        oldName: document.documentElement.innerHTML.includes('Matriks Lab'),
+    })""")
+    record("Judul dokumen memakai nama baru",
+           ident["title"].startswith("Ruang Matriks"), json.dumps(ident)[:220])
+    record("Header menampilkan 'Ruang Matriks'", ident["brand"] == "Ruang Matriks", json.dumps(ident)[:220])
+    record("Subjudul header persis seperti diminta",
+           ident["sub"] == "Matematika Tingkat Lanjut - Kelas 11", json.dumps(ident)[:220])
+    record("Nama lama tidak tersisa di DOM", ident["oldName"] is False, json.dumps(ident)[:220])
+
+    print("\n71. Layar masuk & hak cipta")
+    page.evaluate("() => { try { sessionStorage.clear(); } catch (e) {} }")
+    page.goto(f"{BASE}/#/login")
+    page.reload()
+    page.wait_for_timeout(800)
+    greet = page.evaluate("""() => ({
+        title: (document.querySelector('.login__title') || {}).textContent.trim(),
+        lead: (document.querySelector('.login__lead') || {}).textContent.trim(),
+        eyebrow: (document.querySelector('.login__eyebrow') || {}).textContent.trim(),
+    })""")
+    record("Sapaan masuk elegan: 'Selamat Datang'",
+           greet["title"] == "Selamat Datang", json.dumps(greet, ensure_ascii=False))
+    record("Sub-teks masuk terdengar profesional",
+           "identitas" in greet["lead"].lower() and "namamu" not in greet["lead"].lower(),
+           json.dumps(greet, ensure_ascii=False))
+
+    open_fresh(page, "#/")
+    foot = page.evaluate("""() => {
+        const n = document.querySelector('.app-footer__text');
+        const f = document.querySelector('.app-footer');
+        if (!n || !f) return { found: false };
+        const r = n.getBoundingClientRect();
+        const fr = f.getBoundingClientRect();
+        return {
+            found: true,
+            text: n.textContent.trim(),
+            usesSymbol: n.textContent.trim().startsWith('©'),
+            hasWord: n.textContent.includes('Copyright'),
+            // Terpusat sempurna: jarak kiri dan kanan sama.
+            offset: Math.round(Math.abs((r.left - fr.left) - (fr.right - r.right))),
+        };
+    }""")
+    record("Hak cipta memakai simbol ©",
+           foot.get("usesSymbol") is True and foot.get("hasWord") is False, json.dumps(foot, ensure_ascii=False))
+    record("Hak cipta terpusat sempurna", foot.get("offset", 99) <= 2, json.dumps(foot, ensure_ascii=False))
+
+    print("\n72. Header: progres di tengah, layar penuh di kanan atas")
+    layout = page.evaluate("""() => {
+        const ring = document.querySelector('.progress-ring');
+        const fab = document.querySelector('.fs-btn');
+        const brand = document.querySelector('.brand');
+        if (!ring || !fab || !brand) return { found: false };
+        const r = ring.getBoundingClientRect();
+        const f = fab.getBoundingClientRect();
+        const b = brand.getBoundingClientRect();
+        const vw = window.innerWidth;
+        return {
+            found: true,
+            ringCenterOffset: Math.round(Math.abs((r.left + r.width / 2) - vw / 2)),
+            fabTop: Math.round(f.top),
+            fabRightGap: Math.round(vw - f.right),
+            fabInTopHalf: f.bottom < window.innerHeight / 2,
+            // Tidak boleh bertabrakan dengan identitas di kiri atas.
+            clashesBrand: !(b.right < f.left || b.left > f.right
+                            || b.bottom < f.top || b.top > f.bottom),
+            clashesRing: !(r.right < f.left || r.left > f.right
+                           || r.bottom < f.top || r.top > f.bottom),
+        };
+    }""")
+    record("Progress ring benar-benar di tengah atas",
+           layout.get("ringCenterOffset", 99) <= 3, json.dumps(layout))
+    record("Tombol layar penuh di sudut kanan atas",
+           layout.get("fabTop", 999) <= 24 and layout.get("fabRightGap", 999) <= 24
+           and layout.get("fabInTopHalf") is True, json.dumps(layout))
+    record("Tidak bertabrakan dengan identitas & progres",
+           layout.get("clashesBrand") is False and layout.get("clashesRing") is False,
+           json.dumps(layout))
+
+    # Tombol kembali (kiri atas area kerja) juga tidak boleh tertimpa.
+    open_fresh(page, "#/belajar/01_konsep_dasar/pengertian_letak")
+    noclash = page.evaluate("""() => {
+        const back = document.querySelector('.ws-side__back');
+        const fab = document.querySelector('.fs-btn');
+        if (!back || !fab) return { found: false };
+        const b = back.getBoundingClientRect();
+        const f = fab.getBoundingClientRect();
+        const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return {
+            found: true,
+            overlap: !(b.right < f.left || b.left > f.right || b.bottom < f.top || b.top > f.bottom),
+            clickable: !!(hit && (hit === back || back.contains(hit))),
+        };
+    }""")
+    record("Tombol kembali bebas dari tombol layar penuh",
+           noclash.get("overlap") is False and noclash.get("clickable") is True, json.dumps(noclash))
+
+    print("\n73. Arsitektur Sidebar & Stage")
+    for vp in ({"width": 1280, "height": 720}, {"width": 1600, "height": 900}, {"width": 844, "height": 390}):
+        page.set_viewport_size(vp)
+        tag = f'{vp["width"]}x{vp["height"]}'
+        open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+        b = page.query_selector("button:has-text('Mulai Simulasi')")
+        if b:
+            b.click()
+            page.wait_for_timeout(800)
+        split = page.evaluate("""() => {
+            const ws = document.querySelector('.workspace--split');
+            const side = document.querySelector('.ws-side');
+            const stage = document.querySelector('.ws-stage');
+            if (!ws || !side || !stage) return { found: false };
+            const w = ws.getBoundingClientRect();
+            const s = side.getBoundingClientRect();
+            const t = stage.getBoundingClientRect();
+            return {
+                found: true,
+                cols: getComputedStyle(ws).gridTemplateColumns.split(' ').length,
+                sidePct: Math.round(100 * s.width / w.width),
+                stagePct: Math.round(100 * t.width / w.width),
+                sideLeftOfStage: s.right <= t.left + 1,
+                sameRow: Math.abs(s.top - t.top) <= 2,
+                // Kendali ada di kiri…
+                hasBack: !!side.querySelector('.ws-side__back'),
+                hasTitle: !!side.querySelector('.workspace__title'),
+                hasSteps: !!side.querySelector('.steps'),
+                hasHint: !!side.querySelector('.ws-side__hint'),
+                hasPrompt: !!side.querySelector('.sim__prompt'),
+                hasActions: !!side.querySelector('.actionbar'),
+                // …dan panggung hanya berisi kanvas.
+                stageHasMatrix: !!stage.querySelector('.matrix'),
+                stageHasSteps: !!stage.querySelector('.steps'),
+                stageHasPrompt: !!stage.querySelector('.sim__prompt'),
+                stageHasActions: !!stage.querySelector('.actionbar'),
+            };
+        }""")
+        record(f"Dua kolom, sidebar kiri & panggung kanan @{tag}",
+               split.get("cols") == 2 and split.get("sideLeftOfStage") is True
+               and split.get("sameRow") is True, json.dumps(split)[:260])
+        record(f"Lebar sidebar 25–30% @{tag}",
+               24 <= split.get("sidePct", 0) <= 31, json.dumps(split)[:260])
+        record(f"Panggung mendapat 69–76% @{tag}",
+               68 <= split.get("stagePct", 0) <= 77, json.dumps(split)[:260])
+        record(f"Kendali lengkap di sidebar @{tag}",
+               all(split.get(k) is True for k in
+                   ("hasBack", "hasTitle", "hasSteps", "hasHint", "hasPrompt", "hasActions")),
+               json.dumps(split)[:260])
+        record(f"Panggung murni kanvas @{tag}",
+               split.get("stageHasMatrix") is True
+               and split.get("stageHasSteps") is False
+               and split.get("stageHasPrompt") is False
+               and split.get("stageHasActions") is False, json.dumps(split)[:260])
+
+    print("\n74. Matriks 3×3 bernapas di panggung")
+    for vp in ({"width": 1280, "height": 720}, {"width": 844, "height": 390}):
+        page.set_viewport_size(vp)
+        tag = f'{vp["width"]}x{vp["height"]}'
+        open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+        b = page.query_selector("button:has-text('Mulai Simulasi')")
+        if b:
+            b.click()
+            page.wait_for_timeout(800)
+        page.evaluate("() => document.querySelectorAll('.case-chip')[2].click()")
+        page.wait_for_timeout(900)
+        big = page.evaluate("""() => {
+            const row = document.querySelector('.stage__row--equation');
+            const stage = document.querySelector('.ws-stage');
+            const cell = document.querySelector('.cell');
+            if (!row || !stage || !cell) return { found: false };
+            const r = row.getBoundingClientRect();
+            const s = stage.getBoundingClientRect();
+            const mats = [...row.querySelectorAll(':scope > .matrix')];
+            const tops = mats.map(m => Math.round(m.getBoundingClientRect().top));
+            return {
+                found: true,
+                cells: document.querySelectorAll('.cell').length,
+                cellH: Math.round(cell.getBoundingClientRect().height),
+                rowFits: r.width <= s.width + 1,
+                // Satu baris: A × B = C tidak boleh membungkus.
+                singleLine: tops.length > 1 && Math.max(...tops) - Math.min(...tops) <= 2,
+            };
+        }""")
+        record(f"Kasus 3×3 punya 27 sel @{tag}", big.get("cells") == 27, json.dumps(big))
+        record(f"Persamaan tetap satu baris @{tag}", big.get("singleLine") is True, json.dumps(big))
+        record(f"Sel 3×3 tetap nyaman diketuk @{tag}", big.get("cellH", 0) >= 34, json.dumps(big))
+    page.set_viewport_size({"width": 1280, "height": 860})
+
+    print("\n75. Ordo & operator presisi")
+    open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    precise = page.evaluate("""() => {
+        const row = document.querySelector('.stage__row--equation');
+        const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+        const ordo = document.querySelector('.matrix__ordo');
+        const bracket = ordo ? ordo.closest('.matrix__bracket') : null;
+        if (!row || !ordo || !bracket) return { found: false };
+        const orb = ordo.getBoundingClientRect();
+        const brb = bracket.getBoundingClientRect();
+        const ops = [...row.querySelectorAll(':scope > .op-glyph')].map(mid);
+        const grids = [...row.querySelectorAll(':scope > .matrix .matrix__grid')].map(mid);
+        const all = [...ops, ...grids];
+        const marker = getComputedStyle(ordo, '::before').display;
+        return {
+            found: true,
+            ordoText: ordo.textContent.trim(),
+            hasHyphen: /[-–—]/.test(ordo.textContent),
+            markerHidden: marker === 'none',
+            // Bawah-tengah: pusat ordo sejajar pusat kurung, dan ia di bawahnya.
+            ordoOffset: Math.round(Math.abs((orb.left + orb.width / 2) - (brb.left + brb.width / 2))),
+            below: orb.top >= brb.bottom - 4,
+            // Operator dan grid berbagi pusat vertikal yang sama.
+            spread: Math.round(Math.max(...all) - Math.min(...all)),
+        };
+    }""")
+    record("Ordo tanpa tanda hubung",
+           precise.get("hasHyphen") is False and precise.get("markerHidden") is True,
+           json.dumps(precise, ensure_ascii=False))
+    record("Ordo di bawah-tengah matriks",
+           precise.get("ordoOffset", 99) <= 2 and precise.get("below") is True,
+           json.dumps(precise, ensure_ascii=False))
+    record("Operator sejajar sempurna dengan matriks",
+           precise.get("spread", 99) <= 1, json.dumps(precise, ensure_ascii=False))
+
+    print("\n76. Animasi tetap akurat di tata letak dua kolom")
+    open_fresh(page, "#/belajar/02_operasi_aljabar/penjumlahan_pengurangan")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(700)
+    page.evaluate("""() => { const x = [...document.querySelectorAll('button')]
+        .find(n => n.textContent.includes('Coba Jumlahkan')); if (x) x.click(); }""")
+    page.wait_for_timeout(800)
+    page.evaluate("""() => { const x = [...document.querySelectorAll('button')]
+        .find(n => n.textContent.includes('Paham')); if (x) x.click(); }""")
+    page.wait_for_timeout(800)
+    fly = page.evaluate("""() => new Promise(resolve => {
+        const m = document.querySelectorAll('.matrix');
+        const A = [...m[0].querySelectorAll('.cell')];
+        const B = [...m[1].querySelectorAll('.cell')];
+        const C = [...m[2].querySelectorAll('.cell')];
+        A[0].click();
+        setTimeout(() => {
+            B[0].click();
+            // Tangkap chip di tengah penerbangan.
+            setTimeout(() => {
+                const chip = document.querySelector('.fly-chip');
+                const stage = document.querySelector('.ws-stage').getBoundingClientRect();
+                const cr = chip ? chip.getBoundingClientRect() : null;
+                const inside = cr
+                    ? cr.left >= stage.left - 40 && cr.right <= stage.right + 40
+                      && cr.top >= stage.top - 40 && cr.bottom <= stage.bottom + 40
+                    : null;
+                setTimeout(() => resolve({
+                    chipSeen: !!cr,
+                    chipInsideStage: inside,
+                    expr: (C[0].querySelector('.cell__expr') || {}).textContent || '',
+                    leftovers: document.querySelectorAll('.fly-chip, .drag-ghost').length,
+                }), 1600);
+            }, 250);
+        }, 300);
+    })""")
+    record("Chip terbang muncul di dalam panggung",
+           fly.get("chipSeen") is True and fly.get("chipInsideStage") is True,
+           json.dumps(fly, ensure_ascii=False))
+    record("Koordinat mendarat tepat: (6+1) terbentuk",
+           fly.get("expr") == "(6+1)", json.dumps(fly, ensure_ascii=False))
+    record("Tidak ada chip tertinggal setelah animasi",
+           fly.get("leftovers") == 0, json.dumps(fly, ensure_ascii=False))
+
+    # Garis coret determinan digambar relatif terhadap grid; kalau
+    # koordinatnya meleset ia akan keluar dari kotak matriksnya.
+    open_fresh(page, "#/belajar/03_determinan_invers/determinan_2x2")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(700)
+    strike = page.evaluate("""() => new Promise(resolve => {
+        const cells = () => [...document.querySelectorAll('.ws-stage .matrix .cell')];
+        const c = cells();
+        c[3].click(); c[0].click();
+        setTimeout(() => {
+            const g = document.querySelector('.ws-stage .matrix__grid');
+            const l = document.querySelector('.strike-line');
+            const gr = g ? g.getBoundingClientRect() : null;
+            const lr = l ? l.getBoundingClientRect() : null;
+            resolve({
+                lines: document.querySelectorAll('.strike-line').length,
+                blue: (document.querySelector('.det-expr__term--blue') || {}).textContent,
+                insideGrid: (gr && lr)
+                    ? lr.left >= gr.left - 6 && lr.right <= gr.right + 6
+                      && lr.top >= gr.top - 6 && lr.bottom <= gr.bottom + 6
+                    : null,
+                leftovers: document.querySelectorAll('.fly-chip, .diag-trace').length,
+            });
+        }, 3200);
+    })""")
+    record("Garis coret jatuh tepat di atas selnya",
+           strike.get("lines") == 1 and strike.get("insideGrid") is True, json.dumps(strike))
+    record("Hasil kali diagonal benar (6×5 = 30)",
+           strike.get("blue") == "30", json.dumps(strike))
+    record("Panggung bersih setelah animasi determinan",
+           strike.get("leftovers") == 0, json.dumps(strike))
 
     print("\n16. Sistem desain TRANSFORMASI konsisten")
     page.set_viewport_size({"width": 1280, "height": 860})

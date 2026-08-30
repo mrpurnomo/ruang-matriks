@@ -76,12 +76,20 @@ export function mountSimulation(container, definition, onComplete, options = {})
   // ikut tercatat.
   if (typeof options.onSlideChange === 'function') sim.onSlideChange = options.onSlideChange;
 
+  // Panel kiri (Fase 10). Harus dipasang SEBELUM build() karena scaffold()
+  // sudah menempatkan brief dan prompt saat itu juga.
+  if (options.hintHost) sim.hintHost = options.hintHost;
+
   sim.restart = () => {
     sim.destroy();
     container.innerHTML = '';
     const fresh = new Engine(container, config, definition.toasts, onComplete);
     fresh.restart = sim.restart;
     if (typeof options.onSlideChange === 'function') fresh.onSlideChange = options.onSlideChange;
+    if (options.hintHost) {
+      options.hintHost.innerHTML = '';
+      fresh.hintHost = options.hintHost;
+    }
     fresh.build();
     return fresh;
   };

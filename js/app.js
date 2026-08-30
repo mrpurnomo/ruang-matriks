@@ -181,10 +181,10 @@ function renderLogin(params, options) {
     const card = el('div', 'login__card anim-rise');
 
     card.appendChild(el('span', 'login__mark', icon('grid', { size: 30 })));
-    card.appendChild(el('div', 'login__eyebrow', 'Matriks Lab Interaktif'));
-    card.appendChild(el('h1', 'login__title', 'Halo, siapa namamu?'));
+    card.appendChild(el('div', 'login__eyebrow', 'Ruang Matriks'));
+    card.appendChild(el('h1', 'login__title', 'Selamat Datang'));
     card.appendChild(el('p', 'login__lead',
-      'Isi dulu namamu dan asal sekolahmu supaya kami bisa menyapamu selama belajar.'));
+      'Lengkapi identitas Anda untuk memulai sesi belajar.'));
 
     const fields = el('div', 'login__fields');
 
@@ -287,12 +287,11 @@ const MODE_CARDS = [
     desc: 'Latihan soal per bab untuk menguji pemahamanmu setelah belajar.',
     meta: 'Uji pemahaman', href: 'kuis',
   },
-  {
-    id: 'tka', title: 'Simulasi TKA', icon: 'trophy', variant: 'amber',
-    desc: 'Soal acak lintas bab dengan format seperti ujian aslinya.',
-    meta: 'Segera hadir', href: 'tka',
-  },
 ];
+
+/* Simulasi TKA sengaja TIDAK ada di deretan kartu ini. Pintu masuknya cukup
+   satu — tombol di panel Pencapaianmu — supaya siswa tidak melihat dua jalan
+   menuju layar yang sama. */
 
 /** Ambil kalimat pembuka materi sebagai cuplikan untuk hero. */
 function snippetOf(subtopic) {
@@ -326,12 +325,12 @@ async function renderMenu(params, options) {
       greet.innerHTML = `${icon('check-circle', { size: 14 })}<span>${identity.sekolah}</span>`;
       head.appendChild(greet);
     } else {
-      head.appendChild(el('div', 'menu__eyebrow', 'Matematika Tingkat Lanjut · Kelas 11'));
+      head.appendChild(el('div', 'menu__eyebrow', 'Matematika Tingkat Lanjut - Kelas 11'));
     }
 
     head.appendChild(el('h1', 'menu__title', identity
       ? `Halo, ${firstName(identity.nama)}.`
-      : (overall.completed > 0 ? 'Selamat datang kembali.' : 'Matriks Lab Interaktif')));
+      : (overall.completed > 0 ? 'Selamat datang kembali.' : 'Ruang Matriks')));
     head.appendChild(el('p', 'menu__lead',
       'Belajar matriks secara visual dan menyenangkan'));
     container.appendChild(head);
