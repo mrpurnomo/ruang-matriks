@@ -116,35 +116,69 @@ SPAM_SIFAT = """() => new Promise(resolve => {
     }), 1000);
 })"""
 
-KOMBINASI_KETUK = """() => new Promise(resolve => {
+KOMBINASI_HIBRIDA = """() => new Promise(resolve => {
     const sim = window.__matriksLab.state.activeView.simulation;
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
     const tap = (el) => el && el.dispatchEvent(
         new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
-    const wait = (ms) => new Promise(r => setTimeout(r, ms));
     const mats = () => [...document.querySelectorAll('.stage .matrix')];
     const cell = (mi, i, j) => mats()[mi].querySelector(
         '.cell[data-row="' + i + '"][data-col="' + j + '"]');
 
+    // Seretan sungguhan lewat Pointer Events - bukan klik yang disamarkan.
+    const pe = (x, y) => ({ bubbles: true, cancelable: true, composed: true,
+                            clientX: x, clientY: y, pointerId: 7,
+                            pointerType: 'mouse', button: 0, isPrimary: true });
+    const drag = (from, to) => {
+        const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+        from.dispatchEvent(new PointerEvent('pointerdown',
+            pe(a.left + a.width / 2, a.top + a.height / 2)));
+        document.dispatchEvent(new PointerEvent('pointermove',
+            pe(b.left + b.width / 2, b.top + b.height / 2)));
+        document.dispatchEvent(new PointerEvent('pointerup',
+            pe(b.left + b.width / 2, b.top + b.height / 2)));
+    };
+
+    const chip = document.querySelector('.scalar-chip');
     const out = {
         meetPoints: document.querySelectorAll('.meetpoint').length,
-        draggables: document.querySelectorAll('.stage [data-draggable]').length,
-        dropzones: document.querySelectorAll('.stage [data-dropzone-id]').length,
         usesPairEngine: typeof sim.attachPairEngine === 'function',
+        chipDraggable: chip ? chip.dataset.draggable : null,
+        chipText: chip ? chip.textContent.trim() : null,
+        dropzonesPhase1: document.querySelectorAll(
+            '.stage .matrix .cell[data-dropzone-id]').length,
+        awaitingPhase1: document.querySelectorAll('.stage .cell--awaiting').length,
     };
 
     (async () => {
-        // Tahap 1 dengan klik beruntun pada sel pertama.
-        tap(cell(0, 0, 0)); tap(cell(0, 0, 0)); tap(cell(0, 0, 0));
-        await wait(700);
-        out.spamPhase1 = sim.scalarDone.size;
+        // TAHAP 1a - jalur SERET.
+        drag(chip, cell(0, 0, 0));
+        await wait(1100);
+        out.dragResult = cell(0, 0, 0).dataset.value;
 
-        for (const [i, j] of [[0, 1], [1, 0], [1, 1]]) { tap(cell(0, i, j)); await wait(480); }
+        // TAHAP 1b - jalur KETUK (ketuk chip, lalu ketuk sel).
+        tap(chip); await wait(260); tap(cell(0, 0, 1)); await wait(1100);
+        out.tapResult = cell(0, 0, 1).dataset.value;
+        out.doneAfterTap = sim.scalarDone.size;
+        out.chipReusable = chip.dataset.dragDisabled !== 'true';
+
+        // Selesaikan sisa tahap 1.
+        for (const [i, j] of [[1, 0], [1, 1]]) {
+            tap(chip); await wait(200); tap(cell(0, i, j)); await wait(950);
+        }
         await wait(700);
+
+        // Peralihan harus membongkar tahap 1 dengan tuntas.
         out.phase = sim.phase;
         out.scaledA = [...sim.viewA.cells.values()].map(x => x.dataset.value).join(',');
+        out.dropzonesAfterPhase1 = document.querySelectorAll('.stage [data-dropzone-id]').length;
+        out.cleanupsLeft = sim.scalarCleanups.length;
+        out.chipLocked = chip.classList.contains('is-locked');
+        out.chipPointerEvents = getComputedStyle(chip).pointerEvents;
+        out.awaitingAfterPhase1 = document.querySelectorAll('.stage .cell--awaiting').length;
 
-        // Tahap 2 - ketuk-ketuk.
-        tap(cell(0, 0, 0)); await wait(400);
+        // TAHAP 2 - ketuk-ketuk berpasangan.
+        tap(cell(0, 0, 0)); await wait(420);
         out.partnerLit = cell(1, 0, 0).classList.contains('cell--pulse');
         out.muted = document.querySelectorAll('.stage .cell--muted').length;
         tap(cell(1, 0, 0)); await wait(1100);
@@ -3503,23 +3537,48 @@ def run(page, errors):
     if b:
         b.click()
         page.wait_for_timeout(800)
-    combo = page.evaluate(KOMBINASI_KETUK)
-    record("Titik temu sudah tidak ada di panggung",
-           combo["meetPoints"] == 0, json.dumps(combo)[:240])
-    record("Tidak ada seret maupun drop-zone di Kombinasi",
-           combo["draggables"] == 0 and combo["dropzones"] == 0, json.dumps(combo)[:240])
-    record("Tahap 1: ketuk elemen mengalikannya dengan skalar",
-           combo["scaledA"] == "8,0,-2,4", json.dumps(combo)[:240])
-    record("Tahap 1 kebal klik beruntun", combo["spamPhase1"] == 1, json.dumps(combo)[:240])
+    combo = page.evaluate(KOMBINASI_HIBRIDA)
+    record("Titik temu tetap tidak ada di panggung",
+           combo["meetPoints"] == 0, json.dumps(combo)[:260])
+
+    # --- TAHAP 1 harus terasa seperti Perkalian Skalar ---
+    record("Tahap 1 punya chip skalar yang bisa diseret",
+           combo["chipDraggable"] == "true" and combo["chipText"] == "2",
+           json.dumps(combo)[:260])
+    record("Tahap 1 menjadikan tiap elemen A sebuah drop-zone",
+           combo["dropzonesPhase1"] == 4 and combo["awaitingPhase1"] == 4,
+           json.dumps(combo)[:260])
+    record("Tahap 1 menerima SERETAN chip ke elemen",
+           combo["dragResult"] == "8", json.dumps(combo)[:260])
+    record("Tahap 1 juga menerima KETUKAN chip lalu sel",
+           combo["tapResult"] == "0" and combo["doneAfterTap"] == 2,
+           json.dumps(combo)[:260])
+    record("Chip skalar tidak habis dipakai",
+           combo["chipReusable"] is True, json.dumps(combo)[:260])
+
+    # --- Peralihan harus membongkar tahap 1 dengan tuntas ---
+    record("Drop-zone tahap 1 dilepas seluruhnya saat tahap 2 mulai",
+           combo["dropzonesAfterPhase1"] == 0 and combo["cleanupsLeft"] == 0,
+           json.dumps(combo)[:260])
+    record("Chip skalar dimatikan setelah tugasnya selesai",
+           combo["chipLocked"] is True and combo["chipPointerEvents"] == "none",
+           json.dumps(combo)[:260])
+    record("Tidak ada sel yang tertinggal dalam keadaan 'menunggu'",
+           combo["awaitingAfterPhase1"] == 0, json.dumps(combo)[:260])
+    record("Matriks A benar-benar terskalakan", combo["scaledA"] == "8,0,-2,4",
+           json.dumps(combo)[:260])
+
+    # --- TAHAP 2 harus terasa seperti Penjumlahan biasa ---
     record("Tahap 2 memakai mesin PairwiseTapSim yang sama dengan Penjumlahan",
-           combo["usesPairEngine"] is True and combo["phase"] == 1, json.dumps(combo)[:240])
+           combo["usesPairEngine"] is True and combo["phase"] == 1,
+           json.dumps(combo)[:260])
     record("Tahap 2: ketuk A menyalakan pasangan seletak di B",
-           combo["partnerLit"] is True and combo["muted"] > 0, json.dumps(combo)[:240])
+           combo["partnerLit"] is True and combo["muted"] > 0, json.dumps(combo)[:260])
     record("Bentuk (8+1) muncul sebelum angkanya",
-           combo["expr"] == "(8+1)", json.dumps(combo)[:240])
+           combo["expr"] == "(8+1)", json.dumps(combo)[:260])
     record("Hasil 9 mendarat, dan tombol hitung kebal klik beruntun",
            combo["cellText"].startswith("9") and combo["completed"] == 1,
-           json.dumps(combo)[:240])
+           json.dumps(combo)[:260])
 
     print("\n97. Fase 13 - Pemusatan tepat terhadap isi panggung")
     open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")

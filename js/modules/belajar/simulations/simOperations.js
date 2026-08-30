@@ -607,20 +607,27 @@ export class ScalarSweepSim extends Simulation {
    ============================================================ */
 export class ComboOpSim extends PairwiseTapSim {
   /**
-   * Dua tahap, satu mekanik.
+   * Engine HIBRIDA — dua mekanik, satu simulasi.
    *
-   *   TAHAP 1 — Ketuk tiap elemen $A$ untuk mengalikannya dengan skalar.
-   *   TAHAP 2 — Ketuk elemen di $kA$, lalu pasangan seletaknya di $B$;
+   *   TAHAP 1 · Perkalian skalar  → mekanik `scalar_sweep`:
+   *             chip skalar diseret ATAU diketuk, lalu dijatuhkan/diketukkan
+   *             ke sebuah elemen $A$. Chipnya tidak habis.
+   *
+   *   TAHAP 2 · Penjumlahan       → mekanik `PairwiseTapSim`:
+   *             ketuk elemen di $kA$, ketuk pasangan seletaknya di $B$,
    *             hasilnya terbang ke matriks Hasil.
    *
-   * Sebelum Fase 13 tahap 2 memakai "TITIK TEMU": sebuah kotak putus-putus
-   * di tengah panggung yang harus dituju dua seretan. Mekanik itu hanya ada
-   * di sub-topik ini — `penjumlahan_pengurangan`, yang secara matematis
-   * mengerjakan hal yang SAMA, sudah lama memakai ketuk-ketuk. Dua cara
-   * berbeda untuk satu operasi yang sama memaksa siswa mempelajari
-   * aplikasinya, bukan matriksnya. Titik temu dicabut; tahap 2 kini
-   * menjalankan `PairwiseTapSim` — kelas yang sama persis dengan
-   * `elementwise_op`, bukan salinannya.
+   * Kenapa dua mekanik, bukan satu?
+   *
+   * Karena keduanya mengajarkan hal yang berbeda. Perkalian skalar adalah
+   * SATU operand yang menyapu SEMUA elemen — membawa satu chip ke tiap sel
+   * adalah gerakan yang menyatakan hal itu. Penjumlahan adalah PASANGAN
+   * elemen seletak yang bertemu — dan itu gerakan yang berbeda. Fase 13
+   * sempat menyeragamkan keduanya jadi ketukan sel polos; hasilnya tahap 1
+   * kehilangan chip skalarnya dan terasa seperti "klik saja sampai selesai".
+   *
+   * Yang TIDAK kembali adalah "titik temu": kotak putus-putus di tengah
+   * panggung yang dulu jadi tujuan dua seretan di tahap 2. Ia tetap dicabut.
    */
   build() {
     const { matrixA, matrixB, scalarA, operator, expression } = this.config;
@@ -636,8 +643,13 @@ export class ComboOpSim extends PairwiseTapSim {
 
     this.scaffold({
       brief: this.config.brief,
-      promptText: `Tahap 1 — ketuk setiap elemen $A$ untuk mengalikannya dengan $${scalarA}$.`,
+      promptText: `Tahap 1 — bawa chip $${scalarA}$ ke **satu elemen** $A$. `
+        + 'Seret, atau ketuk chipnya lalu ketuk selnya.',
       promptStep: `Tahap 1 · 0 / ${this.totalCells}`,
+      legend: [
+        { tone: 'amber', label: 'Kuning = chip skalar' },
+        { tone: 'blue', label: 'Biru = elemen yang belum dikali' },
+      ],
     });
 
     this.checklist = createChecklist([
@@ -656,28 +668,45 @@ export class ComboOpSim extends PairwiseTapSim {
     this.viewB = b;
     this.viewC = c;
 
-    // Chip skalar berdiri sebagai OPERAND yang terbaca, bukan sesuatu yang
-    // harus diseret. Ia tidak pernah `makeDraggable` lagi.
+    // Chip skalar TIDAK HABIS — sama seperti di `scalar_sweep`. Satu chip
+    // dipakai berulang untuk setiap elemen; itulah yang membuat "skalar
+    // menyapu seluruh matriks" terlihat sebagai satu gerakan berulang.
     this.chip = createScalarChip(scalarA);
-    this.chip.setAttribute('aria-label', `Skalar ${scalarA}`);
+    makeDraggable(this.chip, { data: { scalar: scalarA }, reusable: true });
 
     this.stage.appendChild(equationRow(
       this.chip, operatorGlyph('×'), a.root, operatorGlyph(operator), b.root,
       operatorGlyph('='), c.root
     ));
 
+    this.chipNote = el('p', 'text-sm text-muted',
+      'Chip skalar tidak habis — pakai ulang untuk elemen berikutnya.');
+    this.stage.appendChild(this.chipNote);
+
     // TIDAK ADA titik temu. Papan kerja tahap 2 dipasang belakangan oleh
-    // `attachPairEngine()`, di tempat yang sama dengan Penjumlahan.
+    // `attachPairEngine()`, persis di tempat yang sama dengan Penjumlahan.
     this.workHost = el('div');
     this.stage.appendChild(this.workHost);
 
-    // TAHAP 1: ketuk sel — tanpa seret, tanpa drop-zone.
+    /**
+     * TAHAP 1 — tiap sel $A$ jadi drop-zone tersendiri.
+     *
+     * `registerDropZone` sekaligus menyediakan jalur KETUK: ketuk chip →
+     * ketuk sel. Jadi satu pendaftaran memberi dua cara, dan keduanya
+     * bermuara ke `scaleCell()` yang sama (kontrak §5 butir 12).
+     *
+     * Pelepasnya disimpan terpisah supaya bisa dicabut TEPAT saat tahap 2
+     * dimulai — kalau tidak, drop-zone tahap 1 akan bersaing dengan ketukan
+     * tahap 2 pada sel yang sama.
+     */
     this.scalarCleanups = [];
     a.cells.forEach((cell, key) => {
       const [i, j] = key.split(',').map(Number);
-      cell.classList.add('cell--awaiting', 'cell--invite');
-      const release = makeTappable(cell, () => this.scaleCell(i, j),
-        `Kalikan elemen A baris ${i + 1} kolom ${j + 1} dengan ${scalarA}`);
+      cell.classList.add('cell--awaiting');
+      const release = registerDropZone(cell, {
+        padding: 4,
+        onDrop: () => this.scaleCell(i, j),
+      });
       this.scalarCleanups.push(release);
       this.track(release);
     });
@@ -686,14 +715,17 @@ export class ComboOpSim extends PairwiseTapSim {
     this.addHint(this.scalarProgress);
   }
 
-  /* ---------------- Tahap 1: kalikan dengan skalar ---------------- */
+  /* ---------------- Tahap 1: chip skalar → elemen A ---------------- */
   async scaleCell(i, j) {
     if (this.busy || this.phase !== 0) return;
 
     const key = `${i},${j}`;
-    if (this.scalarDone.has(key)) return;
-    // Kunci per-sel: ketukan beruntun pada sel yang sama tidak boleh
-    // menjalankan dua animasi bertumpuk.
+    if (this.scalarDone.has(key)) {
+      toast.info(`Elemen baris ${i + 1} kolom ${j + 1} sudah dikalikan.`);
+      return;
+    }
+    // Kunci per-sel: jatuhan/ketukan beruntun pada sel yang sama tidak boleh
+    // menjalankan dua animasi bertumpuk (Fase 13).
     if (!this.claim(`scale-${key}`)) return;
 
     this.setBusy(true);
@@ -701,11 +733,16 @@ export class ComboOpSim extends PairwiseTapSim {
     const value = this.scaledA[i][j];
 
     cell.classList.add('cell--pulse');
-    await this.wait(220);
+
+    // Salinan chip terbang DARI chip skalar KE selnya — gerakan yang
+    // menyatakan "skalar ini dikenakan pada elemen ini". Perkaliannya
+    // terjadi di tempat, jadi sel sumber sekaligus sel tujuan.
+    const flying = makeFlyChip(this.chip, { text: String(this.config.scalarA) });
+    await landOn(flying, cell, { text: null });
 
     cell.textContent = formatNumber(value);
     cell.dataset.value = String(value);
-    cell.classList.remove('cell--pulse', 'cell--awaiting', 'cell--invite');
+    cell.classList.remove('cell--pulse', 'cell--awaiting');
     cell.classList.add('anim-flash-success');
     this.later(() => cell.classList.remove('anim-flash-success'), 620);
 
@@ -722,25 +759,48 @@ export class ComboOpSim extends PairwiseTapSim {
     }
 
     this.setPrompt(
-      'Tahap 1 — lanjutkan ke elemen $A$ berikutnya.',
+      `Bagus — $${this.config.scalarA} \times ${formatNumber(this.config.matrixA[i][j])} = ${formatNumber(value)}$. `
+      + 'Lanjut ke elemen $A$ berikutnya.',
       `Tahap 1 · ${this.scalarDone.size} / ${this.totalCells}`
     );
   }
 
-  /* ---------------- Tahap 2: ketuk-ketuk berpasangan ---------------- */
+  /* ---------------- Peralihan tahap 1 → tahap 2 ---------------- */
+  /**
+   * Pembongkaran tahap 1 harus TUNTAS sebelum tahap 2 dipasang.
+   *
+   * Sel $A$ yang sama berpindah peran: dari drop-zone (tahap 1) menjadi
+   * sumber ketukan (tahap 2). Kalau drop-zone lamanya dibiarkan terdaftar,
+   * ia tetap hidup di peta modul `dragDrop` dan menangkap ketukan yang
+   * sebenarnya ditujukan ke mesin berpasangan.
+   */
   startSumPhase() {
     if (!this.claim('sum-phase')) return;
 
     this.phase = 1;
     this.checklist.advance(0);
-    this.chip.classList.add('is-spent');
 
-    // Ketukan tahap 1 dilepas dulu supaya tidak bersaing dengan ketukan
-    // tahap 2 pada sel yang sama.
-    this.scalarCleanups.forEach((fn) => { try { fn(); } catch (err) { /* diabaikan */ } });
+    // 1. Cabut seluruh drop-zone tahap 1 (pelepasnya idempoten sejak Fase 11).
+    this.scalarCleanups.forEach((fn) => {
+      try { fn(); } catch (err) { console.warn('[combo] pelepasan zona gagal:', err); }
+    });
     this.scalarCleanups = [];
 
-    // Hitungan tahap 1 sudah selesai tugasnya; tahap 2 punya hitungannya sendiri.
+    // 2. Matikan chip skalar: tugasnya selesai, dan ia tidak boleh lagi
+    //    menawarkan seretan yang tidak menuju ke mana-mana.
+    if (typeof this.chip._dragCleanup === 'function') this.chip._dragCleanup();
+    this.chip.dataset.dragDisabled = 'true';
+    this.chip.classList.add('is-spent', 'is-locked');
+    if (this.chipNote) {
+      this.chipNote.remove();
+      this.chipNote = null;
+    }
+
+    // 3. Nolkan state modul seret — pilihan ketuk yang menggantung dari
+    //    tahap 1 tidak boleh terbawa ke tahap 2.
+    resetDragSystem();
+
+    // 4. Hitungan tahap 1 sudah selesai tugasnya; tahap 2 punya hitungannya sendiri.
     if (this.scalarProgress) {
       this.scalarProgress.remove();
       this.scalarProgress = null;
@@ -752,7 +812,7 @@ export class ComboOpSim extends PairwiseTapSim {
       `Tahap 2 · 0 / ${this.totalCells} sel`
     );
 
-    // Mesin yang SAMA PERSIS dengan Penjumlahan & Pengurangan.
+    // 5. Mesin yang SAMA PERSIS dengan Penjumlahan & Pengurangan.
     this.attachPairEngine({
       cellsA: this.viewA.cells,
       cellsB: this.viewB.cells,

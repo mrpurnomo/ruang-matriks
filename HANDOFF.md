@@ -1,7 +1,11 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 13.
-> Status: **fase 1–13 selesai, seluruh pengujian otomatis hijau (21/21 + 403/403).**
+> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 13.5.
+> Status: **fase 1–13.5 selesai, seluruh pengujian otomatis hijau (21/21 + 409/409).**
+>
+> ✅ **FASE 13.5 SELESAI.** `ComboOpSim` kini engine **HIBRIDA**: tahap 1
+> memakai mekanik `scalar_sweep` (chip skalar diseret/diketuk), tahap 2
+> memakai `PairwiseTapSim`. Rinciannya di **§0A**.
 >
 > ✅ **FASE 13 SELESAI.** Kunci anti klik-beruntun dipasang SISTEMIK di seluruh
 > engine, mekanik "titik temu" dicabut total, dan pemusatan banner/toast
@@ -15,6 +19,47 @@
 > kemajuan multi-kasus, ketuk-ketuk, penjaga masuk, denyut, dan skala.
 >
 > **Fase 10** menetapkan arsitektur **Sidebar & Stage** — tidak berubah sejak itu.
+
+---
+
+## 0A. FASE 13.5 — ENGINE HIBRIDA COMBO (SELESAI)
+
+Fase 13 menyeragamkan `combo_op` sepenuhnya ke `PairwiseTapSim`. Itu benar
+untuk tahap 2, tetapi **salah untuk tahap 1**: perkalian skalar kehilangan
+chipnya dan berubah jadi "klik sel sampai selesai".
+
+Sebabnya pedagogis, bukan teknis. Kedua tahap mengajarkan gerakan yang
+berbeda:
+
+| Tahap | Yang diajarkan | Mekanik yang cocok |
+|---|---|---|
+| 1 · Perkalian skalar | SATU operand menyapu SEMUA elemen | Bawa satu chip ke tiap sel (`scalar_sweep`) |
+| 2 · Penjumlahan | PASANGAN elemen seletak bertemu | Ketuk kiri, ketuk pasangannya (`PairwiseTapSim`) |
+
+`ComboOpSim` karena itu jadi **hibrida** — dua mekanik, satu simulasi:
+
+- **Tahap 1** — `createScalarChip()` + `makeDraggable(chip, { reusable: true })`,
+  dan tiap sel $A$ jadi `registerDropZone`. Satu pendaftaran memberi DUA jalur
+  sekaligus (seret ATAU ketuk chip lalu ketuk sel), keduanya bermuara ke
+  `scaleCell()` yang sama — kontrak §5 butir 12 terpenuhi.
+- **Tahap 2** — `attachPairEngine()`, kelas yang sama persis dengan
+  `elementwise_op`.
+
+**Pembongkaran antar-tahap** (yang paling mudah salah): sel $A$ yang SAMA
+berganti peran dari drop-zone menjadi sumber ketukan. `startSumPhase()` karena
+itu wajib melakukan empat hal sebelum memasang tahap 2:
+
+1. Lepas seluruh drop-zone tahap 1 (`scalarCleanups`) — kalau tidak, zona lama
+   tetap hidup di peta modul `dragDrop` dan menangkap ketukan tahap 2.
+2. Panggil `chip._dragCleanup()` dan kunci chipnya.
+3. `resetDragSystem()` — pilihan ketuk yang menggantung tidak boleh terbawa.
+4. Buang indikator progres tahap 1; tahap 2 punya hitungannya sendiri.
+
+Terukur setelah peralihan: **0 drop-zone tersisa, 0 sel `cell--awaiting`,
+chip `pointer-events: none`.**
+
+> "Titik temu" TETAP dicabut. Yang kembali hanyalah chip skalar di tahap 1 —
+> bukan kotak putus-putus di tahap 2.
 
 ---
 
@@ -303,7 +348,7 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **403/403 lolos** |
+| `python tests/smoke.py` | **409/409 lolos** |
 
 Fase 9 menambah bagian 63–69; Fase 10 menambah bagian 70–76: identitas aplikasi,
 sapaan masuk & hak cipta, penempatan header, arsitektur Sidebar & Stage (diukur di
@@ -533,7 +578,7 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 
 44. **Setiap evaluasi yang benar WAJIB mengambil `claim()` lebih dulu, lalu memanggil `lockChoices()`.** `setBusy()` tidak cukup — ia menyala setelah penanganan dimulai, sementara klik beruntun tiba di frame yang sama. Nama kunci harus TETAP dan dilepas saat langkah berikutnya digambar; kunci yang namanya mengandung indeks yang ikut berubah TIDAK menahan apa pun. (Fase 13, bagian uji 94–95.)
 
-45. **Satu operasi matematika = satu mekanik.** Operasi yang secara matematis sama harus dikerjakan dengan cara yang sama di seluruh aplikasi. Mekanik berpasangan hidup di `PairwiseTapSim`; engine baru MEWARISINYA, bukan menyalinnya. "Titik temu" dicabut permanen di Fase 13. (Fase 13, bagian uji 96.)
+45. **Satu operasi matematika = satu mekanik — tetapi operasi yang BERBEDA boleh punya mekanik berbeda.** Penjumlahan di mana pun memakai `PairwiseTapSim`; perkalian skalar di mana pun memakai chip yang dibawa ke tiap elemen. Simulasi yang memuat keduanya (`combo_op`) menjadi HIBRIDA, dan wajib membongkar mekanik tahap sebelumnya secara tuntas sebelum memasang yang berikutnya. Menyeragamkan paksa dua operasi berbeda ke satu mekanik justru menghapus pelajarannya. "Titik temu" tetap dicabut permanen. (Fase 13.5, bagian uji 96.)
 
 46. **Jangan pernah memusatkan dengan `transform` pada elemen yang juga dianimasikan.** `transform` hanya satu properti: nilai dari `@keyframes` MENGGANTIKAN `translateX(-50%)`, bukan menambahinya. Pakai `left:0; right:0; margin-inline:auto`. (Fase 13, bagian uji 97.)
 
