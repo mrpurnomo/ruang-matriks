@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "title": "Matriks Lab Interaktif",
+  "subtitle": "Matematika Tingkat Lanjut — Kelas 11",
+  "chapters": [
+    {
+      "id": "01_konsep_dasar",
+      "number": 1,
+      "title": "Konsep Dasar Matriks",
+      "tagline": "Kenali anatomi matriks sebelum menghitung apa pun.",
+      "accent": "primary",
+      "src": "data/chapters/01_konsep_dasar.json",
+      "subtopicOrder": [
+        "pengertian_letak",
+        "ordo_matriks",
+        "jenis_matriks",
+        "transpose",
+        "kesamaan_matriks"
+      ]
+    },
+    {
+      "id": "02_operasi_aljabar",
+      "number": 2,
+      "title": "Operasi Aljabar Matriks",
+      "tagline": "Jumlah, kurang, skalar, dan perkalian baris × kolom.",
+      "accent": "coral",
+      "src": "data/chapters/02_operasi_aljabar.json",
+      "subtopicOrder": [
+        "penjumlahan_pengurangan",
+        "perkalian_skalar",
+        "kombinasi_operasi",
+        "ordo_perkalian",
+        "perkalian_matriks",
+        "sifat_operasi"
+      ]
+    },
+    {
+      "id": "03_determinan_invers",
+      "number": 3,
+      "title": "Determinan dan Invers",
+      "tagline": "Sidik jari numerik matriks persegi dan kebalikannya.",
+      "accent": "amber",
+      "src": "data/chapters/03_determinan_invers.json",
+      "subtopicOrder": [
+        "determinan_2x2",
+        "determinan_3x3",
+        "singular_nonsingular",
+        "sifat_determinan",
+        "invers_2x2",
+        "invers_3x3",
+        "persamaan_matriks"
+      ]
+    },
+    {
+      "id": "04_pemodelan_tka",
+      "number": 4,
+      "title": "Pemodelan dan Aplikasi TKA",
+      "tagline": "Ubah soal cerita jadi matriks, lalu selesaikan.",
+      "accent": "success",
+      "src": "data/chapters/04_pemodelan_tka.json",
+      "subtopicOrder": [
+        "translasi_data",
+        "spldv_matriks",
+        "spltv_matriks",
+        "analisis_multi_kondisi"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,495 @@
+/* ============================================================
+   simulations.css — Komponen simulasi Fase 5 + Whiteboard sandbox
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Kunci interaksi selama animasi
+   ------------------------------------------------------------ */
+.sim--busy .stage { pointer-events: none; }
+
+.sim--busy .stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-lg);
+  background: rgba(6, 18, 36, .14);
+  pointer-events: all;
+}
+
+/* Opsi salah yang sudah dimatikan permanen */
+.is-failed {
+  opacity: .45 !important;
+  filter: grayscale(.7);
+  border-color: var(--danger) !important;
+  color: var(--danger) !important;
+  text-decoration: line-through;
+  cursor: not-allowed !important;
+}
+
+.cell--spent { opacity: .45; filter: saturate(.5); }
+.cell--awaiting { border-style: dashed; border-color: var(--brand-primary-line); }
+.cell--locked { opacity: .32; pointer-events: none; }
+.scalar-chip.is-spent { opacity: .4; filter: grayscale(.6); }
+
+/* Field kuis yang terkunci setelah diperiksa */
+.numfield[data-locked="true"] {
+  opacity: .85;
+  cursor: not-allowed;
+  filter: saturate(.85);
+}
+
+/* ------------------------------------------------------------
+   Baris persamaan horizontal
+   ------------------------------------------------------------ */
+.stage__row--equation {
+  gap: var(--sp-4);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.op-glyph {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  height: 42px;
+  border-radius: var(--r-sm);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  color: var(--brand-primary);
+}
+
+.result-slot {
+  display: grid;
+  place-items: center;
+  min-width: 86px;
+  min-height: 76px;
+  border-radius: var(--r-md);
+  border: 2.5px dashed var(--border-strong);
+  background: var(--bg-deep);
+  color: var(--ink-300);
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+}
+
+.result-slot--rejected {
+  border-style: solid;
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------
+   Papan kerja perkalian (pengganti akumulator terpisah)
+   ------------------------------------------------------------ */
+.workstrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-height: 56px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent-amber);
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--ink-900);
+}
+
+.workstrip__idle { color: var(--ink-300); font-size: var(--fs-sm); }
+.workstrip__label { color: var(--accent-amber); font-weight: 700; }
+.workstrip__expr { color: var(--ink-700); }
+.workstrip__eq { color: var(--ink-500); }
+.workstrip__total { color: var(--success); font-weight: 800; font-size: var(--fs-lg); }
+
+
+
+
+
+
+
+/* ------------------------------------------------------------
+   Mini-simulasi ordo hasil perkalian
+   ------------------------------------------------------------ */
+.ordo-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-lg);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+}
+
+.ordo-check__group { display: flex; align-items: center; gap: var(--sp-2); }
+.ordo-check__times { color: var(--ink-500); font-size: var(--fs-md); }
+.ordo-check__dot { color: var(--ink-300); font-size: var(--fs-xl); }
+
+.ordo-check__num {
+  display: grid;
+  place-items: center;
+  min-width: 54px;
+  min-height: 54px;
+  border-radius: var(--r-sm);
+  border: 2px solid;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+}
+
+.ordo-check__num--inner {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+  animation: hlPulseBlue 1.8s var(--ease-out) infinite;
+}
+
+.ordo-check__num--outer {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+  background: var(--accent-amber-soft);
+}
+
+/* ------------------------------------------------------------
+   Ekspresi determinan
+   ------------------------------------------------------------ */
+.det-expr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-lg);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+}
+
+.det-expr__term {
+  display: inline-grid;
+  place-items: center;
+  min-width: 58px;
+  min-height: 48px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  border: 2px solid;
+  font-weight: 800;
+}
+
+.det-expr__term--blue {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+
+.det-expr__term--coral {
+  color: var(--accent-coral);
+  border-color: var(--accent-coral);
+  background: var(--accent-coral-soft);
+}
+
+.det-expr__term.is-empty { opacity: .45; }
+.det-expr__op { color: var(--ink-500); font-weight: 700; }
+.det-expr__op--minus { color: var(--accent-coral); font-size: var(--fs-xl); }
+.det-expr__paren { color: var(--ink-500); font-size: var(--fs-xl); }
+.det-expr__result { color: var(--success); font-weight: 800; font-size: var(--fs-xl); }
+
+.det-expr--sarrus { font-size: var(--fs-base); }
+.det-expr--sarrus .det-expr__term { min-width: 48px; min-height: 42px; font-size: var(--fs-sm); }
+
+/* Garis pemisah tegas setelah dua kolom salinan Sarrus */
+.matrix__grid--sarrus.has-divider .cell--after-divider { margin-left: var(--sp-4); position: relative; }
+
+.matrix__grid--sarrus.has-divider .cell--after-divider::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: -8px;
+  bottom: -8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-amber);
+  box-shadow: 0 0 10px rgba(255, 194, 77, .55);
+}
+
+/* Sel yang sedang dilewati garis seret */
+.cell--tracing {
+  border-color: var(--success) !important;
+  background: var(--success-soft) !important;
+  color: var(--success) !important;
+  transform: scale(1.07);
+}
+
+.diag-trace__line {
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .9;
+}
+
+/* ------------------------------------------------------------
+   Carousel materi
+   ------------------------------------------------------------ */
+.materi-carousel {
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+  padding: var(--sp-4);
+}
+
+.materi-carousel__title {
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+  margin-bottom: var(--sp-3);
+}
+
+.materi-carousel__viewport { overflow: hidden; }
+.materi-carousel__track { display: flex; transition: transform var(--dur-screen) var(--ease-out); }
+
+.materi-carousel__slide {
+  flex: 0 0 100%;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  text-align: center;
+}
+
+.materi-carousel__name {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--brand-primary);
+}
+
+.materi-carousel__figure {
+  padding: var(--sp-1) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+}
+
+.materi-carousel__text { font-size: var(--fs-sm); color: var(--ink-700); max-width: 54ch; }
+
+/* ------------------------------------------------------------
+   Kunci jawaban (mode review)
+   ------------------------------------------------------------ */
+.answer-key {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--success-soft);
+  border: 1px solid rgba(61, 214, 140, .30);
+}
+
+.answer-key__label {
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--success);
+  margin-bottom: var(--sp-2);
+}
+
+.answer-key__value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  color: var(--success);
+}
+
+/* ============================================================
+   WHITEBOARD SANDBOX
+   ============================================================ */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Popup pemilih ordo */
+
+
+[data-theme="light"] .wb__ordo-buttons .btn[aria-pressed="true"] { color: #fff; }
+
+
+
+@media (max-width: 768px) {
+  .stage__row--equation { gap: var(--sp-2); }
+  .op-glyph { min-width: 34px; height: 34px; font-size: var(--fs-base); }
+  .ordo-check { gap: var(--sp-2); padding: var(--sp-3); }
+  .ordo-check__num { min-width: 44px; min-height: 44px; font-size: var(--fs-md); }
+  .wb__toolbar { gap: var(--sp-2); padding: var(--sp-3); }
+  .wb__tool-group { padding: var(--sp-2); }
+  .wb__canvas { padding: var(--sp-4) var(--sp-3); }
+}
+
+/* ============================================================
+   FASE 6 — Ketuk-ketuk (tap-and-tap) untuk perangkat sentuh
+   ============================================================ */
+
+/* Sumber yang sedang terpilih lewat ketukan pertama */
+[data-tap-selected="true"] {
+  outline: 3px solid var(--brand-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(77, 141, 255, .22), var(--shadow-3) !important;
+  transform: translateY(-3px) scale(1.04);
+  z-index: 5;
+  position: relative;
+}
+
+/* Tujuan yang siap menerima ketukan kedua */
+body.is-tap-armed [data-tap-target="true"] {
+  animation: tapTargetPulse 1.2s var(--ease-out) infinite;
+  border-color: var(--success) !important;
+  cursor: pointer;
+}
+
+@keyframes tapTargetPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(61, 214, 140, .55); }
+  50%      { box-shadow: 0 0 0 10px rgba(61, 214, 140, 0); }
+}
+
+/* Petunjuk mode ketuk yang tampil di panggung */
+.tap-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--brand-primary-soft);
+  border: 1px solid var(--brand-primary-line);
+  color: var(--brand-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.tap-hint svg { width: 15px; height: 15px; }
+
+/* ============================================================
+   FASE 6 — Isyarat gerak untuk perkalian matriks
+   ============================================================ */
+
+/* Garis putus-putus beranimasi dari elemen sumber menuju sel target */
+.cue-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.cue-path {
+  fill: none;
+  stroke: var(--accent-amber);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 9 9;
+  opacity: .85;
+  animation: cueDash 900ms linear infinite;
+}
+
+@keyframes cueDash {
+  to { stroke-dashoffset: -36; }
+}
+
+/* Kursor hantu yang meluncur mengikuti lintasan, memperagakan gerakannya */
+.cue-hand {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  color: #2B1B00;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 16px rgba(255, 194, 77, .6);
+  pointer-events: none;
+  z-index: 26;
+  opacity: 0;
+}
+
+.cue-hand svg { width: 16px; height: 16px; }
+.cue-hand::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-amber);
+  opacity: .45;
+}
+
+/* ============================================================
+   FASE 6 — Garis coret permanen pada Sarrus
+   ============================================================ */
+.strike-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 3;
+}
+
+.strike-line {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  opacity: .75;
+}
+
+.strike-line--blue { stroke: var(--brand-primary); }
+.strike-line--coral { stroke: var(--accent-coral); }
+
+/* Sel yang sudah dilewati garis coret permanen */
+.cell--struck { opacity: .9; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.is-tap-armed [data-tap-target="true"] { animation: none; }
+  .cue-path { animation: none; }
+}
+
+/* Penanda slide yang sudah diselesaikan (state diingat antar navigasi) */
+.slide-solved {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--success-soft);
+  border: 1px solid rgba(61, 214, 140, .34);
+  color: var(--success);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+
+.slide-solved svg { width: 20px; height: 20px; flex: 0 0 20px; }
+
+/* Panggung latihan manual di dalam Whiteboard */
+
+
+

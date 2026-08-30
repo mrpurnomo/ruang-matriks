@@ -1,0 +1,883 @@
+{
+  "id": "02_operasi_aljabar",
+  "title": "Operasi Aljabar Matriks",
+  "subtopics": [
+    {
+      "id": "penjumlahan_pengurangan",
+      "title": "Penjumlahan & Pengurangan",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Ini operasi matriks paling ramah — tidak ada aturan rumit, hanya satu syarat mutlak yang harus dicek **sebelum** menghitung."
+        },
+        {
+          "t": "def",
+          "title": "Syarat",
+          "x": "Dua matriks hanya bisa dijumlahkan atau dikurangkan jika keduanya memiliki **ordo yang sama persis**."
+        },
+        {
+          "t": "p",
+          "x": "Kalau syaratnya terpenuhi, caranya sederhana: **jumlahkan (atau kurangkan) elemen yang seletak**, lalu taruh hasilnya di posisi seletak juga."
+        },
+        {
+          "t": "tex",
+          "x": "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} + \\begin{pmatrix} e & f \\\\ g & h \\end{pmatrix} = \\begin{pmatrix} a+e & b+f \\\\ c+g & d+h \\end{pmatrix}"
+        },
+        {
+          "t": "tip",
+          "title": "Kenapa ordo harus sama?",
+          "x": "Karena penjumlahan matriks pada dasarnya \"menjumlah berpasangan\". Kalau ordonya beda, ada elemen yang tidak punya pasangan seletak — seperti menjumlahkan absen 30 murid dengan absen 25 murid baris demi baris."
+        }
+      ],
+      "simulation": {
+        "engine": "elementwise_op",
+        "title": "Simulasi: Merge Elemen Seletak",
+        "brief": "Ketuk satu elemen di A — pasangan seletaknya di B akan menyala. Bawa pasangan itu ke sel hasil, lalu tekan tombol hitungnya.",
+        "config": {
+          "operator": "+",
+          "matrixA": [
+            [
+              6,
+              -2
+            ],
+            [
+              3,
+              5
+            ]
+          ],
+          "matrixB": [
+            [
+              1,
+              4
+            ],
+            [
+              -3,
+              2
+            ]
+          ],
+          "nameA": "A",
+          "nameB": "B",
+          "mismatchExample": {
+            "matrixA": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                4,
+                5,
+                6
+              ]
+            ],
+            "matrixB": [
+              [
+                1,
+                2
+              ],
+              [
+                3,
+                4
+              ]
+            ]
+          }
+        },
+        "toasts": {
+          "notAligned": "Posisi tidak seletak — $a_{{ai}}{{aj}}$ ada di baris {{ai}} kolom {{aj}}, sedangkan $b_{{bi}}{{bj}}$ ada di baris {{bi}} kolom {{bj}}. Pasangkan elemen yang alamat baris-kolomnya identik.",
+          "wrongOrder": "Urutan terbalik! Kamu meletakkan elemen $B$ lebih dulu, jadi ini akan dihitung sebagai $B - A$, bukan $A - B$ yang diminta — hasilnya akan berbeda tanda.",
+          "ordoMismatch": "Belum bisa dijumlahkan — ordo A adalah {{ordoA}} sedangkan B adalah {{ordoB}}. Penjumlahan matriks butuh ordo yang sama persis.",
+          "success": "Mantap! Matriks hasil sudah lengkap.",
+          "startFromA": "Mulai dari matriks $A$. Ketuk dulu elemen di $A$, baru pasangannya di $B$ akan menyala.",
+          "needPartner": "Sekarang giliran pasangannya dari $B$ — elemen yang sedang berkedip di baris {{ai}} kolom {{aj}}.",
+          "cellBusy": "Selesaikan dulu sel yang sedang dihitung. Tekan tombol hitungnya, baru pilih pasangan berikutnya.",
+          "cellDone": "Sel $c_{{row}}{{col}}$ selesai."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_02_01_a",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $A = \\begin{pmatrix} 6 & -2 \\\\ 3 & 5 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 1 & 4 \\\\ -3 & 2 \\end{pmatrix}$. Tentukan $A - B$.",
+          "tex": null,
+          "rows": 2,
+          "cols": 2,
+          "answer": [
+            [
+              5,
+              -6
+            ],
+            [
+              6,
+              3
+            ]
+          ],
+          "explanation": "Kurangkan elemen seletak: $6-1=5$, $-2-4=-6$, $3-(-3)=6$, $5-2=3$.",
+          "toastWrong": "Ada sel yang belum tepat. Ingat: kurangkan elemen SELETAK, dan hati-hati saat mengurangi bilangan negatif — $3 - (-3)$ hasilnya $6$, bukan $0$."
+        },
+        {
+          "id": "q_02_01_b",
+          "input_type": "single_choice",
+          "prompt": "Matriks $P$ berordo $2 \\times 3$ dan $Q$ berordo $3 \\times 2$. Bisakah $P + Q$ dihitung?",
+          "options": [
+            {
+              "label": "Bisa, karena jumlah elemennya sama-sama 6"
+            },
+            {
+              "label": "Tidak bisa, karena ordonya berbeda"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Jumlah elemen yang kebetulan sama tidak cukup — penjumlahan menuntut ordo yang identik agar setiap elemen punya pasangan seletak.",
+          "toastWrong": "Belum tepat — syaratnya bukan jumlah elemen, melainkan ORDO yang sama persis. $2\\times3 \\ne 3\\times2$."
+        }
+      ]
+    },
+    {
+      "id": "perkalian_skalar",
+      "title": "Perkalian Skalar",
+      "materi": [
+        {
+          "t": "p",
+          "x": "**Skalar** adalah istilah untuk bilangan real biasa (bukan matriks) — dinamakan begitu untuk membedakannya dari matriks saat keduanya muncul bersamaan."
+        },
+        {
+          "t": "def",
+          "title": "Definisi",
+          "x": "Jika $k$ skalar dan $A$ matriks, maka $kA$ diperoleh dengan mengalikan **setiap elemen** matriks $A$ dengan $k$."
+        },
+        {
+          "t": "tex",
+          "x": "k \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} = \\begin{pmatrix} ka & kb \\\\ kc & kd \\end{pmatrix}"
+        },
+        {
+          "t": "p",
+          "x": "Ini satu-satunya \"perkalian\" di materi matriks yang **tidak punya syarat ordo** apa pun — skalar bisa mengalikan matriks berordo berapa saja, karena setiap elemen diperlakukan sendiri-sendiri."
+        },
+        {
+          "t": "warn",
+          "title": "Simpan untuk Bab 3",
+          "x": "Perkalian skalar **bukan** hal yang sama dengan mengalikan determinan. Nanti kamu akan lihat kenapa $\\det(kA) \\ne k \\cdot \\det(A)$ untuk matriks berordo lebih dari $1 \\times 1$."
+        }
+      ],
+      "simulation": {
+        "engine": "scalar_sweep",
+        "title": "Simulasi: Sapuan Skalar",
+        "brief": "Bawa chip skalar ke SETIAP elemen satu per satu — seret atau ketuk. Chipnya tidak habis.",
+        "config": {
+          "scalar": -2,
+          "matrix": [
+            [
+              -3,
+              4
+            ],
+            [
+              5,
+              0
+            ],
+            [
+              2,
+              -1
+            ]
+          ],
+          "name": "M"
+        },
+        "toasts": {
+          "missTarget": "Chip skalar harus dijatuhkan tepat di atas SATU elemen matriks, bukan di ruang kosong.",
+          "success": "Selesai! Setiap elemen kamu kalikan sendiri — itulah arti perkalian skalar."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_02_02_a",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $M = \\begin{pmatrix} -3 & 4 \\\\ 5 & 0 \\\\ 2 & -1 \\end{pmatrix}$. Tentukan hasil dari $-2M$.",
+          "tex": null,
+          "rows": 3,
+          "cols": 2,
+          "answer": [
+            [
+              6,
+              -8
+            ],
+            [
+              -10,
+              0
+            ],
+            [
+              -4,
+              2
+            ]
+          ],
+          "explanation": "Kalikan setiap elemen dengan $-2$: $-3 \\cdot -2 = 6$, $4 \\cdot -2 = -8$, dan seterusnya.",
+          "toastWrong": "Ada sel yang belum tepat. Cek tandanya: negatif dikali negatif menghasilkan POSITIF, dan $0$ dikali berapa pun tetap $0$."
+        },
+        {
+          "id": "q_02_02_b",
+          "input_type": "matrix_input",
+          "prompt": "Jika $3A = \\begin{pmatrix} 9 & -6 \\\\ 12 & 3 \\end{pmatrix}$, tentukan matriks $A$.",
+          "tex": null,
+          "rows": 2,
+          "cols": 2,
+          "answer": [
+            [
+              3,
+              -2
+            ],
+            [
+              4,
+              1
+            ]
+          ],
+          "explanation": "Kerjakan kebalikannya — bagi setiap elemen dengan 3: $9/3=3$, $-6/3=-2$, $12/3=4$, $3/3=1$.",
+          "toastWrong": "Belum tepat — ini kebalikan dari perkalian skalar, jadi setiap elemen harus DIBAGI 3, bukan dikali."
+        }
+      ]
+    },
+    {
+      "id": "kombinasi_operasi",
+      "title": "Kombinasi Skalar & Penjumlahan",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Soal level lanjut sering menggabungkan perkalian skalar dengan penjumlahan dalam satu ekspresi, misalnya $2A - 3B$. Kabar baiknya: **tidak ada aturan baru** — kamu hanya menerapkan dua sub-topik sebelumnya secara berurutan."
+        },
+        {
+          "t": "steps",
+          "items": [
+            "Selesaikan dulu semua perkalian skalar ($2A$ dan $3B$ dihitung terpisah).",
+            "Baru jumlahkan/kurangkan hasilnya (yang otomatis berordo sama)."
+          ]
+        },
+        {
+          "t": "tex",
+          "x": "2\\begin{pmatrix} 1 & 2 \\\\ 0 & 3 \\end{pmatrix} - 3\\begin{pmatrix} 2 & 1 \\\\ 1 & 0 \\end{pmatrix} = \\begin{pmatrix} 2 & 4 \\\\ 0 & 6 \\end{pmatrix} - \\begin{pmatrix} 6 & 3 \\\\ 3 & 0 \\end{pmatrix} = \\begin{pmatrix} -4 & 1 \\\\ -3 & 6 \\end{pmatrix}"
+        }
+      ],
+      "simulation": {
+        "engine": "combo_op",
+        "title": "Simulasi: Ekspresi Bertahap",
+        "brief": "Kalikan skalar manual, LALU jumlahkan manual. Semua langkah bisa diseret atau diketuk.",
+        "config": {
+          "expression": "2A + B",
+          "scalarA": 2,
+          "scalarB": 1,
+          "operator": "+",
+          "matrixA": [
+            [
+              4,
+              0
+            ],
+            [
+              -1,
+              2
+            ]
+          ],
+          "matrixB": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              -2
+            ]
+          ]
+        },
+        "toasts": {
+          "wrongStep": "Langkah ini belum terbuka — selesaikan dulu perkalian skalarnya sebelum menjumlahkan. Urutan operasi tetap berlaku seperti aljabar biasa.",
+          "success": "Mantap! Kedua tahap kamu kerjakan sendiri dari awal sampai akhir.",
+          "notAligned": "Posisi tidak seletak — pasangkan elemen yang alamat baris-kolomnya identik (baris {{ai}} kolom {{aj}})."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_02_03_a",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $A = \\begin{pmatrix} 4 & 0 \\\\ -1 & 2 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 1 & 3 \\\\ 2 & -2 \\end{pmatrix}$. Tentukan $2A + B$.",
+          "tex": null,
+          "rows": 2,
+          "cols": 2,
+          "answer": [
+            [
+              9,
+              3
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          "explanation": "$2A = \\begin{pmatrix} 8 & 0 \\\\ -2 & 4 \\end{pmatrix}$, lalu tambahkan $B$: $8+1=9$, $0+3=3$, $-2+2=0$, $4-2=2$.",
+          "toastWrong": "Ada sel yang belum tepat. Pastikan kamu mengalikan $A$ dengan 2 TERLEBIH DAHULU, baru menjumlahkannya dengan $B$."
+        },
+        {
+          "id": "q_02_03_b",
+          "input_type": "single_choice",
+          "prompt": "Mengapa urutan \"kalikan skalar dulu, baru jumlahkan\" itu penting?",
+          "options": [
+            {
+              "label": "Karena kalau dijumlah dulu, skalar yang berbeda tidak bisa diterapkan ke masing-masing matriks"
+            },
+            {
+              "label": "Karena penjumlahan matriks tidak komutatif"
+            },
+            {
+              "label": "Karena ordo matriks akan berubah jika dijumlah dulu"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "Pada $2A - 3B$, matriks $A$ dikali 2 sedangkan $B$ dikali 3 — dua skalar berbeda. Kalau digabung duluan, tidak ada cara menerapkan skalar yang berbeda ke masing-masing.",
+          "toastWrong": "Belum tepat — penjumlahan matriks justru KOMUTATIF, dan ordo tidak berubah oleh penjumlahan. Fokus pada fakta bahwa skalarnya berbeda untuk tiap matriks."
+        }
+      ]
+    },
+    {
+      "id": "ordo_perkalian",
+      "title": "Menentukan Ordo Hasil Perkalian",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Sebelum menghitung isi matriksnya, ada satu hal yang harus dipastikan lebih dulu: **apakah perkaliannya boleh dilakukan**, dan kalau boleh, **berapa ordo hasilnya**."
+        },
+        {
+          "t": "def",
+          "title": "Aturan Angka Dalam & Luar",
+          "x": "Tulis kedua ordo berdampingan: $A_{m \\times n} \\cdot B_{n \\times p}$. Dua angka **di dalam** harus KEMBAR agar bisa dikalikan. Dua angka **di luar** menjadi ordo hasilnya."
+        },
+        {
+          "t": "tex",
+          "x": "A_{m \\times \\color{#4D8DFF}{n}} \\times B_{\\color{#4D8DFF}{n} \\times p} = C_{m \\times p}"
+        },
+        {
+          "t": "tip",
+          "title": "Cara Cepat",
+          "x": "Angka dalam kembar → boleh. Angka dalam beda → berhenti, tidak bisa dikalikan. Kalau boleh, salin angka luar kiri dan angka luar kanan sebagai ordo hasil."
+        },
+        {
+          "t": "warn",
+          "title": "Ingat Urutan",
+          "x": "Karena aturannya bergantung posisi, $A \\times B$ bisa boleh sementara $B \\times A$ tidak — inilah akar sifat **tidak komutatif**."
+        }
+      ],
+      "simulation": {
+        "engine": "ordo_check",
+        "title": "Simulasi: Cek Ordo Hasil",
+        "brief": "Latih mata untuk membaca angka dalam dan angka luar.",
+        "config": {
+          "cases": [
+            {
+              "a": [
+                2,
+                3
+              ],
+              "b": [
+                3,
+                4
+              ],
+              "valid": true,
+              "answerIndex": 1,
+              "options": [
+                {
+                  "label": "Tidak bisa dikalikan"
+                },
+                {
+                  "label": "$2 \\times 4$"
+                },
+                {
+                  "label": "$3 \\times 3$"
+                },
+                {
+                  "label": "$4 \\times 2$"
+                }
+              ],
+              "why": "Angka dalam sama-sama **3**, jadi boleh. Ordo hasil diambil dari angka luar: **2** dan **4**, yaitu $2 \\times 4$."
+            },
+            {
+              "a": [
+                2,
+                3
+              ],
+              "b": [
+                2,
+                3
+              ],
+              "valid": false,
+              "answerIndex": 0,
+              "options": [
+                {
+                  "label": "Tidak bisa dikalikan"
+                },
+                {
+                  "label": "$2 \\times 3$"
+                },
+                {
+                  "label": "$3 \\times 2$"
+                },
+                {
+                  "label": "$2 \\times 2$"
+                }
+              ],
+              "why": "Angka dalam adalah **3** dan **2** — tidak kembar. Karena itu $A \\times B$ tidak terdefinisi."
+            },
+            {
+              "a": [
+                3,
+                1
+              ],
+              "b": [
+                1,
+                3
+              ],
+              "valid": true,
+              "answerIndex": 2,
+              "options": [
+                {
+                  "label": "Tidak bisa dikalikan"
+                },
+                {
+                  "label": "$1 \\times 1$"
+                },
+                {
+                  "label": "$3 \\times 3$"
+                },
+                {
+                  "label": "$1 \\times 3$"
+                }
+              ],
+              "why": "Angka dalam sama-sama **1**, jadi boleh. Angka luar **3** dan **3**, sehingga hasilnya $3 \\times 3$."
+            },
+            {
+              "a": [
+                1,
+                3
+              ],
+              "b": [
+                3,
+                1
+              ],
+              "valid": true,
+              "answerIndex": 1,
+              "options": [
+                {
+                  "label": "Tidak bisa dikalikan"
+                },
+                {
+                  "label": "$1 \\times 1$"
+                },
+                {
+                  "label": "$3 \\times 3$"
+                },
+                {
+                  "label": "$3 \\times 1$"
+                }
+              ],
+              "why": "Angka dalam sama-sama **3**, jadi boleh. Angka luar **1** dan **1**, sehingga hasilnya $1 \\times 1$ — hanya satu angka!"
+            }
+          ]
+        },
+        "toasts": {
+          "wrongOrdo": "Belum tepat. Cek dua angka DI DALAM lebih dulu — kalau tidak kembar, perkaliannya mustahil. Kalau kembar, ordo hasil diambil dari dua angka DI LUAR.",
+          "success": "Tepat! Kamu sudah bisa membaca ordo hasil tanpa menghitung isinya."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_02_ordo_a",
+          "input_type": "single_choice",
+          "prompt": "Matriks $A$ berordo $4 \\times 2$ dan $B$ berordo $2 \\times 5$. Ordo dari $A \\times B$ adalah ....",
+          "options": [
+            {
+              "label": "$2 \\times 2$"
+            },
+            {
+              "label": "$4 \\times 5$"
+            },
+            {
+              "label": "$5 \\times 4$"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Angka dalam (2 dan 2) kembar, jadi boleh. Ordo hasil = angka luar, yaitu $4 \\times 5$.",
+          "toastWrong": "Belum tepat — ordo hasil mengambil angka LUAR: baris matriks pertama dan kolom matriks kedua."
+        },
+        {
+          "id": "q_02_ordo_b",
+          "input_type": "single_choice",
+          "prompt": "Matriks $P$ berordo $3 \\times 2$ dan $Q$ berordo $3 \\times 2$. Bisakah $P \\times Q$ dihitung?",
+          "options": [
+            {
+              "label": "Bisa, hasilnya $3 \\times 2$"
+            },
+            {
+              "label": "Tidak bisa, karena angka dalamnya 2 dan 3 (tidak kembar)"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Kolom $P$ = 2 sedangkan baris $Q$ = 3. Angka dalam tidak kembar, jadi perkaliannya tidak terdefinisi.",
+          "toastWrong": "Belum tepat — cek angka dalam: kolom $P$ (2) harus sama dengan baris $Q$ (3). Tidak sama."
+        }
+      ]
+    },
+    {
+      "id": "perkalian_matriks",
+      "title": "Perkalian Dua Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Sampai juga di operasi yang paling sering bikin keliru — tapi begitu kamu paham \"logika gerakannya\", ini justru jadi bagian paling memuaskan untuk dikuasai."
+        },
+        {
+          "t": "def",
+          "title": "Syarat Mutlak",
+          "x": "$A \\times B$ hanya bisa dihitung jika **banyak kolom $A$** = **banyak baris $B$**."
+        },
+        {
+          "t": "tex",
+          "x": "A_{m \\times n} \\times B_{n \\times p} = C_{m \\times p}"
+        },
+        {
+          "t": "p",
+          "x": "Perhatikan polanya: angka $n$ di tengah harus \"kembar\", dan ordo hasil mengambil **angka luar**. Inilah alasan matematis kenapa perkalian matriks umumnya **tidak komutatif** — $A \\times B$ bisa valid sementara $B \\times A$ ordonya tidak cocok sama sekali."
+        },
+        {
+          "t": "def",
+          "title": "Aturan Baris × Kolom",
+          "x": "Setiap elemen hasil $c_{ij}$ diperoleh dari **baris ke-$i$ matriks $A$** dikalikan sejajar dengan **kolom ke-$j$ matriks $B$**, lalu semua hasil kalinya **dijumlahkan**."
+        },
+        {
+          "t": "tex",
+          "x": "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} \\times \\begin{pmatrix} e & f \\\\ g & h \\end{pmatrix} = \\begin{pmatrix} ae+bg & af+bh \\\\ ce+dg & cf+dh \\end{pmatrix}"
+        },
+        {
+          "t": "tip",
+          "title": "Baca Polanya",
+          "x": "Elemen $c_{11}$ lahir dari baris ke-1 $A$ ($a, b$) bertemu kolom ke-1 $B$ ($e, g$), menghasilkan $ae + bg$. Elemen $c_{12}$ masih dari baris yang sama, tapi bertemu kolom ke-2."
+        }
+      ],
+      "simulation": {
+        "engine": "matrix_multiply",
+        "title": "Simulasi: Baris × Kolom, Tiga Kasus",
+        "brief": "Kerjakan tiga kasus berbeda: persegi, tidak persegi, lalu 3×3. Klik sel hasil, bawa pasangannya ke sel itu — seret atau ketuk.",
+        "config": {
+          "matrixA": [
+            [
+              2,
+              1
+            ],
+            [
+              0,
+              3
+            ]
+          ],
+          "matrixB": [
+            [
+              4,
+              -1
+            ],
+            [
+              2,
+              5
+            ]
+          ],
+          "nameA": "A",
+          "nameB": "B",
+          "scaffold": true,
+          "cases": [
+            {
+              "id": "persegi",
+              "label": "Kasus 1",
+              "ordo": "2×2 · 2×2",
+              "note": "Kedua matriks persegi — hasilnya juga 2×2.",
+              "nameA": "A",
+              "nameB": "B",
+              "matrixA": [
+                [
+                  2,
+                  1
+                ],
+                [
+                  0,
+                  3
+                ]
+              ],
+              "matrixB": [
+                [
+                  4,
+                  -1
+                ],
+                [
+                  2,
+                  5
+                ]
+              ]
+            },
+            {
+              "id": "kolom",
+              "label": "Kasus 2",
+              "ordo": "2×3 · 3×1",
+              "note": "Kolom A = baris B = 3, jadi boleh. Hasilnya 2×1 — bukan 2×3.",
+              "nameA": "P",
+              "nameB": "Q",
+              "matrixA": [
+                [
+                  1,
+                  2,
+                  3
+                ],
+                [
+                  4,
+                  0,
+                  -1
+                ]
+              ],
+              "matrixB": [
+                [
+                  2
+                ],
+                [
+                  -1
+                ],
+                [
+                  3
+                ]
+              ]
+            },
+            {
+              "id": "tiga",
+              "label": "Kasus 3",
+              "ordo": "3×3 · 3×3",
+              "note": "Sembilan sel hasil, masing-masing dari tiga pasang elemen.",
+              "nameA": "M",
+              "nameB": "N",
+              "matrixA": [
+                [
+                  1,
+                  2,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  3
+                ],
+                [
+                  2,
+                  0,
+                  1
+                ]
+              ],
+              "matrixB": [
+                [
+                  1,
+                  0,
+                  2
+                ],
+                [
+                  3,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  2,
+                  1
+                ]
+              ]
+            }
+          ]
+        },
+        "toasts": {
+          "ordoMismatch": "Belum bisa dikalikan — kolom A ada {{colsA}} sedangkan baris B ada {{rowsB}}. Perkalian matriks butuh kolom A = baris B.",
+          "pickCellFirst": "Pilih dulu sel hasil yang ingin dihitung — klik salah satu sel kosong di matriks C.",
+          "notParallel": "Pasangan ini belum sejajar — ambil elemen ke-{{step}} dari deret yang BERWARNA BIRU dan elemen ke-{{step}} dari deret yang BERWARNA ORANYE.",
+          "wrongMatrix": "Elemen ini bukan bagian dari deret biru maupun oranye. Yang dikalikan hanya baris ke-{{row}} matriks A dengan kolom ke-{{col}} matriks B.",
+          "cellDone": "Sel $c_{{{row}}{{col}}}$ selesai! Lanjut ke sel berikutnya.",
+          "success": "Luar biasa! Seluruh matriks hasil terisi lewat aturan baris × kolom.",
+          "switchBusy": "Selesaikan dulu sel yang sedang dihitung sebelum pindah kasus.",
+          "caseDone": "{{label}} selesai! Coba kasus berikutnya untuk ordo yang berbeda."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_02_04_a",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $A = \\begin{pmatrix} 2 & 1 \\\\ 0 & 3 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 4 \\\\ -1 \\end{pmatrix}$. Tentukan $A \\times B$.",
+          "tex": null,
+          "rows": 2,
+          "cols": 1,
+          "answer": [
+            [
+              7
+            ],
+            [
+              -3
+            ]
+          ],
+          "explanation": "Ordo $2\\times2$ kali $2\\times1$ menghasilkan $2\\times1$. Baris 1: $2(4) + 1(-1) = 7$. Baris 2: $0(4) + 3(-1) = -3$.",
+          "toastWrong": "Belum tepat. Ingat aturannya: elemen baris $A$ dikali elemen kolom $B$ secara sejajar, LALU dijumlahkan — bukan dikalikan elemen seletak."
+        },
+        {
+          "id": "q_02_04_b",
+          "input_type": "single_choice",
+          "prompt": "Diketahui $P$ berordo $3 \\times 4$ dan $Q$ berordo $4 \\times 2$. Berapa ordo $P \\times Q$, dan bisakah $Q \\times P$ dihitung?",
+          "options": [
+            {
+              "label": "$3 \\times 2$; dan $Q \\times P$ tidak bisa karena kolom $Q$ (2) ≠ baris $P$ (3)"
+            },
+            {
+              "label": "$3 \\times 2$; dan $Q \\times P$ bisa dengan hasil $2 \\times 4$"
+            },
+            {
+              "label": "$4 \\times 4$; dan $Q \\times P$ tidak bisa"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "$P_{3\\times4} \\times Q_{4\\times2}$: angka tengah cocok (4=4), hasilnya ambil angka luar = $3\\times2$. Untuk $Q \\times P$: kolom $Q$ = 2, baris $P$ = 3, tidak cocok — tidak terdefinisi.",
+          "toastWrong": "Belum tepat — cek \"angka tengah\" pada $Q_{4\\times2} \\times P_{3\\times4}$: kolom $Q$ adalah 2 tapi baris $P$ adalah 3. Tidak kembar, jadi tidak bisa dihitung."
+        }
+      ]
+    },
+    {
+      "id": "sifat_operasi",
+      "title": "Sifat-Sifat Operasi Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Setelah menguasai mekanisme hitungnya, TKA sering menguji pemahaman **konseptual** lewat sifat-sifat berikut — kamu diharapkan menjawab tanpa menghitung penuh dari nol."
+        },
+        {
+          "t": "list",
+          "items": [
+            "**Tidak Komutatif:** $A \\times B \\ne B \\times A$ (secara umum). Ini yang paling sering menjebak siswa yang terbiasa dengan aljabar bilangan biasa.",
+            "**Asosiatif:** $(A \\times B) \\times C = A \\times (B \\times C)$. Tanda kurung boleh digeser, tapi **urutan kiri-ke-kanan tidak boleh ditukar**.",
+            "**Identitas:** $A \\times I = I \\times A = A$. Salah satu sifat langka di mana urutan BOLEH ditukar.",
+            "**Transpose pada Perkalian:** $(A \\times B)^T = B^T \\times A^T$ — perhatikan, **urutannya terbalik!**"
+          ]
+        },
+        {
+          "t": "warn",
+          "title": "Paling Sering Keluar",
+          "x": "Sifat $(AB)^T = B^TA^T$ sering muncul di soal HOTS berbentuk manipulasi ekspresi, tanpa perlu tahu nilai elemen aslinya sama sekali."
+        }
+      ],
+      "simulation": {
+        "engine": "property_cards",
+        "title": "Simulasi: Benar atau Jebakan?",
+        "brief": "Seret simbol $=$ atau $\\ne$ di antara dua ekspresi, lalu saksikan pembuktian angkanya.",
+        "config": {
+          "matrixA": [
+            [
+              1,
+              2
+            ],
+            [
+              3,
+              4
+            ]
+          ],
+          "matrixB": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              0
+            ]
+          ],
+          "pairs": [
+            {
+              "id": "p1",
+              "left": "A + B",
+              "right": "B + A",
+              "answer": "=",
+              "prove": "add",
+              "why": "Penjumlahan matriks bersifat komutatif karena elemen seletak dijumlahkan tanpa memedulikan urutan."
+            },
+            {
+              "id": "p2",
+              "left": "A \\times B",
+              "right": "B \\times A",
+              "answer": "\\ne",
+              "prove": "multiply",
+              "why": "Perkalian matriks tidak komutatif — aturan baris × kolom menghasilkan kombinasi berbeda jika urutannya ditukar."
+            },
+            {
+              "id": "p3",
+              "left": "(A \\times B)^T",
+              "right": "B^T \\times A^T",
+              "answer": "=",
+              "prove": "transposeMul",
+              "why": "Inilah sifat transpose pada perkalian: hasilnya sama, tapi urutan matriksnya harus dibalik."
+            },
+            {
+              "id": "p4",
+              "left": "(A \\times B)^T",
+              "right": "A^T \\times B^T",
+              "answer": "\\ne",
+              "prove": "transposeMulWrong",
+              "why": "Urutannya tidak dibalik, jadi ini bentuk yang keliru — jebakan klasik di soal ujian."
+            }
+          ]
+        },
+        "toasts": {
+          "wrongSymbol": "Coba cek lagi: apakah urutan matriks di kedua sisi ekspresi ini sama? Perkalian matriks punya aturan urutan yang ketat.",
+          "success": "Semua sifat berhasil kamu bedakan. Perhatikan pembuktian angkanya agar bukan sekadar hafalan."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_02_05_a",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $A \\times B = \\begin{pmatrix} 5 & 2 \\\\ -1 & 3 \\end{pmatrix}$. Tentukan $(A \\times B)^T$ tanpa mengetahui $A$ dan $B$ aslinya.",
+          "tex": null,
+          "rows": 2,
+          "cols": 2,
+          "answer": [
+            [
+              5,
+              -1
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "explanation": "Cukup transpose hasil yang sudah diketahui: baris jadi kolom. Elemen diagonal utama (5 dan 3) tetap di tempat.",
+          "toastWrong": "Belum tepat — kamu tidak perlu tahu $A$ dan $B$. Cukup transpose matriks hasilnya: tukar elemen $2$ dan $-1$ yang ada di luar diagonal utama."
+        },
+        {
+          "id": "q_02_05_b",
+          "input_type": "multi_select",
+          "prompt": "Manakah pernyataan berikut yang **benar**? (Jawaban benar lebih dari satu)",
+          "options": [
+            {
+              "label": "$A + B = B + A$ untuk semua matriks $A, B$ berordo sama"
+            },
+            {
+              "label": "$A \\times B = B \\times A$ untuk semua matriks persegi $A, B$"
+            },
+            {
+              "label": "$A \\times I = A$ untuk matriks persegi $A$ dan identitas $I$ berordo sama"
+            },
+            {
+              "label": "$(A \\times B)^T = A^T \\times B^T$"
+            }
+          ],
+          "answerIndices": [
+            0,
+            2
+          ],
+          "perOptionFeedback": [
+            "Benar — penjumlahan matriks memang komutatif.",
+            "Salah — perkalian matriks TIDAK komutatif secara umum; urutan sangat menentukan.",
+            "Benar — matriks identitas berperan seperti angka 1 pada perkalian biasa.",
+            "Salah — urutannya harus dibalik: yang benar adalah $(A \\times B)^T = B^T \\times A^T$."
+          ],
+          "explanation": "Yang benar hanya pernyataan 1 dan 3. Pernyataan 2 melanggar sifat non-komutatif, dan pernyataan 4 lupa membalik urutan pada transpose perkalian.",
+          "toastWrong": "Ada pilihan yang belum tepat — cek caption di bawah tiap kartu untuk melihat pernyataan mana yang keliru dan mengapa."
+        }
+      ]
+    }
+  ]
+}

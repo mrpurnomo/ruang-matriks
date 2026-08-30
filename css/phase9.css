@@ -1,0 +1,914 @@
+/* ============================================================
+   phase9.css — Sistem desain "TRANSFORMASI"
+   Dimuat PALING AKHIR: ia yang berkata terakhir soal tampilan.
+
+   Fase 9 mengganti tema blueprint gelap dengan kertas terang, kartu
+   putih, dan latar blob yang bergerak pelan. Aplikasi juga dikunci ke
+   orientasi lanskap dan mendapat layar masuk sendiri.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. LATAR — kertas terang + blob yang mengambang
+   Pola grid cetak-biru lama dimatikan; sebagai gantinya tiga bidang
+   warna lembut bergerak sangat pelan di belakang, ditumpuk pola titik
+   halus yang memudar ke tepi.
+   ------------------------------------------------------------ */
+html { color-scheme: light; }
+
+body { font-family: var(--body); }
+
+/* Matikan latar blueprint dari base.css. */
+body::before,
+body::after { display: none !important; }
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(37, 99, 235, .13) 1.6px, transparent 1.6px);
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 8%, transparent 72%);
+          mask-image: radial-gradient(circle at 50% 42%, #000 8%, transparent 72%);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  will-change: transform;
+}
+
+.blob--1 { width: 44vmax; height: 44vmax; left: -16vmax; top: -18vmax; background: rgba(37, 99, 235, .26); animation: float1 24s var(--ease) infinite alternate; }
+.blob--2 { width: 34vmax; height: 34vmax; right: -12vmax; top: 2vmax;  background: rgba(6, 182, 212, .26); animation: float2 30s var(--ease) infinite alternate; }
+.blob--3 { width: 32vmax; height: 32vmax; left: 38vmax; bottom: -16vmax; background: rgba(255, 200, 0, .26); animation: float3 27s var(--ease) infinite alternate; }
+
+@keyframes float1 { to { transform: translate3d(8vmax, 6vmax, 0) scale(1.15); } }
+@keyframes float2 { to { transform: translate3d(-9vmax, 8vmax, 0) scale(1.2); } }
+@keyframes float3 { to { transform: translate3d(-7vmax, -7vmax, 0) scale(.86); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none !important; }
+}
+
+/* Seluruh isi aplikasi hidup DI ATAS latar. */
+#app { position: relative; z-index: 10; background: transparent; }
+
+/* ------------------------------------------------------------
+   2. KUNCI ORIENTASI LANSKAP
+   Media ini dirancang untuk dimainkan melebar. Di potret, isinya
+   tidak disembunyikan diam-diam — siswa diberi tahu persis apa yang
+   harus dilakukan.
+   ------------------------------------------------------------ */
+.rotate-lock {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  place-items: center;
+  text-align: center;
+  padding: var(--sp-6) var(--sp-5);
+  background: rgba(239, 244, 255, .82);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+          backdrop-filter: blur(18px) saturate(140%);
+}
+
+@media (orientation: portrait) {
+  .rotate-lock { display: grid; }
+
+  /* Konten utama disembunyikan sepenuhnya — bukan sekadar tertutup —
+     supaya tidak ada interaksi yang bisa "bocor" lewat overlay.
+     Tombol layar penuh hidup di LUAR #app, jadi ia disebut terpisah;
+     kalau tidak, ia tetap mengambang samar di atas pesan. */
+  #app,
+  .fs-btn { visibility: hidden; pointer-events: none; }
+
+  .backdrop { filter: blur(6px); }
+}
+
+.rotate-lock__panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-4);
+  max-width: 30rem;
+  padding: var(--sp-6) var(--sp-5);
+  border-radius: var(--r-xl);
+  background: var(--white);
+  box-shadow: var(--sh-3);
+}
+
+.rotate-lock__icon {
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 50%;
+  background: var(--blue-50);
+  color: var(--royal);
+  animation: rotateHint 2.6s var(--ease) infinite;
+}
+
+.rotate-lock__icon svg { width: 2.6rem; height: 2.6rem; }
+
+@keyframes rotateHint {
+  0%, 55%, 100% { transform: rotate(0deg); }
+  70%, 85%      { transform: rotate(-90deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotate-lock__icon { animation: none; }
+}
+
+.rotate-lock__title {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(1.15rem, 5vw, 1.6rem);
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+
+.rotate-lock__text {
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.rotate-lock__hint {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .68rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ------------------------------------------------------------
+   3. TOMBOL LAYAR PENUH
+   ------------------------------------------------------------ */
+.fs-btn {
+  position: fixed;
+  z-index: 55;
+  right: clamp(1rem, 2.4vw, 2rem);
+  bottom: clamp(.9rem, 2.6vh, 1.6rem);
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  cursor: pointer;
+  padding: clamp(.6rem, 1.4vw, .85rem) clamp(1rem, 2.1vw, 1.4rem);
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(.62rem, 1.1vw, .78rem);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(120deg, var(--royal), var(--blue) 50%, var(--cyan));
+  background-size: 200% 100%;
+  box-shadow: 0 16px 32px -12px rgba(29, 78, 216, .75);
+  transition:
+    transform .32s var(--pop),
+    box-shadow .32s,
+    background-position .6s var(--ease);
+}
+
+.fs-btn:hover,
+.fs-btn:focus-visible {
+  transform: translateY(-4px) scale(1.06);
+  background-position: 100% 0;
+  box-shadow: 0 24px 44px -14px rgba(29, 78, 216, .9);
+}
+
+.fs-btn:active { transform: translateY(-1px) scale(.97); }
+.fs-btn svg { width: 1.05em; height: 1.05em; }
+
+/* Di lanskap pendek tombolnya jadi lingkaran ikon saja agar tidak
+   bertabrakan dengan bilah aksi. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .fs-btn { width: 2.6rem; height: 2.6rem; padding: 0; border-radius: 50%; justify-content: center; gap: 0; }
+  .fs-btn span { display: none; }
+}
+
+/* Tombol layar penuh MENGAMBANG di atas segalanya, jadi bilah aksi harus
+   menyisakan ruang untuknya. Tanpa ini, tombol "Lanjut ke Mini Kuis" di sudut
+   kanan tertutup dan tidak bisa ditekan sama sekali. */
+.workspace__actions .actionbar,
+.quiz .actionbar,
+.lesson-done .actionbar {
+  padding-right: clamp(10.5rem, 16vw, 12.5rem);
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .workspace__actions .actionbar,
+  .quiz .actionbar,
+  .lesson-done .actionbar { padding-right: 4.4rem; }
+}
+
+.menu__footer { padding-right: clamp(10.5rem, 16vw, 12.5rem); }
+
+/* ------------------------------------------------------------
+   4. KERANGKA & TIPOGRAFI
+   ------------------------------------------------------------ */
+h1, h2, h3, h4, h5,
+.menu__title, .workspace__title, .hero__title {
+  font-family: var(--display);
+  font-weight: 900;
+  letter-spacing: -.025em;
+}
+
+.app-header {
+  background: rgba(255, 255, 255, .78);
+  -webkit-backdrop-filter: blur(14px);
+          backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-soft);
+  box-shadow: var(--sh-1);
+}
+
+.brand__title { font-family: var(--display); font-weight: 900; }
+
+.app-footer {
+  background: rgba(255, 255, 255, .72);
+  -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-soft);
+  color: var(--ink-3);
+}
+
+/* Kartu: putih murni, sudut besar, bayangan lembut. */
+.content-card,
+.hero__panel,
+.quiz__card,
+.panel,
+.materi-carousel,
+.equation-panel,
+.mode-card,
+.chapter-item,
+.subtopic-item,
+.resume-card {
+  border-radius: var(--r-lg);
+}
+
+.content-card,
+.quiz__card {
+  background: var(--white);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--sh-2);
+}
+
+/* Tanda registrasi sudut dari Fase 7 dipertahankan — ia identitas
+   visual yang sudah melekat, dan tetap terbaca di kertas terang. */
+.content-card::before { border-color: var(--royal); }
+.content-card::after { border-color: var(--cyan); }
+
+/* ------------------------------------------------------------
+   5. KEWARASAN TATA LETAK (poin kritis Fase 9)
+   Teori TIDAK dipotong jadi kolom-kolom sempit. Satu kolom terpusat
+   dengan lebar terbatas, dan kalau isinya panjang ia digulir dengan
+   tenang DI DALAM kartunya sendiri. Halaman tetap 100vh.
+   ------------------------------------------------------------ */
+/* Area isi jadi kolom flex, BUKAN blok dengan tinggi persentase.
+   `height: 100%` di kartu ternyata tidak selalu punya rantai tinggi yang
+   pasti untuk dipatok, sehingga kartu simulasi tumbuh melewati area gulir
+   dan bilah aksinya tertimpa. Flex menyelesaikannya tanpa persentase. */
+.workspace__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Lebar baca dikunci lewat align-self, BUKAN margin-inline: auto —
+   margin auto pada sumbu silang membatalkan peregangan di flex. */
+.workspace__body > * {
+  width: min(1000px, 100%);
+  align-self: center;
+}
+
+.materi-card {
+  flex: 0 1 auto;
+  min-height: 0;
+
+  /* Kartu jadi wadah gulir: bingkai, bayangan, dan paddingnya tetap
+     diam sementara isinya yang bergerak. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--blue-100) transparent;
+}
+
+.materi-card::-webkit-scrollbar { width: 8px; }
+.materi-card::-webkit-scrollbar-track { background: transparent; }
+.materi-card::-webkit-scrollbar-thumb { background: var(--blue-100); border-radius: 99px; }
+.materi-card::-webkit-scrollbar-thumb:hover { background: var(--royal); }
+
+.materi {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  font-size: clamp(.95rem, 1.35vw, 1.06rem);
+  line-height: 1.7;
+}
+
+.materi > * + * { margin-top: var(--sp-4); }
+
+/* Kartu simulasi mengisi sisa tinggi, lalu panggung di dalamnya yang
+   menyerap kelebihan — bukan kartunya yang tumbuh keluar. */
+.workspace__body > .content-card--tight {
+  /* basis 0, BUKAN auto: kartu mengambil persis sisa ruang yang ada. */
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+
+  /* Kalau simulasinya lebih tinggi dari sisa ruang, KARTUNYA yang menggulir.
+     Memaksa panggung menyusut membuat matriks mengecil sampai sulit diketuk —
+     menggulir sedikit jauh lebih baik daripada itu. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--blue-100) transparent;
+}
+
+.workspace__body > .content-card--tight::-webkit-scrollbar { width: 8px; }
+.workspace__body > .content-card--tight::-webkit-scrollbar-thumb { background: var(--blue-100); border-radius: 99px; }
+
+/* Isi simulasi kembali ke tinggi alaminya. Aturan Fase 8 memaksa setiap
+   lapisan menyusut supaya muat; sekarang kartunya yang menggulir, jadi
+   pemaksaan itu justru meremas panggung sampai matriksnya tak terbaca. */
+.sim-host,
+.sim,
+.case-host {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.workspace__body > .content-card--tight .stage {
+  flex: 0 0 auto;
+  min-height: clamp(180px, 30vh, 300px);
+  overflow: visible;
+}
+
+/* Lanskap: halaman dikunci 100vh; hanya isi kartu yang boleh bergerak. */
+@media (orientation: landscape) {
+  .workspace__body { overflow: hidden; }
+}
+
+/* ------------------------------------------------------------
+   6. LAYAR MASUK
+   Satu kartu, dua isian, satu tombol. Tidak ada kata sandi, tidak ada
+   akun — hanya perkenalan supaya sapaan di menu terasa personal.
+   ------------------------------------------------------------ */
+.login {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--sp-4);
+}
+
+.login__card {
+  display: grid;
+  gap: var(--sp-4);
+  width: min(560px, 100%);
+  padding: clamp(var(--sp-5), 4vh, var(--sp-7)) clamp(var(--sp-5), 4vw, var(--sp-7));
+  border-radius: var(--r-xl);
+  background: var(--white);
+  box-shadow: var(--sh-3);
+  border: 1px solid var(--border-soft);
+  text-align: center;
+}
+
+.login__mark {
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--royal), var(--cyan));
+  color: #fff;
+  box-shadow: 0 16px 30px -14px rgba(29, 78, 216, .8);
+}
+
+.login__mark svg { width: 2rem; height: 2rem; }
+
+.login__eyebrow {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--royal);
+}
+
+.login__title {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(1.4rem, 3.2vw, 2.1rem);
+  line-height: 1.08;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.login__lead {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 40ch;
+  margin-inline: auto;
+}
+
+.login__fields { display: grid; gap: var(--sp-3); text-align: left; }
+
+.login__field { display: grid; gap: 6px; }
+
+.login__label {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .68rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.login__input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--border-soft);
+  background: var(--blue-50);
+  font-family: var(--body);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+.login__input::placeholder { color: var(--ink-300); font-weight: 400; }
+.login__input:hover { border-color: var(--brand-primary-line); }
+
+.login__input:focus,
+.login__input[data-pad-open="true"] {
+  outline: none;
+  border-color: var(--royal);
+  box-shadow: var(--ring-focus);
+}
+
+.login__input.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .18);
+}
+
+.login__submit { justify-self: stretch; min-height: 52px; }
+
+.login__note {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  justify-self: center;
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+}
+
+.login__note svg { width: 14px; height: 14px; flex: 0 0 auto; }
+
+/* Lanskap ponsel: kartu masuk dirapatkan dan boleh menggulir di dalam
+   dirinya sendiri. Di layar setinggi 390px, kartu setinggi 560px memang
+   tidak akan muat betapa pun dirapatkan. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .login { padding: var(--sp-2); align-items: stretch; }
+
+  .login__card {
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .login__mark { width: 3rem; height: 3rem; border-radius: 16px; }
+  .login__mark svg { width: 1.4rem; height: 1.4rem; }
+  .login__title { font-size: 1.15rem; }
+  .login__lead { display: none; }
+  .login__input { min-height: 44px; font-size: var(--fs-base); }
+  .login__submit { min-height: 44px; }
+  .login__note { font-size: 10px; }
+}
+
+/* Di lanskap yang cukup lebar, kedua isian berdampingan — memakai lebar
+   yang memang tersedia alih-alih menumpuk ke bawah. */
+@media (orientation: landscape) and (min-width: 760px) and (max-height: 560px) {
+  .login__card { width: min(720px, 100%); }
+  .login__fields { grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+}
+
+/* ------------------------------------------------------------
+   7. PAPAN HURUF MATHPAD
+   Keyboard OS tidak pernah muncul di aplikasi ini. Untuk isian nama
+   dan sekolah, Mathpad berubah jadi papan huruf QWERTY penuh.
+   ------------------------------------------------------------ */
+.mathpad--text .mathpad__grid,
+.mathpad--text .mathpad__fraction,
+.mathpad--text .mathpad__mode { display: none !important; }
+
+.mathpad__abc {
+  display: none;
+  gap: 6px;
+  margin-top: var(--sp-2);
+}
+
+.mathpad--text .mathpad__abc { display: grid; }
+
+.mathpad__abc-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mp-abc {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  border-radius: var(--r-xs);
+  background: var(--blue-50);
+  border: 1px solid var(--border-soft);
+  font-family: var(--body);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast), color var(--dur-fast);
+}
+
+.mp-abc:hover { background: var(--royal); border-color: var(--royal); color: #fff; }
+.mp-abc:active { transform: scale(.93); }
+
+.mp-abc--wide { flex: 2.6 1 0; }
+.mp-abc--space { flex: 5 1 0; }
+
+.mp-abc--util {
+  background: var(--blue-100);
+  border-color: var(--brand-primary-line);
+  color: var(--royal);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* Tombol Shift menampilkan "Aa" — bentuk hurufnya ITU pesannya, jadi ia
+   satu-satunya tombol util yang tidak boleh dipaksa kapital. */
+.mp-abc[data-role="abc-shift"] { text-transform: none; letter-spacing: .02em; font-size: var(--fs-sm); }
+.mp-abc[data-role="abc-shift"][aria-pressed="false"] { background: var(--white); }
+
+/* Scrim di kertas terang: kabut putih tipis, bukan tirai gelap. */
+.mathpad-scrim {
+  background: rgba(239, 244, 255, .55);
+  -webkit-backdrop-filter: blur(3px);
+          backdrop-filter: blur(3px);
+}
+
+.mp-abc--ok {
+  background: linear-gradient(120deg, var(--royal), var(--cyan));
+  border-color: transparent;
+  color: #fff;
+}
+
+.mathpad--text .mathpad__preview {
+  min-height: 44px;
+  font-family: var(--body);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+/* Papan huruf butuh lebar; di lanskap ia melebar hampir penuh. */
+.mathpad--text { width: min(680px, 94vw); }
+
+/* ------------------------------------------------------------
+   8. SAPAAN DI MENU UTAMA
+   ------------------------------------------------------------ */
+.menu__greet {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .38rem .9rem;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: var(--sh-1);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .7rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--royal);
+  margin-bottom: var(--sp-2);
+}
+
+.menu__greet svg { width: 14px; height: 14px; color: var(--cyan); }
+.menu__greet b { color: var(--ink); }
+
+/* ------------------------------------------------------------
+   9. LAYAR PLACEHOLDER (Simulasi TKA)
+   ------------------------------------------------------------ */
+.soon {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--sp-4);
+  min-height: 100%;
+  padding: var(--sp-5);
+  text-align: center;
+}
+
+.soon__card {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-3);
+  width: min(620px, 100%);
+  padding: clamp(var(--sp-5), 5vh, var(--sp-7));
+  border-radius: var(--r-xl);
+  background: var(--white);
+  box-shadow: var(--sh-3);
+  border: 1px solid var(--border-soft);
+}
+
+.soon__mark {
+  display: grid;
+  place-items: center;
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 50%;
+  background: var(--yellow-100);
+  border: 1px solid var(--yellow);
+  color: #8A6400;
+}
+
+.soon__mark svg { width: 1.8rem; height: 1.8rem; }
+
+.soon__title {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(1.2rem, 2.6vw, 1.75rem);
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.soon__text {
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 46ch;
+}
+
+/* ------------------------------------------------------------
+   10. NAVIGASI KUIS
+   Nomor soal harus selalu terbaca, dan tombol maju-mundur berdiri
+   sendiri — bukan tersembunyi di antara titik-titik kecil.
+   ------------------------------------------------------------ */
+.quiz-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  flex: 0 0 auto;
+  padding-top: var(--sp-2);
+}
+
+/* Slider kuis: viewport soal yang menggulir, navigasi terpaku di bawahnya.
+   Tanpa pembagian ini, bilah aksi soal dan bilah navigasi saling menimpa. */
+.quiz-slider {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  gap: var(--sp-2);
+}
+
+.quiz-slider > .slider__viewport {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--blue-100) transparent;
+  padding-right: 4px;
+}
+
+.quiz-slider > .slider__viewport::-webkit-scrollbar { width: 8px; }
+.quiz-slider > .slider__viewport::-webkit-scrollbar-thumb { background: var(--blue-100); border-radius: 99px; }
+
+/* Wadah kuis di dalam area gulir juga harus ikut memenuhi tinggi. */
+.workspace__body > div:has(> .quiz-slider),
+.workspace__body > .quiz-slider {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Bilah aksi soal MENEMPEL di dasar area gulir. Aksi utama ("Periksa
+   Jawaban") tidak boleh setengah terpotong hanya karena soalnya panjang. */
+.quiz-slider .quiz .actionbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: var(--sp-3);
+  background: rgba(255, 255, 255, .94);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--sh-2);
+}
+
+.quiz-nav__count {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: var(--fs-sm);
+  letter-spacing: .06em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  min-width: 8.5rem;
+  text-align: center;
+}
+
+.quiz-nav__count b { color: var(--royal); }
+
+.quiz-nav__track {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.quiz-nav__step {
+  width: 26px;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--blue-100);
+  transition: background var(--dur-base) var(--ease-out);
+}
+
+.quiz-nav__step[data-state="current"] { background: linear-gradient(90deg, var(--royal), var(--cyan)); }
+.quiz-nav__step[data-state="done"] { background: var(--success); }
+
+/* ------------------------------------------------------------
+   11. PENYELARASAN KOMPONEN KE KERTAS TERANG
+   ------------------------------------------------------------ */
+.cell {
+  background: var(--white);
+  border-color: var(--border-soft);
+  color: var(--ink);
+  box-shadow: var(--sh-1);
+}
+
+.cell--picked {
+  background: var(--yellow-100);
+  border-color: var(--yellow);
+  color: #7A5A00;
+  box-shadow: 0 0 0 3px rgba(255, 200, 0, .45);
+}
+
+.stage {
+  background: rgba(255, 255, 255, .55);
+  border-color: var(--border-soft);
+  -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+}
+
+.sim__prompt { background: var(--white); box-shadow: var(--sh-1); }
+
+.mathpad, .modal__panel, .toast {
+  background: var(--white);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--sh-3);
+}
+
+.matrix__bracket::before,
+.matrix__bracket::after { border-color: var(--ink-3); }
+
+/* Tombol utama memakai gradien merek yang sama dengan tombol layar penuh,
+   supaya seluruh aksi primer terbaca sebagai satu keluarga. */
+.btn--primary {
+  color: #fff;
+  background: linear-gradient(120deg, var(--royal), var(--blue) 55%, var(--cyan));
+  background-size: 200% 100%;
+  border-color: transparent;
+  box-shadow: 0 12px 26px -12px rgba(29, 78, 216, .7);
+}
+
+.btn--primary:hover:not([disabled]) { background-position: 100% 0; }
+
+/* ------------------------------------------------------------
+   12. SUB-NAVIGASI KASUS SIMULASI
+   Perkalian matriks punya tiga kasus dengan ordo berbeda. Pemilihnya
+   berupa chip lebar — bukan titik kecil — karena ia menyampaikan
+   informasi (ordo) yang perlu dibaca, bukan sekadar posisi.
+   ------------------------------------------------------------ */
+.case-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+
+.case-chip {
+  display: grid;
+  gap: 1px;
+  padding: 7px var(--sp-4);
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--border-soft);
+  background: var(--white);
+  box-shadow: var(--sh-1);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    transform var(--dur-base) var(--pop),
+    border-color var(--dur-base),
+    background var(--dur-base),
+    color var(--dur-base);
+}
+
+.case-chip b {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.case-chip span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--ink-3);
+}
+
+.case-chip:hover { transform: translateY(-2px); border-color: var(--brand-primary-line); }
+
+.case-chip[aria-selected="true"] {
+  background: linear-gradient(120deg, var(--royal), var(--cyan));
+  border-color: transparent;
+  box-shadow: 0 12px 24px -12px rgba(29, 78, 216, .7);
+}
+
+.case-chip[aria-selected="true"] b,
+.case-chip[aria-selected="true"] span { color: #fff; }
+
+.case-chip[data-state="done"]::after {
+  content: '✓';
+  position: absolute;
+}
+
+.case-chip[data-state="done"]:not([aria-selected="true"]) {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.case-host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.case-note {
+  align-self: center;
+  padding: 5px var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--yellow-100);
+  border: 1px solid rgba(255, 200, 0, .6);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: #6B4E00;
+  text-align: center;
+}
+
+/* Matriks berkolom banyak (3×3 · 3×3) diberi sel yang sedikit lebih kecil
+   supaya seluruh persamaan tetap muat satu baris tanpa menggulir. */
+.stage[data-span="wide"] .cell {
+  min-width: 42px;
+  min-height: 40px;
+  font-size: var(--fs-sm);
+}
+
+.stage[data-span="wide"] .cell--building { min-width: 92px; }
+.stage[data-span="wide"] .stage__row--equation { gap: var(--sp-2); }
+.stage[data-span="wide"] .op-glyph { min-width: 26px; height: 26px; }
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .stage[data-span="wide"] .cell { min-width: 34px; min-height: 32px; font-size: var(--fs-xs); }
+  .stage[data-span="wide"] .cell--building { min-width: 76px; }
+  .case-chip { padding: 4px var(--sp-3); }
+  .case-chip span { display: none; }
+}

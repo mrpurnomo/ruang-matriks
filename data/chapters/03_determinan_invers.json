@@ -1,0 +1,677 @@
+{
+  "id": "03_determinan_invers",
+  "title": "Determinan dan Invers Matriks",
+  "subtopics": [
+    {
+      "id": "determinan_2x2",
+      "title": "Determinan Matriks 2×2",
+      "materi": [
+        {
+          "t": "p",
+          "x": "**Determinan** adalah nilai skalar tunggal yang \"mewakili\" karakteristik sebuah matriks persegi — semacam sidik jari numerik. Dilambangkan $\\det(A)$ atau $|A|$."
+        },
+        {
+          "t": "warn",
+          "title": "Ingat dari Bab 1",
+          "x": "Determinan **hanya** bisa dihitung dari matriks persegi. Matriks $2\\times3$ tidak punya determinan."
+        },
+        {
+          "t": "def",
+          "title": "Rumus 2×2",
+          "x": "Jika $A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$, maka $\\det(A) = ad - bc$."
+        },
+        {
+          "t": "tip",
+          "title": "Cara Ingat",
+          "x": "Kalikan **diagonal utama** (kiri-atas ke kanan-bawah: $a \\times d$), lalu kurangi dengan hasil kali **diagonal sekunder** ($b \\times c$). Diagonal utama dulu (positif), diagonal silang kemudian (negatif)."
+        },
+        {
+          "t": "tex",
+          "x": "A = \\begin{pmatrix} 4 & 3 \\\\ 2 & 5 \\end{pmatrix} \\implies \\det(A) = (4)(5) - (3)(2) = 20 - 6 = 14"
+        }
+      ],
+      "simulation": {
+        "engine": "det2x2",
+        "title": "Simulasi: Dua Diagonal",
+        "brief": "Ketuk kedua elemen tiap diagonal — biru untuk (+), oranye untuk (−). Urutan ketukannya bebas.",
+        "config": {
+          "matrix": [
+            [
+              6,
+              2
+            ],
+            [
+              4,
+              5
+            ]
+          ],
+          "name": "F"
+        },
+        "toasts": {
+          "wrongDiagonal": "Elemen itu bukan bagian diagonal yang sedang dikerjakan. Ketuk TEPAT dua elemen yang sedang berwarna {{warna}}.",
+          "wrongOrderDiag": "Kerjakan diagonal yang BERWARNA BIRU dulu, baru yang berwarna oranye.",
+          "success": "Tepat! Determinan adalah satu angka skalar, bukan matriks."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_01_a",
+          "input_type": "mathpad",
+          "prompt": "Diketahui $F = \\begin{pmatrix} 6 & 2 \\\\ 4 & 5 \\end{pmatrix}$. Tentukan $\\det(F)$.",
+          "tex": null,
+          "answer": 22,
+          "explanation": "$\\det(F) = (6)(5) - (2)(4) = 30 - 8 = 22$.",
+          "toastWrong": "Belum tepat. Rumusnya $ad - bc$: kalikan diagonal utama $6 \\times 5$, lalu KURANGI dengan diagonal sekunder $2 \\times 4$."
+        },
+        {
+          "id": "q_03_01_b",
+          "input_type": "mathpad",
+          "prompt": "Diketahui $G = \\begin{pmatrix} 3 & k \\\\ 2 & 4 \\end{pmatrix}$. Jika $\\det(G) = 6$, tentukan nilai $k$.",
+          "tex": null,
+          "answer": 3,
+          "explanation": "$\\det(G) = (3)(4) - (k)(2) = 12 - 2k$. Maka $12 - 2k = 6 \\implies 2k = 6 \\implies k = 3$.",
+          "toastWrong": "Belum tepat. Susun dulu persamaannya: $(3)(4) - (k)(2) = 6$, lalu selesaikan $12 - 2k = 6$ untuk mendapatkan $k$."
+        }
+      ]
+    },
+    {
+      "id": "determinan_3x3",
+      "title": "Determinan 3×3 (Metode Sarrus)",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Untuk matriks $3\\times3$, kita pakai **Metode Sarrus** — trik visual yang mengubah perhitungan rumit jadi pola diagonal yang mudah diingat."
+        },
+        {
+          "t": "steps",
+          "items": [
+            "Tuliskan ulang **kolom pertama dan kedua** di sebelah kanan matriks, membentuk tampilan $3 \\times 5$.",
+            "Jumlahkan hasil kali **tiga diagonal turun** (kiri-atas ke kanan-bawah).",
+            "Kurangkan dengan hasil kali **tiga diagonal naik** (kiri-bawah ke kanan-atas)."
+          ]
+        },
+        {
+          "t": "tex",
+          "x": "\\det(A) = (aei + bfg + cdh) - (gec + hfa + idb)"
+        },
+        {
+          "t": "warn",
+          "title": "Batas Pemakaian",
+          "x": "Metode Sarrus **hanya berlaku untuk matriks $3\\times3$**. Jangan pernah menerapkannya pada $4\\times4$ atau lebih besar. (Untungnya, kisi-kisi TKA membatasi determinan sampai $3\\times3$ saja.)"
+        },
+        {
+          "t": "p",
+          "x": "Contoh dengan $A = \\begin{pmatrix} 1 & 2 & 3 \\\\ 0 & 1 & 4 \\\\ 5 & 6 & 0 \\end{pmatrix}$: diagonal turun $= 0 + 40 + 0 = 40$, diagonal naik $= 15 + 24 + 0 = 39$, sehingga $\\det(A) = 40 - 39 = 1$."
+        }
+      ],
+      "simulation": {
+        "engine": "det3x3_sarrus",
+        "title": "Simulasi: Sarrus Bergerak",
+        "brief": "Salin dua kolom dulu, lalu ketuk ketiga elemen tiap diagonal. Garis coretnya muncul setelah pilihanmu tepat.",
+        "config": {
+          "matrix": [
+            [
+              2,
+              0,
+              1
+            ],
+            [
+              1,
+              3,
+              2
+            ],
+            [
+              0,
+              1,
+              1
+            ]
+          ],
+          "name": "H"
+        },
+        "toasts": {
+          "copyFirst": "Tekan tombol \"Salin Dua Kolom\" dulu — Metode Sarrus butuh kolom 1 dan 2 disalin ke kanan agar diagonalnya terlihat utuh.",
+          "wrongGroup": "Elemen itu tidak berada di diagonal yang sedang dikerjakan. Ketuk ketiga elemen yang sedang berwarna {{warna}}.",
+          "success": "Hebat! Enam hasil kali terkumpul, determinan pun ketemu."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_02_a",
+          "input_type": "mathpad",
+          "prompt": "Diketahui $H = \\begin{pmatrix} 2 & 0 & 1 \\\\ 1 & 3 & 2 \\\\ 0 & 1 & 1 \\end{pmatrix}$. Gunakan Sarrus untuk menentukan $\\det(H)$.",
+          "tex": null,
+          "answer": 3,
+          "explanation": "Diagonal turun: $(2)(3)(1) + (0)(2)(0) + (1)(1)(1) = 6 + 0 + 1 = 7$. Diagonal naik: $(0)(3)(1) + (1)(2)(2) + (1)(1)(0) = 0 + 4 + 0 = 4$. Jadi $\\det(H) = 7 - 4 = 3$.",
+          "toastWrong": "Belum tepat. Pastikan kamu menyalin kolom 1 dan 2 ke kanan dulu, lalu hitung TIGA diagonal turun dan TIGA diagonal naik — masing-masing terdiri dari 3 elemen."
+        },
+        {
+          "id": "q_03_02_b",
+          "input_type": "single_choice",
+          "prompt": "Mengapa Metode Sarrus tidak bisa langsung diterapkan pada matriks $4\\times4$?",
+          "options": [
+            {
+              "label": "Karena matriks $4\\times4$ tidak punya determinan"
+            },
+            {
+              "label": "Karena pola diagonal penuh tidak lagi terbentuk dengan benar pada ordo di atas $3\\times3$"
+            },
+            {
+              "label": "Karena determinan $4\\times4$ selalu bernilai nol"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Sarrus adalah kebetulan geometris yang hanya bekerja pada $3\\times3$. Pada $4\\times4$, jumlah suku determinan menjadi 24 (bukan 6) sehingga pola diagonal sederhana tidak lagi mencakup semuanya.",
+          "toastWrong": "Belum tepat — matriks $4\\times4$ tetap punya determinan (dan tidak selalu nol), hanya saja cara menghitungnya bukan dengan pola diagonal Sarrus."
+        }
+      ]
+    },
+    {
+      "id": "singular_nonsingular",
+      "title": "Matriks Singular & Non-Singular",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Nilai determinan yang baru kamu hitung ternyata menentukan \"nasib\" sebuah matriks — apakah ia punya invers atau tidak."
+        },
+        {
+          "t": "def",
+          "title": "Definisi",
+          "x": "**Singular:** $\\det(A) = 0$ — matriks ini **tidak memiliki invers**. **Non-Singular:** $\\det(A) \\ne 0$ — matriks ini memiliki invers."
+        },
+        {
+          "t": "p",
+          "x": "Kenapa determinan nol membuat invers \"hilang\"? Karena di rumus invers nanti, determinan berada di posisi **penyebut pecahan**. Pembagian dengan nol tidak terdefinisi — jadi rumusnya rusak secara struktural, bukan sekadar kebetulan aturan."
+        },
+        {
+          "t": "tip",
+          "title": "Kebiasaan Baik",
+          "x": "Selalu cek determinan **sebelum** mencoba mencari invers. Banyak soal ujian sengaja menyisipkan matriks singular sebagai jebakan."
+        }
+      ],
+      "simulation": {
+        "engine": "singular_check",
+        "title": "Simulasi: Mesin Diagnosa",
+        "brief": "Tebak status tiap matriks, lalu jalankan mesin untuk memverifikasi.",
+        "config": {
+          "cases": [
+            {
+              "matrix": [
+                [
+                  2,
+                  4
+                ],
+                [
+                  1,
+                  2
+                ]
+              ],
+              "singular": true,
+              "note": "Baris ke-2 adalah setengah dari baris ke-1 — pertanda kuat determinannya nol."
+            },
+            {
+              "matrix": [
+                [
+                  3,
+                  1
+                ],
+                [
+                  2,
+                  4
+                ]
+              ],
+              "singular": false,
+              "note": "$\\det = 12 - 2 = 10 \\ne 0$."
+            },
+            {
+              "matrix": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  5,
+                  7
+                ]
+              ],
+              "singular": true,
+              "note": "Ada baris yang seluruhnya nol — determinannya pasti nol."
+            },
+            {
+              "matrix": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  1
+                ]
+              ],
+              "singular": false,
+              "note": "Matriks identitas, $\\det = 1$."
+            }
+          ]
+        },
+        "toasts": {
+          "wrongGuess": "Tebakanmu belum tepat — determinan matriks ini adalah {{det}}, sehingga statusnya {{status}}. Ingat: determinan NOL berarti singular (tidak punya invers).",
+          "success": "Diagnosa lengkap! Kamu makin cepat mengenali matriks singular."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_03_a",
+          "input_type": "single_choice",
+          "prompt": "Tanpa menghitung penuh, tentukan status $\\begin{pmatrix} 2 & 4 \\\\ 1 & 2 \\end{pmatrix}$.",
+          "options": [
+            {
+              "label": "Singular (tidak punya invers)"
+            },
+            {
+              "label": "Non-singular (punya invers)"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "$\\det = (2)(2) - (4)(1) = 4 - 4 = 0$. Petunjuk cepatnya: baris ke-2 adalah kelipatan (setengah) dari baris ke-1, yang selalu membuat determinan nol.",
+          "toastWrong": "Belum tepat — coba hitung $ad - bc = (2)(2) - (4)(1)$. Perhatikan juga bahwa baris ke-2 adalah setengah dari baris ke-1."
+        },
+        {
+          "id": "q_03_03_b",
+          "input_type": "mathpad",
+          "prompt": "Diketahui $\\begin{pmatrix} 3 & k \\\\ 6 & 8 \\end{pmatrix}$ adalah matriks singular. Tentukan nilai $k$.",
+          "tex": null,
+          "answer": 4,
+          "explanation": "Singular berarti $\\det = 0$: $(3)(8) - (k)(6) = 0 \\implies 24 - 6k = 0 \\implies k = 4$.",
+          "toastWrong": "Belum tepat. Singular artinya determinannya HARUS nol — susun persamaan $(3)(8) - 6k = 0$ lalu selesaikan."
+        }
+      ]
+    },
+    {
+      "id": "sifat_determinan",
+      "title": "Sifat-Sifat Determinan (HOTS)",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Ini bagian yang paling sering diuji sebagai soal HOTS di TKA — bukan meminta kamu menghitung dari awal, melainkan **memanipulasi sifatnya** langsung."
+        },
+        {
+          "t": "list",
+          "items": [
+            "$\\det(A^T) = \\det(A)$ — transpose tidak mengubah determinan.",
+            "$\\det(A \\times B) = \\det(A) \\times \\det(B)$",
+            "$\\det(A^n) = (\\det(A))^n$ — konsekuensi langsung dari sifat sebelumnya.",
+            "$\\det(A^{-1}) = \\dfrac{1}{\\det(A)}$",
+            "$\\det(k \\cdot A_{n \\times n}) = k^n \\cdot \\det(A)$ — **paling sering jadi jebakan!**"
+          ]
+        },
+        {
+          "t": "warn",
+          "title": "Jebakan Klasik",
+          "x": "Pada sifat terakhir, pangkat $n$ mengikuti **ordo** matriks. Jika matriks $3\\times3$ dikalikan skalar 2, determinannya dikali $2^3 = 8$, **bukan** dikali 2 saja!"
+        }
+      ],
+      "simulation": {
+        "engine": "property_calculator",
+        "title": "Simulasi: Kalkulator Sifat",
+        "brief": "Seret kartu sifat yang tepat ke area kerja, nilai yang diketahui akan tersubstitusi otomatis.",
+        "config": {
+          "rules": [
+            {
+              "id": "r1",
+              "tex": "\\det(A^T) = \\det(A)",
+              "key": "transpose"
+            },
+            {
+              "id": "r2",
+              "tex": "\\det(AB) = \\det(A)\\det(B)",
+              "key": "product"
+            },
+            {
+              "id": "r3",
+              "tex": "\\det(A^n) = (\\det A)^n",
+              "key": "power"
+            },
+            {
+              "id": "r4",
+              "tex": "\\det(A^{-1}) = \\frac{1}{\\det(A)}",
+              "key": "inverse"
+            },
+            {
+              "id": "r5",
+              "tex": "\\det(kA_{n \\times n}) = k^n \\det(A)",
+              "key": "scalar"
+            }
+          ],
+          "problems": [
+            {
+              "prompt": "Diketahui $\\det(A) = 5$ dan $A$ berordo $3 \\times 3$. Tentukan $\\det(2A)$.",
+              "rule": "scalar",
+              "answer": 40,
+              "work": "$\\det(2A) = 2^3 \\cdot 5 = 8 \\cdot 5 = 40$"
+            },
+            {
+              "prompt": "Diketahui $\\det(A) = 4$ dan $\\det(B) = 3$. Tentukan $\\det(A \\times B)$.",
+              "rule": "product",
+              "answer": 12,
+              "work": "$\\det(AB) = 4 \\times 3 = 12$"
+            },
+            {
+              "prompt": "Diketahui $\\det(A) = 6$. Tentukan $\\det(A^T)$.",
+              "rule": "transpose",
+              "answer": 6,
+              "work": "$\\det(A^T) = \\det(A) = 6$"
+            }
+          ]
+        },
+        "toasts": {
+          "wrongRule": "Sifat itu tidak cocok untuk soal ini. Baca lagi soalnya: yang ditanyakan menyangkut {{hint}}.",
+          "wrongAnswer": "Rumusnya sudah benar, tapi hasil substitusinya belum tepat — perhatikan pangkat yang mengikuti ordo matriks.",
+          "success": "Tepat! Soal HOTS begini memang menguji pengenalan sifat, bukan kecepatan berhitung."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_04_a",
+          "input_type": "mathpad",
+          "prompt": "Diketahui $\\det(A) = 4$ dan $\\det(B) = 3$, dengan $A, B$ berordo $2 \\times 2$. Tentukan $\\det(A \\times B)$.",
+          "tex": null,
+          "answer": 12,
+          "explanation": "Gunakan sifat $\\det(AB) = \\det(A) \\times \\det(B) = 4 \\times 3 = 12$.",
+          "toastWrong": "Belum tepat — pakai sifat $\\det(AB) = \\det(A) \\cdot \\det(B)$. Tidak perlu tahu elemen matriksnya sama sekali."
+        },
+        {
+          "id": "q_03_04_b",
+          "input_type": "mathpad",
+          "prompt": "Matriks $A$ berordo $2 \\times 2$ dengan $\\det(A) = 6$. Tentukan $\\det(3A)$.",
+          "tex": null,
+          "answer": 54,
+          "explanation": "Gunakan $\\det(kA) = k^n \\det(A)$ dengan $n = 2$ (ordo $2\\times2$): $\\det(3A) = 3^2 \\cdot 6 = 9 \\cdot 6 = 54$.",
+          "toastWrong": "Hati-hati jebakan! Skalar TIDAK dikali langsung — ia dipangkatkan sesuai ordo. Untuk matriks $2\\times2$, gunakan $3^2$, bukan $3$."
+        }
+      ]
+    },
+    {
+      "id": "invers_2x2",
+      "title": "Invers Matriks 2×2",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Pada matriks **tidak ada operasi pembagian**. Sebagai gantinya kita pakai **invers**. Analoginya: $5 \\times 5^{-1} = 1$; pada matriks, $A \\times A^{-1} = I$."
+        },
+        {
+          "t": "def",
+          "title": "Rumus Invers 2×2",
+          "x": "Jika $A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$ dan $\\det(A) \\ne 0$, maka $A^{-1} = \\dfrac{1}{ad-bc}\\begin{pmatrix} d & -b \\\\ -c & a \\end{pmatrix}$."
+        },
+        {
+          "t": "tip",
+          "title": "Pola Ingat",
+          "x": "**Tukar posisi diagonal utama, balik tanda diagonal sekunder.** Elemen $a$ dan $d$ bertukar tempat; $b$ dan $c$ tetap di tempat tapi tandanya dibalik. Baru kemudian dikali skalar $\\frac{1}{\\det(A)}$."
+        },
+        {
+          "t": "warn",
+          "title": "Cek Dulu!",
+          "x": "Karena $\\det(A)$ jadi penyebut, selalu pastikan matriksnya non-singular sebelum melangkah."
+        }
+      ],
+      "simulation": {
+        "engine": "inverse2x2",
+        "title": "Simulasi: Tiga Tahap Invers",
+        "brief": "Tahap 1 hitung determinan sendiri, tahap 2 susun adjoin dengan ketukan, tahap 3 sapukan 1/det ke tiap elemen.",
+        "config": {
+          "matrix": [
+            [
+              3,
+              5
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          "name": "K"
+        },
+        "toasts": {
+          "wrongDiagonal": "Elemen itu bukan bagian diagonal yang sedang dikerjakan. Ketuk dua elemen yang sedang berwarna {{warna}}.",
+          "wrongSwap": "Yang ditukar adalah pasangan diagonal UTAMA ($a$ dan $d$). Diagonal sekunder nanti hanya dibalik tandanya, tidak dipindah.",
+          "wrongFlip": "Elemen ini ada di diagonal utama — tandanya tidak dibalik. Yang dibalik tanda hanya $b$ dan $c$ (diagonal sekunder).",
+          "notYet": "Selesaikan tahap yang sedang berjalan dulu. Adjoin baru bisa disusun setelah determinannya kamu hitung sendiri.",
+          "wrongTarget": "Skalar $\\frac{1}{\\det}$ dikenakan ke SETIAP elemen, satu per satu. Elemen ini sudah dikalikan.",
+          "singular": "Matriks ini singular ($\\det = 0$), jadi inversnya tidak ada. Rumus invers akan membagi dengan nol.",
+          "success": "Selesai! Coba buktikan sendiri bahwa $K \\times K^{-1} = I$."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_05_a",
+          "input_type": "single_choice",
+          "prompt": "Diketahui $F = \\begin{pmatrix} 2 & 0 \\\\ 0 & \\frac{1}{2} \\end{pmatrix}$. Tentukan $F^{-1}$.",
+          "options": [
+            {
+              "label": "(a)",
+              "tex": "\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}"
+            },
+            {
+              "label": "(b)",
+              "tex": "\\begin{pmatrix} 2 & 0 \\\\ 0 & 1 \\end{pmatrix}"
+            },
+            {
+              "label": "(c)",
+              "tex": "\\begin{pmatrix} -\\frac{1}{2} & 0 \\\\ 0 & -2 \\end{pmatrix}"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "$\\det(F) = 2 \\cdot \\frac{1}{2} - 0 = 1$. Tukar diagonal utama menjadi $\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}$, lalu dikali $\\frac{1}{1}$ (tidak berubah). Soal ini adalah soal asli TKA 2025.",
+          "toastWrong": "Belum tepat. Hitung dulu $\\det(F) = (2)(\\frac{1}{2}) - 0 = 1$, lalu tukar posisi kedua elemen diagonal utama. Karena determinannya 1, tidak ada perubahan tanda atau pembagian."
+        },
+        {
+          "id": "q_03_05_b",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $K = \\begin{pmatrix} 3 & 5 \\\\ 1 & 2 \\end{pmatrix}$. Tentukan $K^{-1}$.",
+          "tex": null,
+          "rows": 2,
+          "cols": 2,
+          "answer": [
+            [
+              2,
+              -5
+            ],
+            [
+              -1,
+              3
+            ]
+          ],
+          "explanation": "$\\det(K) = (3)(2) - (5)(1) = 1$. Tukar diagonal utama dan balik tanda diagonal sekunder: $\\begin{pmatrix} 2 & -5 \\\\ -1 & 3 \\end{pmatrix}$, lalu dikali $\\frac{1}{1}$.",
+          "toastWrong": "Belum tepat. Urutannya: (1) hitung $\\det = 6-5 = 1$, (2) tukar $3$ dan $2$, (3) balik tanda $5$ dan $1$, (4) kalikan $\\frac{1}{1}$."
+        }
+      ]
+    },
+    {
+      "id": "invers_3x3",
+      "title": "Invers 3×3 (Metode Adjoin)",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Untuk matriks $3\\times3$, mencari invers lebih panjang karena melibatkan **matriks kofaktor** dan **adjoin**. Metode Adjoin dipilih karena sistematis dan menghindari error pecahan pada Operasi Baris Elementer."
+        },
+        {
+          "t": "def",
+          "title": "Rumus",
+          "x": "$A^{-1} = \\dfrac{1}{\\det(A)} \\cdot \\text{Adj}(A)$, di mana $\\text{Adj}(A)$ adalah **transpose dari matriks kofaktor** $A$."
+        },
+        {
+          "t": "steps",
+          "items": [
+            "Hitung $\\det(A)$ dulu (jika nol, berhenti — matriks singular).",
+            "Bentuk **matriks kofaktor**: setiap elemen diganti minornya, dengan tanda mengikuti pola papan catur $+/-$.",
+            "**Transpose** matriks kofaktor untuk mendapatkan Adjoin.",
+            "Kalikan Adjoin dengan $\\dfrac{1}{\\det(A)}$."
+          ]
+        },
+        {
+          "t": "tip",
+          "title": "Semua Bertemu di Sini",
+          "x": "Perhatikan bagaimana bab ini \"menagih\" semua yang sudah kamu pelajari: transpose (Bab 1), perkalian skalar (Bab 2), dan determinan (sub-topik sebelumnya)."
+        }
+      ],
+      "simulation": {
+        "engine": "adjoint_flow",
+        "title": "Simulasi: Sedang Dibangun",
+        "brief": "Simulasi invers 3×3 sedang disiapkan. Materi dan Mini Kuis di sub-topik ini tetap bisa kamu kerjakan.",
+        "config": {
+          "matrix": [
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              0,
+              1,
+              4
+            ],
+            [
+              5,
+              6,
+              0
+            ]
+          ],
+          "name": "A"
+        },
+        "toasts": {
+          "lockedCard": "Kartu ini masih terkunci — selesaikan kartu sebelumnya dulu. Adjoin butuh matriks kofaktor, dan kofaktor butuh determinan.",
+          "wrongCofactor": "Kofaktor sel ini belum tepat. Coret baris dan kolom sel tersebut, hitung determinan sub-matriks $2\\times2$ yang tersisa, lalu terapkan tanda papan catur.",
+          "wrongSign": "Nilai minornya benar, tapi tandanya keliru — ikuti pola papan catur $+\\ -\\ +$ berselang-seling mulai dari sudut kiri atas.",
+          "success": "Selesai! Invers $3\\times3$ memang panjang, tapi polanya selalu sama."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_06_a",
+          "input_type": "single_choice",
+          "prompt": "Manakah urutan tahap Metode Adjoin yang benar?",
+          "options": [
+            {
+              "label": "Determinan → Kofaktor → Transpose → Kali $\\frac{1}{\\det}$"
+            },
+            {
+              "label": "Kofaktor → Determinan → Kali $\\frac{1}{\\det}$ → Transpose"
+            },
+            {
+              "label": "Transpose → Determinan → Kofaktor → Kali $\\frac{1}{\\det}$"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "Determinan dihitung lebih dulu (untuk memastikan non-singular), lalu kofaktor, lalu transpose kofaktor (= Adjoin), terakhir dikali $\\frac{1}{\\det(A)}$.",
+          "toastWrong": "Belum tepat — determinan harus paling awal agar kita tahu inversnya ada atau tidak, dan transpose dilakukan SETELAH kofaktor terbentuk."
+        },
+        {
+          "id": "q_03_06_b",
+          "input_type": "single_choice",
+          "prompt": "Matriks $A$ berordo $3\\times3$ memiliki $\\det(A) = 0$. Apakah mencari $\\text{Adj}(A)$ masih berguna jika tujuannya mencari $A^{-1}$?",
+          "options": [
+            {
+              "label": "Masih berguna, karena Adjoin tetap bisa dihitung"
+            },
+            {
+              "label": "Tidak berguna, karena $A^{-1}$ tidak ada — pembagian dengan $\\det = 0$ tidak terdefinisi"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Adjoin secara teknis tetap bisa dihitung, tetapi karena $\\frac{1}{0}$ tidak terdefinisi, $A^{-1}$ tidak ada. Jadi untuk tujuan mencari invers, prosesnya sia-sia — makanya determinan dicek paling awal.",
+          "toastWrong": "Belum tepat — memang Adjoin bisa dihitung, tapi ingat tujuan akhirnya: $A^{-1} = \\frac{1}{\\det(A)}\\text{Adj}(A)$. Dengan $\\det = 0$, langkah terakhir mustahil."
+        }
+      ]
+    },
+    {
+      "id": "persamaan_matriks",
+      "title": "Penyelesaian Persamaan Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Sekarang kita pakai invers untuk hal yang sangat praktis: mencari matriks $X$ yang belum diketahui. Karena tidak ada pembagian dan perkalian matriks tidak komutatif, **posisi invers sangat menentukan**."
+        },
+        {
+          "t": "def",
+          "title": "Dua Bentuk Kunci",
+          "x": "Bentuk $AX = B \\implies X = A^{-1}B$ (invers dikali dari **depan/kiri**). Bentuk $XA = B \\implies X = BA^{-1}$ (invers dikali dari **belakang/kanan**)."
+        },
+        {
+          "t": "p",
+          "x": "Kenapa posisinya harus konsisten di kedua ruas? Karena hanya dengan begitu $A^{-1}A = I$ bisa terbentuk bersebelahan lalu lenyap, menyisakan $X$ sendirian. Kalau $A^{-1}$ ditaruh di sisi yang salah, ia dan $A$ tidak akan pernah bertemu."
+        }
+      ],
+      "simulation": {
+        "engine": "matrix_equation",
+        "title": "Simulasi: Pertemukan Invers",
+        "brief": "Seret chip $A^{-1}$ ke sisi yang tepat pada kedua ruas hingga $A^{-1}A$ melebur jadi $I$.",
+        "config": {
+          "form": "AX=B",
+          "matrixA": [
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "matrixB": [
+            [
+              5
+            ],
+            [
+              3
+            ]
+          ],
+          "nameA": "A",
+          "nameB": "B"
+        },
+        "toasts": {
+          "wrongSide": "Belum bertemu — karena bentuknya $AX=B$, $A^{-1}$ harus dikalikan dari sisi KIRI (depan) pada kedua ruas agar bisa langsung bersebelahan dengan $A$.",
+          "oneSideOnly": "Kedua ruas harus dikalikan — persamaan harus tetap seimbang. Jatuhkan chip agar menempel di kedua sisi tanda sama dengan.",
+          "success": "Berhasil! $A^{-1}A$ melebur jadi $I$, dan $I$ tidak mengubah apa pun — jadi $X$ berdiri sendiri."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_03_07_a",
+          "input_type": "matrix_input",
+          "prompt": "Diketahui $AX = B$ dengan $A = \\begin{pmatrix} 2 & 1 \\\\ 1 & 1 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 5 \\\\ 3 \\end{pmatrix}$. Tentukan matriks $X$.",
+          "tex": null,
+          "rows": 2,
+          "cols": 1,
+          "answer": [
+            [
+              2
+            ],
+            [
+              1
+            ]
+          ],
+          "explanation": "$\\det(A) = 2-1 = 1$, sehingga $A^{-1} = \\begin{pmatrix} 1 & -1 \\\\ -1 & 2 \\end{pmatrix}$. Maka $X = A^{-1}B = \\begin{pmatrix} 5-3 \\\\ -5+6 \\end{pmatrix} = \\begin{pmatrix} 2 \\\\ 1 \\end{pmatrix}$.",
+          "toastWrong": "Belum tepat. Ingat urutannya untuk bentuk $AX=B$: hitung $A^{-1}$ dulu, lalu kalikan $A^{-1}B$ — dengan $A^{-1}$ di DEPAN."
+        },
+        {
+          "id": "q_03_07_b",
+          "input_type": "single_choice",
+          "prompt": "Untuk bentuk $XA = B$, mengapa menuliskan $X = A^{-1}B$ berpotensi salah?",
+          "options": [
+            {
+              "label": "Karena perkalian matriks tidak komutatif, sehingga $A^{-1}B \\ne BA^{-1}$ secara umum"
+            },
+            {
+              "label": "Karena $A^{-1}$ tidak ada pada bentuk $XA = B$"
+            },
+            {
+              "label": "Karena $B$ harus ditranspose lebih dulu"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "Pada $XA = B$, invers harus dikalikan dari kanan pada kedua ruas agar $AA^{-1}$ bertemu, menghasilkan $X = BA^{-1}$. Karena perkalian matriks tidak komutatif, $A^{-1}B$ umumnya memberi hasil yang berbeda.",
+          "toastWrong": "Belum tepat — $A^{-1}$ tetap ada selama $A$ non-singular, dan transpose tidak terlibat di sini. Kuncinya adalah sifat NON-KOMUTATIF perkalian matriks."
+        }
+      ]
+    }
+  ]
+}

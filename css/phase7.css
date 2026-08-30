@@ -1,0 +1,452 @@
+/* ============================================================
+   phase7.css — Tanpa-scroll ketat, identitas "gambar kerja",
+   dan perbaikan pergeseran tata letak.
+   Dimuat TERAKHIR agar bisa menimpa aturan sebelumnya.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. KERANGKA TANPA-SCROLL
+   Tinggi dibagi grid: header (auto) · layar (1fr) · footer (auto).
+   Hanya .scroll-area yang boleh menggulir.
+   ------------------------------------------------------------ */
+#app {
+  height: 100dvh;
+  max-height: 100dvh;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* Kolom DIKUNCI ke lebar wadah. Tanpa ini kolom grid otomatis melebar
+     mengikuti min-content anak terlebar (teks nowrap), sehingga di layar
+     sempit header dan isi terpotong diam-diam di sisi kanan. */
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+#app > * { min-width: 0; }
+
+.screen-host { min-height: 0; overflow: hidden; }
+
+.screen {
+  padding: var(--sp-4) var(--sp-5);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.container { min-height: 0; overflow: hidden; }
+
+/* Satu-satunya wadah yang boleh menggulir */
+.scroll-area,
+.workspace__body,
+.menu {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* ------------------------------------------------------------
+   2. FOOTER
+   ------------------------------------------------------------ */
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: 8px var(--sp-5);
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .02em;
+  color: var(--ink-500);
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+/* Tanda registrasi kecil khas lembar gambar teknik */
+.app-footer__mark {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1.5px solid var(--brand-primary-line);
+  border-radius: 50%;
+  position: relative;
+}
+
+.app-footer__mark::before,
+.app-footer__mark::after {
+  content: '';
+  position: absolute;
+  background: var(--brand-primary-line);
+}
+
+.app-footer__mark::before { left: 50%; top: -4px; bottom: -4px; width: 1px; transform: translateX(-50%); }
+.app-footer__mark::after { top: 50%; left: -4px; right: -4px; height: 1px; transform: translateY(-50%); }
+
+.app-footer__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ------------------------------------------------------------
+   3. IDENTITAS "GAMBAR KERJA"
+   Tanda registrasi sudut pada kartu utama — bukan gradien generik,
+   melainkan bahasa visual lembar cetak-biru.
+   ------------------------------------------------------------ */
+.content-card,
+.hero__panel,
+.quiz__card {
+  position: relative;
+}
+
+.content-card::before,
+.content-card::after,
+.hero__panel::after,
+.quiz__card::before {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: .55;
+}
+
+.content-card::before {
+  top: 10px; left: 10px;
+  border-top: 1.5px solid var(--brand-primary);
+  border-left: 1.5px solid var(--brand-primary);
+}
+
+.content-card::after {
+  bottom: 10px; right: 10px;
+  border-bottom: 1.5px solid var(--brand-primary);
+  border-right: 1.5px solid var(--brand-primary);
+}
+
+.quiz__card::before {
+  top: 10px; right: 10px;
+  border-top: 1.5px solid var(--accent-amber);
+  border-right: 1.5px solid var(--accent-amber);
+}
+
+.hero__panel::after {
+  bottom: 12px; left: 12px;
+  border-bottom: 1.5px solid var(--brand-primary);
+  border-left: 1.5px solid var(--brand-primary);
+  z-index: 1;
+}
+
+/* Ordo matriks digambar seperti garis dimensi pada gambar teknik */
+.matrix__ordo {
+  font-family: var(--font-mono);
+  letter-spacing: .06em;
+  padding-left: 10px;
+}
+
+.matrix__ordo::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  width: 7px;
+  height: 1px;
+  background: var(--ink-300);
+}
+
+/* Judul: Space Grotesk dengan tracking rapat, khas huruf teknis */
+h1, h2, h3, .workspace__title, .menu__title, .hero__title {
+  letter-spacing: -0.028em;
+}
+
+.workspace__eyebrow,
+.panel__label,
+.menu__eyebrow {
+  font-family: var(--font-mono);
+  letter-spacing: .12em;
+}
+
+/* ------------------------------------------------------------
+   4. ANTI-PERGESERAN TATA LETAK
+   ------------------------------------------------------------ */
+
+/* Banner sukses simulasi = OVERLAY, tidak menempati ruang aliran */
+.sim__done-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: var(--sp-3);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px var(--sp-4);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  border: 1px solid rgba(61, 214, 140, .40);
+  color: var(--success);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  box-shadow: var(--shadow-3);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.sim__done-overlay svg { width: 16px; height: 16px; flex: 0 0 16px; }
+
+/* Versi lama yang menyisip di aliran dokumen dimatikan */
+.sim__done-banner { display: none !important; }
+
+/* Wadah pesan bertinggi tetap */
+.reserved-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Panggung punya tinggi minimum stabil supaya isinya boleh berganti
+   tanpa membuat kartu di sekitarnya ikut mengembang-mengempis. */
+.stage {
+  min-height: clamp(200px, 34vh, 320px);
+  justify-content: center;
+}
+
+/* Papan kerja + tombol konfirmasi: tinggi dipesan sejak awal */
+.workstrip-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  width: 100%;
+  min-height: 62px;
+}
+
+.workstrip__confirm[hidden] { display: none; }
+
+/* Bilah aksi tidak pernah berubah tinggi */
+.actionbar { min-height: 68px; }
+
+/* ------------------------------------------------------------
+   5. SEL YANG SEDANG DIBANGUN (perkalian langkah demi langkah)
+   ------------------------------------------------------------ */
+.cell--invite {
+  border-style: dashed;
+  border-color: var(--accent-amber);
+  animation: hlPulseAmber 2s var(--ease-out) infinite;
+}
+
+.cell--building {
+  min-width: 108px;
+  background: var(--accent-amber-soft);
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+.cell__expr {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.cell--resolving { animation: resolveCell 420ms var(--ease-out) both; }
+
+@keyframes resolveCell {
+  0%   { transform: scale(1); }
+  55%  { transform: scale(.82); filter: blur(1px); }
+  100% { transform: scale(1); filter: blur(0); }
+}
+
+.cell--fraction { font-size: var(--fs-sm); }
+
+/* ------------------------------------------------------------
+   7. MATHPAD — papan huruf untuk variabel
+   ------------------------------------------------------------ */
+.mathpad__letters {
+  display: none;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-top: var(--sp-3);
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.mathpad[data-mode="letter"] .mathpad__letters { display: grid; }
+.mathpad[data-mode="letter"] .mathpad__grid { display: none; }
+.mathpad[data-mode="letter"] .mathpad__fraction { display: none; }
+
+.mp-letter {
+  min-height: 38px;
+  border-radius: var(--r-xs);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink-900);
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.mp-letter:hover { background: var(--brand-primary-soft); border-color: var(--brand-primary); color: var(--brand-primary); }
+.mp-letter:active { transform: scale(.92); }
+.mp-letter--case { background: var(--brand-primary-soft); border-color: var(--brand-primary-line); color: var(--brand-primary); }
+
+/* Kedipan saat menabrak batas dua digit */
+.mathpad__preview.is-limit {
+  animation: limitFlash 420ms var(--ease-out);
+}
+
+@keyframes limitFlash {
+  0%, 100% { color: var(--ink-900); }
+  40%      { color: var(--danger); transform: translateX(-3px); }
+  70%      { transform: translateX(3px); }
+}
+
+/* ------------------------------------------------------------
+   8. BERSIHKAN ARTEFAK UI
+   Carousel materi tidak boleh memunculkan scrollbar/panah liar.
+   ------------------------------------------------------------ */
+.materi-carousel,
+.materi-carousel__viewport,
+.materi-carousel__track,
+.materi-carousel__slide {
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.materi-carousel ::-webkit-scrollbar,
+.materi-carousel__viewport::-webkit-scrollbar,
+.materi-carousel__slide::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+.materi-carousel__figure { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.materi-carousel__figure::-webkit-scrollbar { display: none; }
+.materi-carousel__figure .katex-display { margin: var(--sp-2) 0; overflow: visible; }
+
+/* ------------------------------------------------------------
+   9. PORTRAIT PONSEL — muat tanpa scroll
+   Skala turun bertahap sesuai tinggi layar, bukan memaksa scroll.
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+  .screen { padding: var(--sp-3); }
+  .app-footer { font-size: 10px; padding: 6px var(--sp-3); }
+  .app-footer__mark { display: none; }
+
+  .stage { min-height: clamp(160px, 30vh, 260px); padding: var(--sp-3); }
+}
+
+/* Portrait pendek: rapatkan agar simulasi tetap satu layar */
+@media (max-width: 768px) and (max-height: 780px) {
+  .sim { gap: var(--sp-2); }
+  .sim__brief { display: none; }
+  .color-legend { font-size: 10px; padding: 4px var(--sp-2); gap: var(--sp-2); }
+  .sim__prompt { min-height: 44px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); }
+  .cell { min-width: 42px; min-height: 40px; font-size: var(--fs-sm); }
+  .cell--building { min-width: 86px; }
+  .op-glyph { min-width: 28px; height: 28px; font-size: var(--fs-sm); }
+  .stage { min-height: 0; gap: var(--sp-2); }
+  .stage__row--equation { gap: var(--sp-2); }
+  .workstrip-row { min-height: 52px; }
+  .workstrip { font-size: var(--fs-sm); min-height: 46px; padding: var(--sp-2) var(--sp-3); }
+  .actionbar { min-height: 58px; padding: var(--sp-2); }
+  .content-card { padding: var(--sp-3); }
+  .slider__nav { padding-top: var(--sp-2); margin-top: var(--sp-2); }
+}
+
+/* Layar sangat pendek (landscape ponsel): kecilkan lagi */
+@media (max-height: 520px) {
+  .sim__brief, .color-legend { display: none; }
+  .cell { min-width: 38px; min-height: 34px; font-size: var(--fs-xs); }
+  .stage { min-height: 0; padding: var(--sp-2); }
+  .app-footer { display: none; }
+}
+
+/* ------------------------------------------------------------
+   10. SENTUHAN AKHIR
+   ------------------------------------------------------------ */
+
+/* Header: garis aksen tipis di bawah, seperti tepi lembar gambar */
+.app-header {
+  border-bottom: 1px solid var(--border-soft);
+  box-shadow: 0 1px 0 rgba(77, 141, 255, .10);
+}
+
+/* Kartu mode di menu utama: nomor lembar kecil di sudut */
+.mode-card::after {
+  content: attr(data-sheet);
+  position: absolute;
+  bottom: 10px; right: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--ink-300);
+  opacity: .6;
+}
+
+/* ------------------------------------------------------------
+   11. BILAH AKSI DI LUAR AREA SCROLL
+   Aksi utama harus selalu terlihat tanpa menggulir apa pun.
+   ------------------------------------------------------------ */
+.workspace {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.workspace__actions { flex: 0 0 auto; }
+.workspace__actions:empty { display: none; }
+.workspace__actions .actionbar { margin-top: 0; }
+
+/* ------------------------------------------------------------
+   12. TEKS PANJANG TIDAK BOLEH MELEBARKAN TATA LETAK
+   ------------------------------------------------------------ */
+.workspace__eyebrow,
+.menu__eyebrow,
+.workspace__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header,
+.workspace__bar,
+.header-actions { min-width: 0; }
+
+.brand { min-width: 0; }
+.brand__text { min-width: 0; overflow: hidden; }
+.brand__title,
+.brand__sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-actions { flex: 0 0 auto; }
+
+/* Di layar sangat sempit, subjudul header disembunyikan alih-alih memaksa
+   header melebar melewati viewport. */
+@media (max-width: 560px) {
+  .brand__sub { display: none; }
+
+  /* Hak cipta harus terbaca UTUH — di layar sempit ia membungkus
+     ke dua baris, tidak pernah dipotong elipsis. */
+  .app-footer {
+    font-size: 10px;
+    padding-inline: var(--sp-3);
+    line-height: 1.35;
+  }
+  .app-footer__mark { display: none; }
+  .app-footer__text { white-space: normal; overflow: visible; text-overflow: clip; }
+}
+
+/* Lapisan MathML KaTeX hanya untuk pembaca layar — ia tidak boleh ikut
+   diukur dan melebarkan tata letak di layar sempit. */
+.katex-mathml {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+}
+
+/* Rumus lebar menggulir di dalam wadahnya sendiri, bukan mendorong halaman */
+.katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 2px;
+}

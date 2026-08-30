@@ -1,0 +1,654 @@
+{
+  "id": "01_konsep_dasar",
+  "title": "Konsep Dasar Matriks",
+  "subtopics": [
+    {
+      "id": "pengertian_letak",
+      "title": "Pengertian Matriks & Letak Baris/Kolom",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Coba bayangkan denah tempat duduk di kelasmu. Meja-meja tersusun rapi: ada yang berjajar **ke samping**, ada yang berjajar **ke belakang**."
+        },
+        {
+          "t": "def",
+          "title": "Baris dan Kolom",
+          "x": "**Baris** = deretan meja yang berjajar ke samping (kiri–kanan). **Kolom** = deretan meja yang berjajar ke belakang (depan–belakang)."
+        },
+        {
+          "t": "p",
+          "x": "Sekarang ganti setiap murid dengan sebuah angka. Susunan angka yang rapi dalam baris dan kolom itulah yang disebut **matriks**."
+        },
+        {
+          "t": "tex",
+          "x": "A = \\begin{pmatrix} 5 & -2 & 8 \\\\ 0 & 7 & 1 \\end{pmatrix}"
+        },
+        {
+          "t": "p",
+          "x": "Matriks di atas seperti kelas dengan **2 baris** dan **3 kolom** — total 6 meja, 6 angka."
+        },
+        {
+          "t": "def",
+          "title": "Alamat Tempat Duduk",
+          "x": "Setiap angka disebut **elemen**, dan punya alamat $a_{ij}$: $i$ = baris ke berapa, $j$ = kolom ke berapa. Selalu **baris dulu, baru kolom**."
+        },
+        {
+          "t": "tip",
+          "title": "Cara Mengingat",
+          "x": "Kalau gurumu memanggil \"murid di baris 2, kolom 3\", kamu langsung tahu siapa yang dimaksud. Begitu juga $a_{23}$ — turun ke baris ke-2, lalu geser ke kolom ke-3."
+        }
+      ],
+      "simulation": {
+        "engine": "identify_element",
+        "title": "Simulasi: Baca Alamat Tempat Duduk",
+        "brief": "Kenali baris, kolom, dan alamat elemen — seperti membaca denah kelas. Label bisa diseret atau diketuk.",
+        "config": {
+          "matrix": [
+            [
+              5,
+              -2,
+              8
+            ],
+            [
+              0,
+              7,
+              1
+            ]
+          ],
+          "name": "A",
+          "steps": [
+            {
+              "title": "Kenali baris",
+              "mode": "pick_row",
+              "target": 1,
+              "prompt": "Deretan yang **berwarna biru** ini baris ke berapa?",
+              "options": [
+                "Baris ke-1",
+                "Baris ke-2"
+              ],
+              "answerIndex": 0
+            },
+            {
+              "title": "Kenali kolom",
+              "mode": "pick_col",
+              "target": 3,
+              "prompt": "Deretan yang **berwarna oranye** ini kolom ke berapa?",
+              "options": [
+                "Kolom ke-1",
+                "Kolom ke-2",
+                "Kolom ke-3"
+              ],
+              "answerIndex": 2
+            },
+            {
+              "title": "Tempel alamat",
+              "mode": "drag_label",
+              "targetCell": [
+                2,
+                1
+              ],
+              "prompt": "Seret label alamat yang tepat ke meja yang berkedip.",
+              "labels": [
+                "a_{12}",
+                "a_{21}",
+                "a_{22}"
+              ],
+              "answerLabel": "a_{21}"
+            }
+          ]
+        },
+        "toasts": {
+          "wrongRow": "Belum tepat — baris dihitung dari ATAS ke bawah. Deretan biru tadi ada di paling atas, berarti baris ke-1.",
+          "wrongCol": "Belum tepat — kolom dihitung dari KIRI ke kanan. Deretan oranye tadi ada di paling kanan dari 3 kolom, berarti kolom ke-3.",
+          "wrongLabel": "Meja yang berkedip ada di baris 2, kolom 1 — jadi alamatnya $a_{21}$. Ingat: angka pertama selalu baris.",
+          "success": "Tepat! Alamat elemen selalu dibaca baris dulu, baru kolom."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_01_01_a",
+          "input_type": "mathpad",
+          "prompt": "Diketahui matriks $B$ berikut. Tentukan nilai dari $b_{13} + b_{22}$.",
+          "tex": "B = \\begin{pmatrix} 5 & -2 & 8 \\\\ 0 & 7 & 1 \\end{pmatrix}",
+          "answer": 15,
+          "explanation": "$b_{13} = 8$ (baris 1, kolom 3) dan $b_{22} = 7$ (baris 2, kolom 2), jadi $8 + 7 = 15$.",
+          "toastWrong": "Belum tepat. Cek lagi alamatnya: $b_{13}$ ada di baris 1 kolom 3, sedangkan $b_{22}$ di baris 2 kolom 2."
+        },
+        {
+          "id": "q_01_01_b",
+          "input_type": "single_choice",
+          "prompt": "Benar atau salah: pada notasi $a_{ij}$, angka $i$ menunjukkan letak kolom.",
+          "options": [
+            {
+              "label": "Benar"
+            },
+            {
+              "label": "Salah"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Salah. Pada $a_{ij}$, huruf $i$ menunjukkan **baris** dan $j$ menunjukkan **kolom**.",
+          "toastWrong": "Belum tepat — indeks pertama ($i$) selalu menunjuk BARIS, indeks kedua ($j$) menunjuk kolom."
+        }
+      ]
+    },
+    {
+      "id": "ordo_matriks",
+      "title": "Ordo Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Kalau ada yang bertanya \"kelasmu ukurannya berapa?\", kamu akan menjawab misalnya \"5 baris, 6 kolom\". Itulah **ordo**."
+        },
+        {
+          "t": "def",
+          "title": "Ordo",
+          "x": "Ordo ditulis $m \\times n$: $m$ = banyak baris, $n$ = banyak kolom. Dibaca \"$m$ kali $n$\", tapi ini **bukan** perkalian — hanya cara menyebut ukuran."
+        },
+        {
+          "t": "p",
+          "x": "Matriks $A$ tadi punya 2 baris dan 3 kolom, jadi ordonya $2 \\times 3$."
+        },
+        {
+          "t": "warn",
+          "title": "Jangan Tertukar",
+          "x": "Kelas dengan **2 baris 3 kolom** berbeda dengan kelas **3 baris 2 kolom** — sama-sama 6 meja, tapi bentuk ruangannya lain. Begitu juga $2\\times3$ dan $3\\times2$."
+        }
+      ],
+      "simulation": {
+        "engine": "ordo_builder",
+        "title": "Simulasi: Atur Ukuran Kelas",
+        "brief": "Geser slider baris dan kolom, lalu tekan Cek Ordo untuk memvalidasi.",
+        "config": {
+          "challenges": [
+            {
+              "rows": 3,
+              "cols": 2,
+              "prompt": "Bentuklah susunan berordo $3 \\times 2$ (3 baris, 2 kolom)."
+            },
+            {
+              "rows": 1,
+              "cols": 3,
+              "prompt": "Bentuklah susunan berordo $1 \\times 3$ — satu baris saja."
+            },
+            {
+              "rows": 3,
+              "cols": 3,
+              "prompt": "Bentuklah susunan persegi berordo $3 \\times 3$."
+            }
+          ]
+        },
+        "toasts": {
+          "wrongRows": "Banyak barisnya belum pas. Angka PERTAMA pada ordo menunjuk jumlah baris (deret ke samping, dihitung ke bawah).",
+          "wrongCols": "Banyak kolomnya belum pas. Angka KEDUA pada ordo menunjuk jumlah kolom (deret ke belakang, dihitung ke kanan).",
+          "success": "Pas! Ordo terbentuk dengan benar."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_01_02_a",
+          "input_type": "mathpad",
+          "prompt": "Sebuah matriks memiliki 4 baris dan 2 kolom. Berapa total elemennya?",
+          "tex": null,
+          "answer": 8,
+          "explanation": "Ordonya $4 \\times 2$, sehingga total elemennya $4 \\times 2 = 8$.",
+          "toastWrong": "Belum tepat. Total elemen = banyak baris dikali banyak kolom, yaitu $4 \\times 2$."
+        },
+        {
+          "id": "q_01_02_b",
+          "input_type": "single_choice",
+          "prompt": "Matriks $P$ berordo $3 \\times 3$ dan matriks $Q$ berordo $3 \\times 1$. Apakah ordonya sama?",
+          "options": [
+            {
+              "label": "Sama, karena barisnya sama-sama 3"
+            },
+            {
+              "label": "Tidak sama, karena banyak kolomnya berbeda"
+            },
+            {
+              "label": "Sama, karena keduanya matriks persegi"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Ordo dikatakan sama hanya jika **baris DAN kolom** keduanya cocok.",
+          "toastWrong": "Belum tepat — ordo sama menuntut baris DAN kolom keduanya cocok, bukan cuma salah satu."
+        }
+      ]
+    },
+    {
+      "id": "jenis_matriks",
+      "title": "Jenis-Jenis Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Beberapa susunan kelas punya nama khusus karena bentuknya sering muncul. Geser kartu di bawah untuk mengenalnya satu per satu."
+        },
+        {
+          "t": "carousel",
+          "title": "Kenali Enam Jenis Matriks",
+          "slides": [
+            {
+              "name": "Matriks Baris",
+              "tex": "B = \\begin{pmatrix} 2 & 4 & -1 \\end{pmatrix}",
+              "text": "Hanya punya **satu baris** — seperti kelas yang mejanya cuma satu deret ke samping. Ordonya $1 \\times n$."
+            },
+            {
+              "name": "Matriks Kolom",
+              "tex": "C = \\begin{pmatrix} 3 \\\\ 1 \\\\ 5 \\end{pmatrix}",
+              "text": "Hanya punya **satu kolom** — satu deret meja memanjang ke belakang. Ordonya $m \\times 1$."
+            },
+            {
+              "name": "Matriks Persegi",
+              "tex": "P = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix}",
+              "text": "Banyak baris **sama dengan** banyak kolom. Ini keluarga paling penting: **hanya matriks persegi yang punya determinan dan invers**."
+            },
+            {
+              "name": "Matriks Nol",
+              "tex": "O = \\begin{pmatrix} 0 & 0 \\\\ 0 & 0 \\end{pmatrix}",
+              "text": "Semua elemennya **nol** — kelas yang semua mejanya kosong. Perannya seperti angka 0 pada penjumlahan biasa."
+            },
+            {
+              "name": "Matriks Diagonal",
+              "tex": "D = \\begin{pmatrix} 4 & 0 & 0 \\\\ 0 & 9 & 0 \\\\ 0 & 0 & 2 \\end{pmatrix}",
+              "text": "Matriks persegi yang **hanya diagonal utamanya berisi**, sisanya nol. Diagonal utama = garis dari sudut kiri-atas ke kanan-bawah."
+            },
+            {
+              "name": "Matriks Identitas",
+              "tex": "I = \\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}",
+              "text": "Matriks diagonal yang seluruh diagonal utamanya bernilai **1**. Perannya seperti angka 1 pada perkalian: $A \\times I = A$."
+            }
+          ]
+        },
+        {
+          "t": "warn",
+          "title": "Boleh Lebih dari Satu",
+          "x": "Satu matriks bisa masuk **beberapa jenis sekaligus**. Matriks identitas, misalnya, sekaligus matriks diagonal DAN matriks persegi."
+        }
+      ],
+      "simulation": {
+        "engine": "label_matrix_types",
+        "title": "Simulasi: Tempel Label Jenis",
+        "brief": "Bawa SEMUA label jenis yang cocok ke matriks — seret, atau ketuk label lalu ketuk matriksnya.",
+        "config": {
+          "labelPool": [
+            {
+              "id": "baris",
+              "name": "Matriks Baris"
+            },
+            {
+              "id": "kolom",
+              "name": "Matriks Kolom"
+            },
+            {
+              "id": "persegi",
+              "name": "Matriks Persegi"
+            },
+            {
+              "id": "nol",
+              "name": "Matriks Nol"
+            },
+            {
+              "id": "diagonal",
+              "name": "Matriks Diagonal"
+            },
+            {
+              "id": "identitas",
+              "name": "Matriks Identitas"
+            }
+          ],
+          "cards": [
+            {
+              "matrix": [
+                [
+                  2,
+                  4,
+                  -1
+                ]
+              ],
+              "valid": [
+                "baris"
+              ]
+            },
+            {
+              "matrix": [
+                [
+                  4,
+                  0
+                ],
+                [
+                  0,
+                  9
+                ]
+              ],
+              "valid": [
+                "persegi",
+                "diagonal"
+              ]
+            },
+            {
+              "matrix": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  1
+                ]
+              ],
+              "valid": [
+                "persegi",
+                "diagonal",
+                "identitas"
+              ]
+            },
+            {
+              "matrix": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0
+                ]
+              ],
+              "valid": [
+                "persegi",
+                "diagonal",
+                "nol"
+              ]
+            },
+            {
+              "matrix": [
+                [
+                  3
+                ],
+                [
+                  1
+                ],
+                [
+                  5
+                ]
+              ],
+              "valid": [
+                "kolom"
+              ]
+            }
+          ],
+          "reasons": {
+            "baris": "wrongBaris",
+            "kolom": "wrongKolom",
+            "persegi": "wrongPersegi",
+            "nol": "wrongNol",
+            "diagonal": "wrongDiagonal",
+            "identitas": "wrongIdentitas"
+          }
+        },
+        "toasts": {
+          "wrongBaris": "Bukan Matriks Baris — jenis ini hanya boleh punya tepat SATU baris.",
+          "wrongKolom": "Bukan Matriks Kolom — jenis ini hanya boleh punya tepat SATU kolom.",
+          "wrongPersegi": "Bukan Matriks Persegi — banyak baris dan kolomnya harus sama.",
+          "wrongNol": "Bukan Matriks Nol — masih ada elemen yang nilainya bukan 0.",
+          "wrongDiagonal": "Bukan Matriks Diagonal — ada elemen di luar diagonal utama yang nilainya bukan nol.",
+          "wrongIdentitas": "Bukan Matriks Identitas — syaratnya diagonal utama bernilai 1 SEMUA dan sisanya nol.",
+          "wrongLabel": "Label ini tidak cocok untuk matriks tersebut.",
+          "success": "Hebat! Kamu sudah bisa mengenali semua jenis matriks."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_01_03_a",
+          "input_type": "single_choice",
+          "prompt": "Manakah yang **bukan** matriks diagonal?",
+          "options": [
+            {
+              "label": "(a)",
+              "tex": "\\begin{pmatrix} 4 & 0 \\\\ 0 & 9 \\end{pmatrix}"
+            },
+            {
+              "label": "(b)",
+              "tex": "\\begin{pmatrix} 1 & 0 \\\\ 2 & 5 \\end{pmatrix}"
+            },
+            {
+              "label": "(c)",
+              "tex": "\\begin{pmatrix} 0 & 0 & 0 \\\\ 0 & -3 & 0 \\\\ 0 & 0 & 6 \\end{pmatrix}"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Pilihan (b) punya elemen $a_{21} = 2$ di LUAR diagonal utama tapi nilainya bukan nol.",
+          "toastWrong": "Belum tepat — cek elemen di luar diagonal utama. Semuanya wajib nol agar disebut diagonal."
+        },
+        {
+          "id": "q_01_03_b",
+          "input_type": "multi_select",
+          "prompt": "Matriks $\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}$ termasuk jenis apa saja? Pilih **semua** yang benar.",
+          "options": [
+            {
+              "label": "Matriks Persegi"
+            },
+            {
+              "label": "Matriks Diagonal"
+            },
+            {
+              "label": "Matriks Identitas"
+            },
+            {
+              "label": "Matriks Nol"
+            }
+          ],
+          "answerIndices": [
+            0,
+            1,
+            2
+          ],
+          "perOptionFeedback": [
+            "Benar — barisnya 2, kolomnya 2, jadi persegi.",
+            "Benar — semua elemen di luar diagonal utama bernilai nol.",
+            "Benar — diagonal utamanya bernilai 1 semua.",
+            "Salah — matriks nol menuntut SELURUH elemennya 0, sedangkan di sini ada dua angka 1."
+          ],
+          "explanation": "Satu matriks memang bisa masuk beberapa jenis sekaligus — di sini persegi, diagonal, dan identitas.",
+          "toastWrong": "Ada pilihan yang belum tepat — perhatikan caption di bawah tiap pernyataan."
+        }
+      ]
+    },
+    {
+      "id": "transpose",
+      "title": "Transpose Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Bayangkan gurumu mengubah denah kelas: murid yang tadinya duduk berjajar **ke samping** disuruh berdiri berjajar **ke belakang**. Itulah **transpose**."
+        },
+        {
+          "t": "def",
+          "title": "Transpose",
+          "x": "Transpose matriks $A$, ditulis $A^T$, mengubah setiap **baris menjadi kolom**. Baris ke-1 berdiri menjadi kolom ke-1, baris ke-2 menjadi kolom ke-2, dan seterusnya."
+        },
+        {
+          "t": "tex",
+          "x": "A = \\begin{pmatrix} 1 & 4 & 7 \\\\ 2 & 5 & 8 \\end{pmatrix} \\implies A^T = \\begin{pmatrix} 1 & 2 \\\\ 4 & 5 \\\\ 7 & 8 \\end{pmatrix}"
+        },
+        {
+          "t": "p",
+          "x": "Kalau $A$ berordo $m \\times n$, maka $A^T$ berordo $n \\times m$ — ukurannya tertukar."
+        },
+        {
+          "t": "warn",
+          "title": "Bukan Dibalik!",
+          "x": "Transpose **bukan** mencerminkan atau membalik matriks. Urutan angka dalam satu baris tetap sama; baris itu hanya berpindah posisi menjadi kolom."
+        }
+      ],
+      "simulation": {
+        "engine": "transpose_morph",
+        "title": "Simulasi: Baris Berdiri Jadi Kolom",
+        "brief": "Setiap baris akan berputar 90° dan berdiri menjadi kolom pada matriks hasil.",
+        "config": {
+          "matrix": [
+            [
+              1,
+              4,
+              7
+            ],
+            [
+              2,
+              5,
+              8
+            ]
+          ],
+          "name": "A"
+        },
+        "toasts": {
+          "success": "Selesai! Setiap baris kini berdiri menjadi kolom, dan ordonya tertukar."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_01_04_a",
+          "input_type": "single_choice",
+          "prompt": "Diketahui $D = \\begin{pmatrix} 3 & 0 & -2 \\end{pmatrix}$. Manakah $D^T$ yang benar?",
+          "options": [
+            {
+              "label": "(a)",
+              "tex": "\\begin{pmatrix} 3 & 0 & -2 \\end{pmatrix}"
+            },
+            {
+              "label": "(b)",
+              "tex": "\\begin{pmatrix} 3 \\\\ 0 \\\\ -2 \\end{pmatrix}"
+            },
+            {
+              "label": "(c)",
+              "tex": "\\begin{pmatrix} -2 & 0 & 3 \\end{pmatrix}"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "$D$ berordo $1 \\times 3$, jadi $D^T$ berordo $3 \\times 1$ dengan urutan elemen tetap.",
+          "toastWrong": "Belum tepat — transpose menegakkan baris menjadi kolom, bukan membalik urutan elemen."
+        },
+        {
+          "id": "q_01_04_b",
+          "input_type": "single_choice",
+          "prompt": "Jika matriks $E$ berordo $4 \\times 2$, berapa ordo dari $(E^T)^T$?",
+          "options": [
+            {
+              "label": "$2 \\times 4$"
+            },
+            {
+              "label": "$4 \\times 2$"
+            },
+            {
+              "label": "$4 \\times 4$"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Transpose dua kali mengembalikan matriks ke bentuk asalnya, jadi ordonya kembali $4 \\times 2$.",
+          "toastWrong": "Belum tepat — transpose pertama membuatnya $2\\times4$, transpose kedua mengembalikannya lagi."
+        }
+      ]
+    },
+    {
+      "id": "kesamaan_matriks",
+      "title": "Kesamaan Dua Matriks",
+      "materi": [
+        {
+          "t": "p",
+          "x": "Dua kelas dikatakan \"identik\" kalau ukurannya sama DAN setiap meja diisi murid yang sama. Begitu juga dua matriks."
+        },
+        {
+          "t": "def",
+          "title": "Dua Syarat",
+          "x": "$A = B$ jika: (1) **ordonya sama**, DAN (2) **setiap elemen seletak bernilai sama**. Kalau salah satu gagal, keduanya tidak sama."
+        },
+        {
+          "t": "p",
+          "x": "Konsep ini dipakai untuk **mencari nilai variabel** yang tersembunyi di dalam matriks."
+        },
+        {
+          "t": "tex",
+          "x": "\\begin{pmatrix} x+1 & 5 \\\\ 2 & y \\end{pmatrix} = \\begin{pmatrix} 4 & 5 \\\\ 2 & 9 \\end{pmatrix} \\implies x = 3,\\ y = 9"
+        }
+      ],
+      "simulation": {
+        "engine": "equality_link",
+        "title": "Simulasi: Pasangkan Elemen Seletak",
+        "brief": "Ketuk elemen di matriks kiri, lalu ketuk pasangannya di kanan. Keduanya akan menyatu jadi sebuah persamaan yang kamu selesaikan sendiri.",
+        "config": {
+          "left": [
+            [
+              "p",
+              "6"
+            ],
+            [
+              "-3",
+              "2q"
+            ]
+          ],
+          "right": [
+            [
+              "7",
+              "6"
+            ],
+            [
+              "-3",
+              "10"
+            ]
+          ],
+          "variables": [
+            {
+              "cell": [
+                1,
+                1
+              ],
+              "symbol": "p",
+              "expr": "p",
+              "answer": 7
+            },
+            {
+              "cell": [
+                2,
+                2
+              ],
+              "symbol": "q",
+              "expr": "2q",
+              "answer": 5
+            }
+          ]
+        },
+        "toasts": {
+          "pickLeftFirst": "Mulai dari matriks KIRI. Ketuk dulu elemen di kiri, baru pasangannya di kanan akan bisa diketuk.",
+          "notAligned": "Bukan pasangan seletak — kamu menunjuk elemen baris {{ai}} kolom {{aj}} di kiri, tapi mengetuk baris {{bi}} kolom {{bj}} di kanan. Kesamaan matriks membandingkan elemen yang alamat baris-kolomnya identik.",
+          "wrongVariable": "Belum tepat. Persamaan yang barusan terbentuk adalah $ {{expr}} = {{rhs}} $ — selesaikan dulu, baru isikan nilai ${{symbol}}$-nya.",
+          "success": "Semua pasangan cocok — kedua matriks terbukti sama."
+        }
+      },
+      "quiz": [
+        {
+          "id": "q_01_05_a",
+          "input_type": "mathpad",
+          "prompt": "Tentukan nilai $p + q$ agar kedua matriks berikut sama.",
+          "tex": "\\begin{pmatrix} p & 6 \\\\ -3 & 2q \\end{pmatrix} = \\begin{pmatrix} 7 & 6 \\\\ -3 & 10 \\end{pmatrix}",
+          "answer": 12,
+          "explanation": "Dari elemen seletak: $p = 7$ dan $2q = 10 \\implies q = 5$. Jadi $p + q = 12$.",
+          "toastWrong": "Belum tepat. Bandingkan elemen seletak: $p$ dengan 7, lalu $2q$ dengan 10 — $q$ masih harus dibagi 2."
+        },
+        {
+          "id": "q_01_05_b",
+          "input_type": "single_choice",
+          "prompt": "Apakah $\\begin{pmatrix} 1 & 2 \\end{pmatrix}$ dan $\\begin{pmatrix} 1 \\\\ 2 \\end{pmatrix}$ sama?",
+          "options": [
+            {
+              "label": "Sama, karena elemennya sama-sama 1 dan 2"
+            },
+            {
+              "label": "Tidak sama, karena ordonya berbeda ($1\\times2$ vs $2\\times1$)"
+            }
+          ],
+          "answerIndex": 1,
+          "explanation": "Syarat pertama kesamaan adalah ordo yang sama. Di sini $1 \\times 2 \\ne 2 \\times 1$.",
+          "toastWrong": "Belum tepat — syarat PERTAMA adalah ordo identik. Elemen yang mirip tidak cukup."
+        }
+      ]
+    }
+  ]
+}

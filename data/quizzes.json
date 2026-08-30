@@ -1,0 +1,407 @@
+{
+  "schemaVersion": 1,
+  "modes": [
+    {
+      "id": "latihan_bab",
+      "label": "Latihan per Bab",
+      "description": "Soal terfokus dari satu bab untuk drilling."
+    },
+    {
+      "id": "simulasi_tka",
+      "label": "Simulasi TKA",
+      "description": "10 soal acak lintas-bab dengan format seperti ujian sesungguhnya."
+    }
+  ],
+  "banks": {
+    "01_konsep_dasar": [
+      {
+        "id": "b1_01",
+        "input_type": "mathpad",
+        "subtopic": "pengertian_letak",
+        "prompt": "Diketahui $M = \\begin{pmatrix} 3 & -1 & 5 \\\\ 2 & 0 & 4 \\\\ -6 & 7 & 1 \\end{pmatrix}$. Tentukan nilai $m_{31} + m_{13}$.",
+        "answer": -1,
+        "explanation": "$m_{31} = -6$ (baris 3, kolom 1) dan $m_{13} = 5$ (baris 1, kolom 3). Jadi $-6 + 5 = -1$.",
+        "toastWrong": "Belum tepat — jangan tertukar. $m_{31}$ artinya baris 3 kolom 1, sedangkan $m_{13}$ artinya baris 1 kolom 3."
+      },
+      {
+        "id": "b1_02",
+        "input_type": "single_choice",
+        "subtopic": "ordo_matriks",
+        "prompt": "Matriks $\\begin{pmatrix} 1 & 0 & 4 \\\\ 2 & 5 & -1 \\end{pmatrix}$ berordo ....",
+        "options": [
+          {
+            "label": "$3 \\times 2$"
+          },
+          {
+            "label": "$2 \\times 3$"
+          },
+          {
+            "label": "$6 \\times 1$"
+          }
+        ],
+        "answerIndex": 1,
+        "explanation": "Ada 2 baris dan 3 kolom, jadi ordonya $2 \\times 3$ (baris dulu, baru kolom).",
+        "toastWrong": "Belum tepat — hitung dulu barisnya (susunan ke bawah), lalu kolomnya. Ordo selalu ditulis baris × kolom."
+      },
+      {
+        "id": "b1_03",
+        "input_type": "multi_select",
+        "subtopic": "jenis_matriks",
+        "prompt": "Pilih **semua** pernyataan yang benar tentang matriks identitas $I$.",
+        "options": [
+          {
+            "label": "$I$ selalu berbentuk matriks persegi."
+          },
+          {
+            "label": "$I$ juga termasuk matriks diagonal."
+          },
+          {
+            "label": "Semua elemen $I$ bernilai 1."
+          },
+          {
+            "label": "$A \\times I = A$ untuk matriks persegi $A$ berordo sama."
+          }
+        ],
+        "answerIndices": [
+          0,
+          1,
+          3
+        ],
+        "perOptionFeedback": [
+          "Benar — identitas selalu persegi.",
+          "Benar — identitas adalah bentuk khusus matriks diagonal.",
+          "Salah — hanya elemen DIAGONAL UTAMA yang bernilai 1; sisanya bernilai 0.",
+          "Benar — inilah sifat identitas perkalian."
+        ],
+        "explanation": "Pernyataan 1, 2, dan 4 benar. Pernyataan 3 keliru karena elemen di luar diagonal utama bernilai nol, bukan satu.",
+        "toastWrong": "Ada pilihan yang belum tepat — perhatikan caption di bawah tiap pernyataan."
+      },
+      {
+        "id": "b1_04",
+        "input_type": "matrix_input",
+        "subtopic": "transpose",
+        "prompt": "Tentukan $P^T$ jika $P = \\begin{pmatrix} 2 & -5 \\\\ 0 & 3 \\\\ 1 & 4 \\end{pmatrix}$.",
+        "rows": 2,
+        "cols": 3,
+        "answer": [
+          [
+            2,
+            0,
+            1
+          ],
+          [
+            -5,
+            3,
+            4
+          ]
+        ],
+        "explanation": "$P$ berordo $3\\times2$, jadi $P^T$ berordo $2\\times3$. Kolom pertama $P$ (2, 0, 1) menjadi baris pertama $P^T$.",
+        "toastWrong": "Belum tepat — ambil tiap KOLOM dari $P$ dan tuliskan sebagai BARIS pada $P^T$. Ordonya juga ikut tertukar menjadi $2\\times3$."
+      },
+      {
+        "id": "b1_05",
+        "input_type": "mathpad",
+        "subtopic": "kesamaan_matriks",
+        "prompt": "Tentukan nilai $a$ jika $\\begin{pmatrix} 3a & 1 \\\\ 4 & 2 \\end{pmatrix} = \\begin{pmatrix} 12 & 1 \\\\ 4 & 2 \\end{pmatrix}$.",
+        "answer": 4,
+        "explanation": "Dari elemen seletak $a_{11}$: $3a = 12 \\implies a = 4$.",
+        "toastWrong": "Belum tepat — bandingkan elemen di posisi baris 1 kolom 1: $3a$ harus sama dengan $12$, jadi $a$ masih perlu dibagi 3."
+      }
+    ],
+    "02_operasi_aljabar": [
+      {
+        "id": "b2_01",
+        "input_type": "matrix_input",
+        "subtopic": "penjumlahan_pengurangan",
+        "prompt": "Tentukan $A + B$ jika $A = \\begin{pmatrix} 2 & -1 \\\\ 0 & 4 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 3 & 5 \\\\ -2 & 1 \\end{pmatrix}$.",
+        "rows": 2,
+        "cols": 2,
+        "answer": [
+          [
+            5,
+            4
+          ],
+          [
+            -2,
+            5
+          ]
+        ],
+        "explanation": "Jumlahkan elemen seletak: $2+3=5$, $-1+5=4$, $0+(-2)=-2$, $4+1=5$.",
+        "toastWrong": "Ada sel yang belum tepat. Jumlahkan hanya elemen yang SELETAK (alamat baris-kolomnya sama)."
+      },
+      {
+        "id": "b2_02",
+        "input_type": "matrix_input",
+        "subtopic": "perkalian_skalar",
+        "prompt": "Tentukan $3A$ jika $A = \\begin{pmatrix} 1 & -2 \\\\ 4 & 0 \\end{pmatrix}$.",
+        "rows": 2,
+        "cols": 2,
+        "answer": [
+          [
+            3,
+            -6
+          ],
+          [
+            12,
+            0
+          ]
+        ],
+        "explanation": "Kalikan setiap elemen dengan 3: $3, -6, 12, 0$.",
+        "toastWrong": "Ada sel yang belum tepat — SETIAP elemen harus dikali 3, termasuk yang bernilai nol dan yang negatif."
+      },
+      {
+        "id": "b2_03",
+        "input_type": "matrix_input",
+        "subtopic": "perkalian_matriks",
+        "prompt": "Tentukan $A \\times B$ jika $A = \\begin{pmatrix} 1 & 2 \\\\ 3 & 0 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 2 & 1 \\\\ 1 & 4 \\end{pmatrix}$.",
+        "rows": 2,
+        "cols": 2,
+        "answer": [
+          [
+            4,
+            9
+          ],
+          [
+            6,
+            3
+          ]
+        ],
+        "explanation": "$c_{11}=1(2)+2(1)=4$; $c_{12}=1(1)+2(4)=9$; $c_{21}=3(2)+0(1)=6$; $c_{22}=3(1)+0(4)=3$.",
+        "toastWrong": "Belum tepat. Untuk tiap sel hasil: ambil BARIS dari A dan KOLOM dari B, kalikan sejajar, lalu JUMLAHKAN hasilnya."
+      },
+      {
+        "id": "b2_04",
+        "input_type": "single_choice",
+        "subtopic": "perkalian_matriks",
+        "prompt": "Matriks $A$ berordo $2 \\times 5$ dan $B$ berordo $5 \\times 3$. Ordo dari $A \\times B$ adalah ....",
+        "options": [
+          {
+            "label": "$5 \\times 5$"
+          },
+          {
+            "label": "$2 \\times 3$"
+          },
+          {
+            "label": "$3 \\times 2$"
+          }
+        ],
+        "answerIndex": 1,
+        "explanation": "Angka tengah (5 dan 5) cocok, sehingga perkalian valid. Ordo hasil mengambil angka luar: $2 \\times 3$.",
+        "toastWrong": "Belum tepat — ordo hasil mengambil ANGKA LUAR: baris dari matriks pertama, kolom dari matriks kedua."
+      },
+      {
+        "id": "b2_05",
+        "input_type": "multi_select",
+        "subtopic": "sifat_operasi",
+        "prompt": "Pilih **semua** sifat operasi matriks yang berlaku secara umum.",
+        "options": [
+          {
+            "label": "$(A+B)+C = A+(B+C)$"
+          },
+          {
+            "label": "$A \\times B = B \\times A$"
+          },
+          {
+            "label": "$(A \\times B) \\times C = A \\times (B \\times C)$"
+          },
+          {
+            "label": "$(A \\times B)^T = B^T \\times A^T$"
+          }
+        ],
+        "answerIndices": [
+          0,
+          2,
+          3
+        ],
+        "perOptionFeedback": [
+          "Benar — penjumlahan matriks bersifat asosiatif.",
+          "Salah — perkalian matriks TIDAK komutatif secara umum.",
+          "Benar — perkalian matriks bersifat asosiatif (pengelompokan boleh digeser).",
+          "Benar — dan perhatikan urutannya memang harus dibalik."
+        ],
+        "explanation": "Hanya pernyataan 2 yang salah. Perkalian matriks asosiatif dan punya sifat transpose terbalik, tapi tidak komutatif.",
+        "toastWrong": "Ada pilihan yang belum tepat — ingat satu sifat besar yang TIDAK berlaku pada perkalian matriks."
+      }
+    ],
+    "03_determinan_invers": [
+      {
+        "id": "b3_01",
+        "input_type": "mathpad",
+        "subtopic": "determinan_2x2",
+        "prompt": "Tentukan determinan dari $\\begin{pmatrix} 7 & 3 \\\\ 2 & 4 \\end{pmatrix}$.",
+        "answer": 22,
+        "explanation": "$\\det = (7)(4) - (3)(2) = 28 - 6 = 22$.",
+        "toastWrong": "Belum tepat — gunakan $ad - bc$: diagonal utama $7 \\times 4$ dikurangi diagonal sekunder $3 \\times 2$."
+      },
+      {
+        "id": "b3_02",
+        "input_type": "mathpad",
+        "subtopic": "determinan_3x3",
+        "prompt": "Dengan Metode Sarrus, tentukan determinan dari $\\begin{pmatrix} 1 & 2 & 3 \\\\ 0 & 1 & 4 \\\\ 5 & 6 & 0 \\end{pmatrix}$.",
+        "answer": 1,
+        "explanation": "Diagonal turun: $(1)(1)(0)+(2)(4)(5)+(3)(0)(6) = 0+40+0 = 40$. Diagonal naik: $(5)(1)(3)+(6)(4)(1)+(0)(0)(2) = 15+24+0 = 39$. Jadi $\\det = 40-39 = 1$.",
+        "toastWrong": "Belum tepat. Salin kolom 1 dan 2 ke kanan dulu, lalu hitung 3 diagonal turun (dijumlah) dikurangi 3 diagonal naik."
+      },
+      {
+        "id": "b3_03",
+        "input_type": "mathpad",
+        "subtopic": "sifat_determinan",
+        "prompt": "Matriks $A$ berordo $3 \\times 3$ dengan $\\det(A) = 2$. Tentukan $\\det(2A)$.",
+        "answer": 16,
+        "explanation": "Gunakan $\\det(kA) = k^n \\det(A)$ dengan $n=3$: $\\det(2A) = 2^3 \\times 2 = 8 \\times 2 = 16$.",
+        "toastWrong": "Hati-hati jebakan klasik! Skalar dipangkatkan sesuai ORDO matriks. Untuk $3\\times3$, gunakan $2^3$, bukan $2$."
+      },
+      {
+        "id": "b3_04",
+        "input_type": "single_choice",
+        "subtopic": "invers_2x2",
+        "prompt": "Perhatikan matriks $F = \\begin{pmatrix} 2 & 0 \\\\ 0 & \\frac{1}{2} \\end{pmatrix}$. Invers dari matriks $F$ adalah ....",
+        "options": [
+          {
+            "label": "(a)",
+            "tex": "\\begin{pmatrix} 1 & 0 \\\\ 0 & 2 \\end{pmatrix}"
+          },
+          {
+            "label": "(b)",
+            "tex": "\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}"
+          },
+          {
+            "label": "(c)",
+            "tex": "\\begin{pmatrix} 2 & 0 \\\\ 0 & 1 \\end{pmatrix}"
+          },
+          {
+            "label": "(d)",
+            "tex": "\\begin{pmatrix} -\\frac{1}{2} & 0 \\\\ 0 & -2 \\end{pmatrix}"
+          }
+        ],
+        "answerIndex": 1,
+        "source": "Soal asli TKA Matematika Lanjut 2025",
+        "explanation": "$\\det(F) = (2)(\\frac{1}{2}) - 0 = 1$. Tukar diagonal utama: $\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}$, lalu kalikan $\\frac{1}{1}$ sehingga tidak berubah.",
+        "toastWrong": "Belum tepat. Hitung $\\det(F) = 1$, lalu TUKAR posisi kedua elemen diagonal utama. Karena determinannya 1, tidak ada pembagian maupun perubahan tanda."
+      },
+      {
+        "id": "b3_05",
+        "input_type": "matrix_input",
+        "subtopic": "invers_2x2",
+        "prompt": "Tentukan invers dari $A = \\begin{pmatrix} 4 & 3 \\\\ 1 & 1 \\end{pmatrix}$.",
+        "rows": 2,
+        "cols": 2,
+        "answer": [
+          [
+            1,
+            -3
+          ],
+          [
+            -1,
+            4
+          ]
+        ],
+        "explanation": "$\\det(A) = 4-3 = 1$. Tukar diagonal utama dan balik tanda diagonal sekunder: $\\begin{pmatrix} 1 & -3 \\\\ -1 & 4 \\end{pmatrix}$.",
+        "toastWrong": "Belum tepat. Urutannya: hitung $\\det = 4(1)-3(1) = 1$, tukar $4$ dengan $1$, balik tanda $3$ dan $1$, lalu kali $\\frac{1}{1}$."
+      },
+      {
+        "id": "b3_06",
+        "input_type": "mathpad",
+        "subtopic": "singular_nonsingular",
+        "prompt": "Tentukan nilai $x$ agar $\\begin{pmatrix} x & 2 \\\\ 8 & 4 \\end{pmatrix}$ menjadi matriks singular.",
+        "answer": 4,
+        "explanation": "Singular berarti $\\det = 0$: $4x - 16 = 0 \\implies x = 4$.",
+        "toastWrong": "Belum tepat — singular berarti determinannya HARUS nol. Susun $(x)(4) - (2)(8) = 0$ lalu selesaikan."
+      }
+    ],
+    "04_pemodelan_tka": [
+      {
+        "id": "b4_01",
+        "input_type": "mathpad",
+        "subtopic": "spldv_matriks",
+        "prompt": "Diketahui sistem $2x + y = 11$ dan $x + y = 7$. Dengan metode matriks, tentukan nilai $x$.",
+        "tex": "\\begin{pmatrix} 2 & 1 \\\\ 1 & 1 \\end{pmatrix}\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} 11 \\\\ 7 \\end{pmatrix}",
+        "answer": 4,
+        "explanation": "$\\det(A) = 2-1 = 1$, $A^{-1} = \\begin{pmatrix} 1 & -1 \\\\ -1 & 2 \\end{pmatrix}$. Maka $x = 1(11) - 1(7) = 4$.",
+        "toastWrong": "Belum tepat. Hitung $A^{-1}$ dulu (determinannya 1), lalu kerjakan $X = A^{-1}B$ dengan invers di DEPAN."
+      },
+      {
+        "id": "b4_02",
+        "input_type": "mathpad",
+        "subtopic": "translasi_data",
+        "prompt": "Sebuah pabrik memerlukan bahan per botol: wedang jahe 20 g jahe, beras kencur 10 g jahe, kunir asem 12 g jahe. Jika pesanan berturut-turut 100, 120, dan 80 botol, berapa gram jahe yang dibutuhkan seluruhnya?",
+        "answer": 4160,
+        "source": "Diadaptasi dari pola soal TKA Matematika Lanjut 2025",
+        "explanation": "Kalikan kebutuhan per botol dengan jumlah pesanan lalu jumlahkan: $20(100) + 10(120) + 12(80) = 2000 + 1200 + 960 = 4160$ gram.",
+        "toastWrong": "Belum tepat — ini pola \"koefisien × kuantitas\". Kalikan tiap kebutuhan per botol dengan jumlah pesanannya, LALU jumlahkan ketiganya."
+      },
+      {
+        "id": "b4_03",
+        "input_type": "multi_select",
+        "subtopic": "analisis_multi_kondisi",
+        "prompt": "Pendapatan tiga cabang toko dalam sehari: Cabang A = Rp2.400.000, Cabang B = Rp2.400.000, Cabang C = Rp3.100.000. Pilih **semua** pernyataan yang benar.",
+        "options": [
+          {
+            "label": "Pendapatan Cabang A dan Cabang B sama besar."
+          },
+          {
+            "label": "Pendapatan paling besar diperoleh dari Cabang C."
+          },
+          {
+            "label": "Total pendapatan ketiga cabang lebih dari Rp8.000.000."
+          },
+          {
+            "label": "Selisih pendapatan Cabang C dan Cabang A adalah Rp700.000."
+          }
+        ],
+        "answerIndices": [
+          0,
+          1,
+          3
+        ],
+        "perOptionFeedback": [
+          "Benar — keduanya sama-sama Rp2.400.000.",
+          "Benar — Rp3.100.000 adalah nilai tertinggi.",
+          "Salah — totalnya Rp7.900.000, yang justru KURANG dari Rp8.000.000.",
+          "Benar — Rp3.100.000 − Rp2.400.000 = Rp700.000."
+        ],
+        "explanation": "Pernyataan 1, 2, dan 4 benar. Hanya pernyataan 3 yang salah karena totalnya Rp7.900.000.",
+        "toastWrong": "Ada pilihan yang belum tepat — hitung ulang totalnya dengan teliti, dan cek caption di bawah tiap pernyataan."
+      },
+      {
+        "id": "b4_04",
+        "input_type": "single_choice",
+        "subtopic": "spltv_matriks",
+        "prompt": "Sistem $\\begin{cases} x + y + z = 6 \\\\ 2x + y = 5 \\\\ y + 3z = 11 \\end{cases}$ ditulis sebagai $AX = B$. Matriks koefisien $A$ yang benar adalah ....",
+        "options": [
+          {
+            "label": "(a)",
+            "tex": "\\begin{pmatrix} 1 & 1 & 1 \\\\ 2 & 1 & 0 \\\\ 0 & 1 & 3 \\end{pmatrix}"
+          },
+          {
+            "label": "(b)",
+            "tex": "\\begin{pmatrix} 1 & 1 & 1 \\\\ 2 & 1 & 1 \\\\ 1 & 1 & 3 \\end{pmatrix}"
+          },
+          {
+            "label": "(c)",
+            "tex": "\\begin{pmatrix} 6 & 5 & 11 \\\\ 1 & 1 & 1 \\\\ 2 & 1 & 3 \\end{pmatrix}"
+          }
+        ],
+        "answerIndex": 0,
+        "explanation": "Variabel yang tidak muncul diberi koefisien **0**, bukan 1. Persamaan kedua tidak memuat $z$ (koefisien 0), dan persamaan ketiga tidak memuat $x$ (koefisien 0).",
+        "toastWrong": "Belum tepat — perhatikan variabel yang TIDAK muncul di sebuah persamaan. Koefisiennya adalah 0, bukan 1, dan konstanta tidak masuk ke matriks $A$."
+      }
+    ]
+  },
+  "tkaSimulation": {
+    "questionCount": 10,
+    "timerSeconds": 900,
+    "drawFrom": [
+      "01_konsep_dasar",
+      "02_operasi_aljabar",
+      "03_determinan_invers",
+      "04_pemodelan_tka"
+    ],
+    "weight": {
+      "01_konsep_dasar": 2,
+      "02_operasi_aljabar": 3,
+      "03_determinan_invers": 3,
+      "04_pemodelan_tka": 2
+    }
+  }
+}

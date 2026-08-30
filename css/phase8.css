@@ -1,0 +1,627 @@
+/* ============================================================
+   phase8.css — Densitas lanskap/potret, komponen baru Fase 8,
+   dan penambal pergeseran tata letak yang tersisa.
+   Dimuat SETELAH phase7.css, jadi ia yang berkata terakhir.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. SUBJUDUL MENU UTAMA
+   Kalimatnya kini pendek satu baris, jadi tidak ada lagi alasan
+   menyembunyikannya di layar pendek seperti aturan lama.
+   ------------------------------------------------------------ */
+.menu__lead {
+  display: block;
+  max-width: 62ch;
+  font-size: var(--fs-md);
+  color: var(--ink-500);
+}
+
+/* ------------------------------------------------------------
+   2. PANEL VONIS (singular / non-singular)
+   Dibangun sebagai node DOM, bukan string HTML — lihat komentar di
+   simDetInv.js. Gaya sebarisnya dipindah ke sini.
+   ------------------------------------------------------------ */
+.verdict-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  max-width: 560px;
+  text-align: left;
+}
+
+.verdict-panel--danger { border-color: var(--danger); background: var(--danger-soft); }
+.verdict-panel--success { border-color: var(--success); background: var(--success-soft); }
+
+.verdict-panel__icon { display: grid; place-items: center; flex: 0 0 auto; }
+.verdict-panel--danger .verdict-panel__icon { color: var(--danger); }
+.verdict-panel--success .verdict-panel__icon { color: var(--success); }
+
+.verdict-panel__body { min-width: 0; display: grid; gap: 2px; }
+.verdict-panel__head { font-size: var(--fs-base); }
+
+/* Wadah vonis bertinggi tetap — isinya boleh berganti tanpa mendorong
+   apa pun yang berada di atasnya. */
+.reserved-slot--verdict {
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------
+   3. HASIL SIFAT DETERMINAN
+   Dipusatkan sempurna (horizontal + vertikal) dan hurufnya dinaikkan
+   agar terbaca dari bangku belakang.
+   ------------------------------------------------------------ */
+.rule-result {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: center;
+}
+
+.rule-result__tex { font-size: var(--fs-md); }
+.rule-result__work { font-size: var(--fs-md); line-height: 1.5; }
+
+.rule-result__answer {
+  font-size: var(--fs-md);
+  padding: 6px var(--sp-4);
+  font-weight: 800;
+}
+
+/* Area kerjanya sendiri ikut memusatkan isinya. */
+.dropzone[data-filled="true"] {
+  display: grid;
+  place-items: center;
+}
+
+/* ------------------------------------------------------------
+   4. RUANG PEMBAHASAN KUIS
+   Dipesan sejak soal dirender. Pembahasan panjang menggulir DI DALAM
+   kotaknya sendiri, tidak pernah memanjangkan kartu soal.
+   ------------------------------------------------------------ */
+.quiz__feedback {
+  min-height: 96px;
+  max-height: min(34vh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.quiz__feedback:empty { min-height: 96px; }
+.quiz__feedback .explain { margin-top: var(--sp-3); }
+
+/* ------------------------------------------------------------
+   5. LAYAR "SUB-TOPIK SELESAI"
+   Memakai seluruh ruang yang tersisa dan terpusat sempurna di kedua
+   sumbu — versi lama tampil kecil dan melenceng di lanskap.
+   ------------------------------------------------------------ */
+.lesson-done {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 100%;
+  height: 100%;
+  gap: var(--sp-3);
+}
+
+.lesson-done__card {
+  display: grid;
+  place-items: center;
+
+  /* `justify-self` WAJIB eksplisit. Item grid yang punya max-width dengan
+     perataan bawaan `stretch` jatuh kembali ke `start`, sehingga margin
+     auto-nya diabaikan dan kartu menempel ke kiri. */
+  justify-self: center;
+  align-self: stretch;
+
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  min-height: 0;
+  text-align: center;
+}
+
+.lesson-done__inner {
+  display: grid;
+  place-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.lesson-done__icon { color: var(--success); line-height: 0; }
+.lesson-done__icon svg { width: 46px; height: 46px; }
+
+.lesson-done__title { font-size: var(--fs-xl); margin: 0; }
+.lesson-done__score { margin: 0; font-size: var(--fs-md); }
+
+/* ------------------------------------------------------------
+   6. CAROUSEL JENIS MATRIKS
+   Gambar contohnya tidak boleh pernah dikempiskan oleh flexbox saat
+   tinggi layar terbatas — inilah sebab ia terlihat "hilang".
+   ------------------------------------------------------------ */
+.materi-carousel__slide { justify-content: center; }
+
+.materi-carousel__figure {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+}
+
+.materi-carousel__figure .katex-display { margin: 0; }
+
+/* ------------------------------------------------------------
+   6b. MEKANIK KETUK-KETUK (Fase 8)
+   Menyeret elemen kecil di layar sentuh terlalu sering meleset, dan setiap
+   meleset terasa seperti kesalahan matematika padahal murni motorik.
+   Interaksi presisi tinggi kini dikerjakan dengan ketukan.
+   ------------------------------------------------------------ */
+.cell--tappable { cursor: pointer; }
+
+.cell--tappable:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* Sel yang sudah diketuk dan sedang menunggu pasangannya. */
+.cell--picked {
+  border-color: var(--accent-amber);
+  background: var(--accent-amber-soft);
+  color: var(--accent-amber);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-amber) 45%, transparent);
+  transform: scale(1.04);
+}
+
+/* Sel yang sengaja dinonaktifkan selama satu urutan berjalan. Diredupkan,
+   BUKAN disembunyikan — siswa tetap melihat konteks matriksnya. */
+.cell--muted {
+  opacity: .28;
+  pointer-events: none;
+  filter: saturate(.4);
+}
+
+/* ------------------------------------------------------------
+   6c. PANEL PERSAMAAN (kesamaan matriks)
+   Aplikasi hanya menyusun persamaannya; menyelesaikannya pekerjaan siswa.
+   ------------------------------------------------------------ */
+.equation-panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 520px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-2);
+  text-align: center;
+}
+
+.equation-panel__line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+}
+
+.equation-panel__slot {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.equation-panel__verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.equation-panel__verdict--ok { color: var(--success); }
+.equation-panel__verdict--no { color: var(--danger); }
+.equation-panel__verdict svg { flex: 0 0 auto; }
+
+.equation-panel__ask {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.equation-panel__ask-label {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.equation-panel__ask .numfield {
+  min-width: 84px;
+  min-height: 44px;
+  font-size: var(--fs-md);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------
+   6d. CHIP SKALAR PECAHAN (invers 2×2 tahap 3)
+   ------------------------------------------------------------ */
+.scalar-chip--fraction {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding-inline: var(--sp-3);
+}
+
+.scalar-chip.is-spent {
+  opacity: .45;
+  pointer-events: none;
+  filter: saturate(.5);
+}
+
+/* ------------------------------------------------------------
+   6e. KARTU "SEDANG DIBANGUN" (invers 3×3, menunggu Fase 9)
+   Jujur mengatakan bagian ini belum siap lebih baik daripada menyajikan
+   simulasi setengah jadi yang menyesatkan.
+   ------------------------------------------------------------ */
+.wip-card {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: clamp(200px, 34vh, 320px);
+  padding: var(--sp-5) var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  border: 1px dashed var(--border-strong);
+  text-align: center;
+}
+
+.wip-card__mark {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--accent-amber-soft);
+  border: 1px solid var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+.wip-card__title {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.wip-card__text {
+  margin: 0;
+  max-width: 56ch;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-500);
+}
+
+.wip-card__hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-300);
+}
+
+/* ------------------------------------------------------------
+   7. POTRET — MARGIN LEGA, BOLEH MENGGULIR
+   Di potret ruang vertikal memang sempit; jawabannya adalah menggulir
+   dengan nyaman, BUKAN memampatkan segalanya sampai sesak.
+   ------------------------------------------------------------ */
+@media (orientation: portrait) {
+  .screen { padding: var(--sp-4) var(--sp-4); }
+  .content-card { padding: var(--sp-4); }
+  .materi { gap: var(--sp-4); }
+
+  /* Batalkan pemampatan lama: di potret elemen boleh berukuran normal
+     karena kontennya memang boleh menggulir. */
+  .sim__brief { display: flex; }
+  .sim { gap: var(--sp-3); }
+  .stage { min-height: clamp(180px, 32vh, 300px); padding: var(--sp-3); }
+  .cell { min-width: 48px; min-height: 46px; font-size: var(--fs-base); }
+  .cell--building { min-width: 100px; }
+  .color-legend { font-size: var(--fs-xs); }
+  .sim__prompt { min-height: 52px; }
+
+  /* Ruang napas di dasar area gulir supaya elemen terakhir tidak
+     menempel persis di tepi bilah aksi. */
+  .workspace__body { padding-bottom: var(--sp-4); }
+  .menu { padding-bottom: var(--sp-4); }
+}
+
+@media (orientation: portrait) and (min-width: 600px) {
+  .screen { padding: var(--sp-5); }
+  .content-card { padding: var(--sp-5); }
+}
+
+/* ------------------------------------------------------------
+   8. LANSKAP PENDEK — MUAT SATU LAYAR, TANPA MENGGULIR
+   Lanskap punya lebar berlimpah dan tinggi yang sangat sempit.
+   Strateginya: rampingkan seluruh kerangka (header, bilah, aksi) lalu
+   PAKAI lebarnya — materi mengalir dua kolom, bukan satu kolom panjang.
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 680px) {
+  /* --- kerangka: setiap piksel yang dihemat di sini jadi ruang baca --- */
+  .app-header { padding: 2px var(--sp-4); }
+  .brand__mark { width: 28px; height: 28px; }
+  .brand__mark svg { width: 15px; height: 15px; }
+  .brand__title { font-size: var(--fs-xs); }
+  .brand__sub { display: none; }
+  .progress-ring { transform: scale(.72); transform-origin: right center; }
+  .theme-toggle { width: 28px; height: 28px; }
+
+  .app-footer { padding: 2px var(--sp-4); font-size: 9px; }
+  .app-footer__mark { display: none; }
+
+  .screen { padding: 6px var(--sp-4); }
+
+  .workspace { gap: 6px; }
+  .workspace__bar { padding: 4px var(--sp-3); gap: var(--sp-2); }
+  .workspace__eyebrow { font-size: 9px; }
+  .workspace__title { font-size: var(--fs-xs); }
+  .steps__item { padding: 4px 8px; font-size: 10px; }
+  .steps__num { width: 16px; height: 16px; font-size: 9px; }
+  .review-flag { display: none; }
+
+  .actionbar { min-height: 38px; padding: 5px var(--sp-3); }
+  .actionbar__note { font-size: var(--fs-xs); }
+  .btn { min-height: 36px; padding: 6px var(--sp-3); font-size: var(--fs-sm); }
+  .btn--lg { min-height: 38px; font-size: var(--fs-sm); }
+
+  .content-card { padding: var(--sp-2) var(--sp-3); }
+  .content-card::before, .content-card::after { display: none; }
+
+  /* --- blok materi dirapatkan agar lebih banyak muat per kolom --- */
+
+  /* --- simulasi dirapatkan --- */
+  .sim { gap: var(--sp-2); }
+  .sim__brief { display: none; }
+  .sim__prompt { min-height: 38px; padding: 6px var(--sp-3); font-size: var(--fs-xs); }
+  .color-legend { font-size: 10px; padding: 3px var(--sp-2); }
+  .stage { min-height: 0; padding: var(--sp-2); gap: var(--sp-2); }
+  .cell { min-width: 40px; min-height: 36px; font-size: var(--fs-sm); }
+  .cell--building { min-width: 84px; }
+  .workstrip-row { min-height: 46px; }
+  .slider__nav { padding-top: var(--sp-1); margin-top: var(--sp-1); }
+
+  /* --- carousel dirapatkan tanpa mengorbankan gambar contohnya --- */
+  .materi-carousel { padding: var(--sp-3); }
+  .materi-carousel__title { margin-bottom: var(--sp-2); }
+  .materi-carousel__slide { gap: var(--sp-1); padding: 0 var(--sp-2); }
+  .materi-carousel__text { font-size: var(--fs-xs); max-width: 68ch; }
+
+  /* --- kuis --- */
+  .quiz__card { padding: var(--sp-3) var(--sp-4); }
+  .quiz__prompt { font-size: var(--fs-sm); }
+  .quiz__feedback { min-height: 0; max-height: 26vh; }
+  .option { padding: 6px var(--sp-3); font-size: var(--fs-sm); }
+
+  /* --- layar penutup tetap besar & terpusat --- */
+  .lesson-done__inner { gap: var(--sp-2); padding: var(--sp-2); }
+  .lesson-done__title { font-size: var(--fs-lg); }
+}
+
+/* ------------------------------------------------------------
+   8c. SIMULASI DI LANSKAP — PANGGUNG MENGALIR MENYAMPING
+   Prinsip yang sama dengan materi: di lanskap yang berlimpah adalah LEBAR,
+   yang sempit adalah TINGGI. Baris-baris panggung yang biasanya bertumpuk
+   ke bawah dijajarkan ke samping supaya seluruh alur kerja muat satu layar.
+
+   Bagian STRUKTUR berlaku di seluruh lanskap (termasuk desktop); bagian
+   UKURAN hanya di layar pendek — lihat blok berikutnya.
+   ------------------------------------------------------------ */
+@media (orientation: landscape) {
+  /* Kartu simulasi mengisi tinggi yang tersedia, tidak melampauinya.
+     Area gulir induknya dikunci: yang boleh menggulir hanyalah panggung di
+     dalamnya, dan itu pun hanya kalau simulasinya memang lebih tinggi dari
+     layar. */
+  .workspace__body:has(> .content-card--tight) { overflow: hidden; }
+
+  .workspace__body > .content-card--tight {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    margin-bottom: 0;
+  }
+
+  /* Pembungkus simulasi harus IKUT menyusut. Tanpa aturan ini ia jadi
+     flex-item bawaan yang menolak mengecil, dan panggung meluap keluar
+     kartunya tanpa ada yang menggulir. */
+  .sim-host {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .sim {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .stage {
+    flex: 1 1 auto;
+    min-height: 0;
+
+    /* Baris panggung dijajarkan menyamping, bukan bertumpuk. */
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    align-content: center;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Hanya baris yang benar-benar satu persamaan utuh yang memakai lebar
+     penuh. Ekspresi determinan justru lebih baik berdampingan dengan
+     matriksnya — di lanskap itu menghemat satu baris penuh. */
+  .stage > .stage__row--equation,
+  .stage > .workstrip-row {
+    flex: 1 1 100%;
+  }
+
+  .stage > .det-expr { flex: 0 1 auto; }
+  .stage > .flow-arrow { display: none; }
+
+  /* `.checklist` aslinya `display: grid`, jadi mengubah flex-direction saja
+     tidak berpengaruh — tiap tahap tetap memakan satu baris penuh. Di lanskap
+     ia jadi satu strip mendatar yang ringkas. */
+  .checklist {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .checklist__item { flex: 0 1 auto; }
+}
+
+/* Ukuran-ukuran dirapatkan hanya bila tingginya memang sempit. */
+@media (orientation: landscape) and (max-height: 680px) {
+  .stage { gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+
+  /* Ruang pesan tetap DIPESAN, hanya dirampingkan. Menolkannya akan
+     menghidupkan kembali pergeseran tata letak yang sudah ditutup. */
+  .reserved-slot { min-height: 52px !important; }
+  .stage__row { gap: var(--sp-2); }
+  .checklist { gap: var(--sp-2); }
+  .checklist__item { padding: 4px var(--sp-2); font-size: 10px; }
+
+  .scalar-result { padding: var(--sp-2) var(--sp-3); }
+  .scalar-result__value { font-size: var(--fs-md); }
+  .det-expr { font-size: var(--fs-sm); }
+  .equation-panel { padding: var(--sp-2) var(--sp-3); }
+  .equation-panel__line { min-height: 30px; }
+  .equation-panel__slot { font-size: var(--fs-md); }
+
+  .drag-card { padding: 5px var(--sp-2); }
+  .dropzone { min-height: 60px !important; }
+  .meetpoint { min-width: 108px; }
+  .scalar-chip { width: 46px; height: 46px; }
+  .wip-card { min-height: 0; padding: var(--sp-3); gap: var(--sp-2); }
+  .wip-card__mark { width: 38px; height: 38px; }
+  .wip-card__mark svg { width: 20px; height: 20px; }
+  .matrix__ordo { font-size: 9px; }
+
+  /* Sel tetap di ambang sentuh 44px selama tingginya masih memungkinkan —
+     tablet lanskap punya cukup ruang, jadi tidak perlu dikorbankan. */
+  .cell { min-width: 44px; min-height: 44px; font-size: var(--fs-sm); }
+  .cell--building { min-width: 88px; }
+}
+
+/* ------------------------------------------------------------
+   9. MENU UTAMA DI LANSKAP PENDEK
+   Head + hero + tiga kartu mode dipadatkan agar muat satu layar.
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 680px) {
+  .menu { gap: var(--sp-3); justify-content: safe center; }
+
+  .menu__eyebrow { font-size: 10px; margin-bottom: 0; }
+  .menu__title { font-size: clamp(1.1rem, 2.4vw, 1.5rem); }
+  .menu__lead { font-size: var(--fs-sm); margin-top: 2px; }
+
+  .hero { grid-template-columns: 1.3fr 1fr; gap: var(--sp-3); }
+  .hero__panel { padding: var(--sp-3); border-radius: var(--r-lg); }
+  .hero__panel::after { display: none; }
+  .hero__eyebrow { font-size: 10px; }
+  .hero__title { font-size: var(--fs-md); }
+  .hero__snippet { display: none; }
+  .hero__meta { font-size: var(--fs-xs); }
+  .hero__actions { gap: var(--sp-2); }
+  .hero__stats { grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+  .hero-stat { padding: var(--sp-2); }
+  .hero-stat__value { font-size: var(--fs-md); }
+  .hero-stat__label { font-size: 10px; }
+
+  .menu__grid { grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+
+  .mode-card {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+  }
+
+  .mode-card__icon { width: 32px; height: 32px; flex: 0 0 32px; }
+  .mode-card__icon svg { width: 17px; height: 17px; }
+  .mode-card__title { font-size: var(--fs-sm); flex: 1; }
+  .mode-card__desc, .mode-card__meta { display: none; }
+  .mode-card::after { display: none; }
+}
+
+/* Lanskap ponsel (tinggi <= 480px): pemampatan paling agresif.
+   SENGAJA tidak diterapkan pada tablet lanskap (600-680px) — di sana ruangnya
+   masih cukup, dan mengecilkan sel sampai di bawah ambang sentuh 44px hanya
+   akan membuat mengetuk elemen jadi susah tanpa alasan. */
+@media (orientation: landscape) and (max-height: 480px) {
+  .color-legend { display: none; }
+  .sim__prompt { min-height: 32px; padding: 4px var(--sp-2); font-size: 11px; line-height: 1.3; }
+  .checklist__item { padding: 3px 7px; font-size: 9px; }
+  .cell { min-width: 38px; min-height: 34px; font-size: var(--fs-xs); }
+  .cell--building { min-width: 78px; }
+  .cell__addr { font-size: 8px; }
+}
+
+/* Lanskap sangat pendek (ponsel ±360–430px): rapatkan satu tingkat lagi.
+   Subjudul menu SENGAJA dipertahankan — ia identitas layar pertama; yang
+   dikorbankan adalah eyebrow yang isinya sudah terulang di header. */
+@media (orientation: landscape) and (max-height: 430px) {
+  .menu { gap: var(--sp-2); }
+  .menu__eyebrow { display: none; }
+  .menu__title { font-size: 1.05rem; }
+  .menu__lead { font-size: var(--fs-xs); margin-top: 0; }
+  .menu__footer { margin-top: var(--sp-2); padding-bottom: 0; }
+  .menu__footer .btn { min-height: 30px; font-size: var(--fs-xs); padding: 4px var(--sp-3); }
+
+  .hero { gap: var(--sp-2); }
+  .hero__panel { padding: var(--sp-2) var(--sp-3); }
+  .hero__title { font-size: var(--fs-sm); }
+  .hero__meta { display: none; }
+  .hero__progress-label { font-size: 10px; }
+  .hero__actions { margin-top: var(--sp-2); }
+  .hero__actions .btn { min-height: 32px; font-size: var(--fs-xs); }
+  .hero-stat { padding: 4px var(--sp-2); }
+  .hero-stat__value { font-size: var(--fs-sm); }
+
+  .mode-card { padding: 5px var(--sp-3); }
+  .mode-card__icon { width: 26px; height: 26px; flex: 0 0 26px; }
+  .mode-card__icon svg { width: 14px; height: 14px; }
+
+  .stage { padding: var(--sp-1); }
+  .cell { min-width: 34px; min-height: 32px; font-size: var(--fs-xs); }
+}
+
+/* Lanskap paling sempit (±360px): progres bab diringkas jadi angka saja. */
+@media (orientation: landscape) and (max-height: 380px) {
+  .menu { gap: 6px; }
+  .hero__panel .progressbar { display: none; }
+  .hero__progress-label { font-size: 9px; }
+  .mode-card { padding: 3px var(--sp-2); }
+  .mode-card__title { font-size: var(--fs-xs); }
+  .menu__footer { margin-top: 4px; }
+  .hero__actions .btn { min-height: 28px; }
+  .menu__lead { display: none; }
+  .menu__title { font-size: 1rem; }
+}
+
+
+   10. LAB MAYA DI LANSKAP
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 680px) {
+}

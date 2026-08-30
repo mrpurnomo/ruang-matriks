@@ -1,0 +1,12 @@
+# Cache Python — dibuat saat menjalankan tests/smoke.py
+__pycache__/
+*.py[cod]
+
+# Artefak sistem operasi
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Keluaran sementara pengujian
+/tests/screenshots/
+/tests/*.log
