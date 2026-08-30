@@ -16,7 +16,7 @@ import {
   markSubtopicStarted, markSubtopicCompleted, recordAttempt,
   setChapterCompleteIfDone, unlockBadge, getSubtopicProgress,
 } from '../../state/progressStore.js';
-import toast from '../../ui/toast.js';
+import toast, { anchorToasts } from '../../ui/toast.js';
 import { lessonKey, getResume, patchResume, clearResume } from '../../state/sessionState.js';
 
 const STEPS = [
@@ -71,9 +71,60 @@ function renderBlock(block) {
     case 'carousel':
       return renderCarousel(block);
 
+    case 'typegroup':
+      return renderTypeGroup(block);
+
     default:
       return el('p', 'text-muted', renderMixed(block.x || ''));
   }
+}
+
+/**
+ * Satu KATEGORI penggolongan matriks: sebuah sudut pandang, lalu jenis-jenis
+ * yang lahir dari sudut pandang itu, masing-masing dengan satu contoh visual.
+ *
+ * Dipakai menggantikan carousel di "Jenis-Jenis Matriks". Carousel memaksa
+ * siswa melihat satu jenis pada satu waktu, padahal justru PERBANDINGAN antar
+ * jenis di dalam satu kategori yang jadi pelajarannya — bedanya matriks
+ * diagonal, skalar, dan identitas hanya terlihat kalau ketiganya berdampingan.
+ *
+ * Nomor kategori bukan hiasan: ia menandai sudut pandang keberapa, dan siswa
+ * memang merujuknya saat menjawab "jenis apa saja" (satu matriks bisa punya
+ * nama di beberapa kategori sekaligus).
+ */
+function renderTypeGroup(block) {
+  const wrap = el('div', 'typegroup');
+
+  const head = el('div', 'typegroup__head');
+  if (block.n) head.appendChild(el('span', 'typegroup__num', block.n));
+  head.appendChild(el('h3', 'typegroup__title', renderMixed(block.title || '')));
+  wrap.appendChild(head);
+
+  if (block.lead) wrap.appendChild(el('p', 'typegroup__lead', renderMixed(block.lead)));
+
+  const grid = el('div', 'typegroup__grid');
+  (block.items || []).forEach((item) => {
+    const card = el('div', 'typecard');
+    card.appendChild(el('div', 'typecard__name', renderMixed(item.name)));
+
+    // Figur matematika hidup di kotaknya sendiri supaya tinggi kartu tetap
+    // rata meski ordo contohnya berbeda-beda (1x3 di sebelah 3x3).
+    const fig = el('div', 'typecard__figure');
+    fig.innerHTML = renderToString(item.tex, { display: true });
+    card.appendChild(fig);
+
+    if (item.text) card.appendChild(el('p', 'typecard__text', renderMixed(item.text)));
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+
+  if (block.note) {
+    const note = el('div', 'typegroup__note');
+    note.innerHTML = `${icon('info', { size: 14 })}<span>${renderMixed(block.note)}</span>`;
+    wrap.appendChild(note);
+  }
+
+  return wrap;
 }
 
 /**
@@ -284,6 +335,10 @@ export class LessonView {
     workspace.appendChild(side);
 
     const stage = el('section', 'ws-stage');
+
+    // Umpan balik ("Tepat!", "Belum tepat") muncul di tengah PANGGUNG, bukan
+    // di tengah jendela — dekat matriks yang baru saja disentuh siswa.
+    anchorToasts(stage);
     stage.setAttribute('aria-label', 'Area kerja');
 
     this.body = el('div', 'workspace__body');

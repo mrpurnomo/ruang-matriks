@@ -221,54 +221,155 @@
       "materi": [
         {
           "t": "p",
-          "x": "Beberapa susunan kelas punya nama khusus karena bentuknya sering muncul. Geser kartu di bawah untuk mengenalnya satu per satu."
+          "x": "Matriks dikelompokkan dari **beberapa sudut pandang** sekaligus, bukan satu daftar panjang. Sudut pandangnya ada lima, dan satu matriks yang sama bisa punya nama di lebih dari satu kategori."
         },
         {
-          "t": "carousel",
-          "title": "Kenali Enam Jenis Matriks",
-          "slides": [
+          "t": "typegroup",
+          "n": "1",
+          "title": "Berdasarkan Ukuran",
+          "lead": "Yang dilihat hanya **banyak baris dan kolomnya** — nilainya tidak diperhatikan sama sekali.",
+          "items": [
             {
               "name": "Matriks Baris",
-              "tex": "B = \\begin{pmatrix} 2 & 4 & -1 \\end{pmatrix}",
-              "text": "Hanya punya **satu baris** — seperti kelas yang mejanya cuma satu deret ke samping. Ordonya $1 \\times n$."
+              "tex": "\\begin{pmatrix} 2 & 4 & -1 \\end{pmatrix}",
+              "text": "Tepat **satu baris**. Ordonya $1 \\times n$."
             },
             {
               "name": "Matriks Kolom",
-              "tex": "C = \\begin{pmatrix} 3 \\\\ 1 \\\\ 5 \\end{pmatrix}",
-              "text": "Hanya punya **satu kolom** — satu deret meja memanjang ke belakang. Ordonya $m \\times 1$."
+              "tex": "\\begin{pmatrix} 3 \\\\ 1 \\\\ 5 \\end{pmatrix}",
+              "text": "Tepat **satu kolom**. Ordonya $m \\times 1$."
+            },
+            {
+              "name": "Matriks Persegi Panjang",
+              "tex": "\\begin{pmatrix} 2 & 5 & 1 \\\\ 7 & 0 & 4 \\end{pmatrix}",
+              "text": "Banyak baris **tidak sama** dengan banyak kolom ($m \\ne n$)."
             },
             {
               "name": "Matriks Persegi",
-              "tex": "P = \\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix}",
-              "text": "Banyak baris **sama dengan** banyak kolom. Ini keluarga paling penting: **hanya matriks persegi yang punya determinan dan invers**."
-            },
+              "tex": "\\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix}",
+              "text": "Banyak baris **sama** dengan banyak kolom. Hanya jenis ini yang punya determinan dan invers."
+            }
+          ]
+        },
+        {
+          "t": "typegroup",
+          "n": "2",
+          "title": "Berdasarkan Elemen Penyusun",
+          "lead": "Sekarang yang dilihat **nilai elemennya** dan di mana letak angka nolnya.",
+          "items": [
             {
               "name": "Matriks Nol",
-              "tex": "O = \\begin{pmatrix} 0 & 0 \\\\ 0 & 0 \\end{pmatrix}",
-              "text": "Semua elemennya **nol** — kelas yang semua mejanya kosong. Perannya seperti angka 0 pada penjumlahan biasa."
+              "tex": "\\begin{pmatrix} 0 & 0 \\\\ 0 & 0 \\end{pmatrix}",
+              "text": "Semua elemennya **0**. Lambangnya $O$, perannya seperti angka 0 pada penjumlahan."
             },
             {
               "name": "Matriks Diagonal",
-              "tex": "D = \\begin{pmatrix} 4 & 0 & 0 \\\\ 0 & 9 & 0 \\\\ 0 & 0 & 2 \\end{pmatrix}",
-              "text": "Matriks persegi yang **hanya diagonal utamanya berisi**, sisanya nol. Diagonal utama = garis dari sudut kiri-atas ke kanan-bawah."
+              "tex": "\\begin{pmatrix} 4 & 0 & 0 \\\\ 0 & 9 & 0 \\\\ 0 & 0 & 2 \\end{pmatrix}",
+              "text": "Matriks persegi yang **selain diagonal utama** semuanya 0."
+            },
+            {
+              "name": "Matriks Skalar",
+              "tex": "\\begin{pmatrix} 5 & 0 & 0 \\\\ 0 & 5 & 0 \\\\ 0 & 0 & 5 \\end{pmatrix}",
+              "text": "Matriks diagonal yang seluruh diagonal utamanya **bernilai sama**."
             },
             {
               "name": "Matriks Identitas",
-              "tex": "I = \\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}",
-              "text": "Matriks diagonal yang seluruh diagonal utamanya bernilai **1**. Perannya seperti angka 1 pada perkalian: $A \\times I = A$."
+              "tex": "\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}",
+              "text": "Matriks skalar yang nilainya **1**. Lambangnya $I$, dan $A \\times I = A$."
+            },
+            {
+              "name": "Matriks Segitiga Atas",
+              "tex": "\\begin{pmatrix} 2 & 7 & 1 \\\\ 0 & 3 & 5 \\\\ 0 & 0 & 4 \\end{pmatrix}",
+              "text": "Semua elemen **di bawah** diagonal utama bernilai 0."
+            },
+            {
+              "name": "Matriks Segitiga Bawah",
+              "tex": "\\begin{pmatrix} 2 & 0 & 0 \\\\ 7 & 3 & 0 \\\\ 1 & 5 & 4 \\end{pmatrix}",
+              "text": "Semua elemen **di atas** diagonal utama bernilai 0."
+            }
+          ]
+        },
+        {
+          "t": "typegroup",
+          "n": "3",
+          "title": "Berdasarkan Karakteristik Transpose",
+          "lead": "Kategori ini membandingkan matriks dengan **transposenya sendiri** — itulah sebabnya transpose dipelajari lebih dulu.",
+          "items": [
+            {
+              "name": "Matriks Simetris",
+              "tex": "\\begin{pmatrix} 1 & 4 & 5 \\\\ 4 & 2 & 6 \\\\ 5 & 6 & 3 \\end{pmatrix}",
+              "text": "$A^T = A$. Elemennya **mencerminkan diri** terhadap diagonal utama."
+            },
+            {
+              "name": "Matriks Simetris Miring",
+              "tex": "\\begin{pmatrix} 0 & 3 & -2 \\\\ -3 & 0 & 5 \\\\ 2 & -5 & 0 \\end{pmatrix}",
+              "text": "$A^T = -A$. Pencerminannya **berganti tanda**, sehingga seluruh diagonal utamanya **wajib 0**."
+            },
+            {
+              "name": "Matriks Ortogonal",
+              "tex": "\\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix}",
+              "text": "$A^T = A^{-1}$, artinya $A \\times A^T = I$."
+            }
+          ]
+        },
+        {
+          "t": "typegroup",
+          "n": "4",
+          "title": "Berdasarkan Sifat Operasi Aljabar",
+          "lead": "Nama-nama berikut muncul dari **hasil matriks dikalikan dirinya sendiri**.",
+          "note": "Catatan: Pengayaan materi.",
+          "items": [
+            {
+              "name": "Matriks Idempoten",
+              "tex": "\\begin{pmatrix} 2 & -2 \\\\ 1 & -1 \\end{pmatrix}",
+              "text": "$A^2 = A$. Dikuadratkan pun hasilnya **dirinya sendiri**."
+            },
+            {
+              "name": "Matriks Involutori",
+              "tex": "\\begin{pmatrix} 1 & 0 \\\\ 0 & -1 \\end{pmatrix}",
+              "text": "$A^2 = I$. Dikuadratkan menghasilkan **matriks identitas**."
+            },
+            {
+              "name": "Matriks Nilpoten",
+              "tex": "\\begin{pmatrix} 0 & 3 \\\\ 0 & 0 \\end{pmatrix}",
+              "text": "$A^k = O$ untuk suatu $k$. Di contoh ini $A^2$ sudah **matriks nol**."
+            },
+            {
+              "name": "Matriks Periodik",
+              "tex": "\\begin{pmatrix} 0 & 1 \\\\ -1 & -1 \\end{pmatrix}",
+              "text": "$A^{k+1} = A$, jadi hasilnya **berulang**. Contoh ini berperiode 3 karena $A^3 = I$."
+            }
+          ]
+        },
+        {
+          "t": "typegroup",
+          "n": "5",
+          "title": "Berdasarkan Eksistensi Invers",
+          "lead": "Pembeda terakhir: **punya invers atau tidak**, yang ditentukan oleh nilai determinannya.",
+          "note": "Akan dipelajari lebih detail di Bab Determinan & Invers.",
+          "items": [
+            {
+              "name": "Matriks Singular",
+              "tex": "\\begin{pmatrix} 2 & 4 \\\\ 1 & 2 \\end{pmatrix}",
+              "text": "$\\det(A) = 0$, sehingga matriks ini **tidak punya invers**."
+            },
+            {
+              "name": "Matriks Non-Singular",
+              "tex": "\\begin{pmatrix} 3 & 5 \\\\ 1 & 2 \\end{pmatrix}",
+              "text": "$\\det(A) \\ne 0$, sehingga inversnya **ada**."
             }
           ]
         },
         {
           "t": "warn",
-          "title": "Boleh Lebih dari Satu",
-          "x": "Satu matriks bisa masuk **beberapa jenis sekaligus**. Matriks identitas, misalnya, sekaligus matriks diagonal DAN matriks persegi."
+          "title": "Satu Matriks, Banyak Nama",
+          "x": "Kategori di atas **bukan kotak yang saling menutup**. Matriks identitas $I_2$ sekaligus matriks persegi, diagonal, skalar, simetris, ortogonal, idempoten, involutori, DAN non-singular. Jadi pertanyaannya bukan \"ini jenis apa\", melainkan \"jenis apa saja\"."
         }
       ],
       "simulation": {
         "engine": "label_matrix_types",
         "title": "Simulasi: Tempel Label Jenis",
-        "brief": "Bawa SEMUA label jenis yang cocok ke matriks — seret, atau ketuk label lalu ketuk matriksnya.",
+        "brief": "Ketuk sebuah label, lalu ketuk matriksnya. Satu matriks bisa cocok dengan lebih dari satu label — cari SEMUANYA.",
         "config": {
           "labelPool": [
             {

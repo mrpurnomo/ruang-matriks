@@ -365,6 +365,41 @@ export function createStepSlider({ count, labels = [], onJump = null, allowJump 
 }
 
 /* ============================================================
+   Indikator progres teks
+   ============================================================ */
+/**
+ * Penunjuk kemajuan sederhana untuk simulasi yang urutannya BEBAS.
+ *
+ * Slider langkah (panah maju-mundur + titik) menjanjikan sesuatu yang tidak
+ * benar di simulasi seperti ini: bahwa ada langkah 1, 2, 3 yang harus dilalui
+ * berurutan. Padahal siswa boleh mengerjakan sel mana pun lebih dulu, dan
+ * panahnya tidak pernah melakukan apa-apa yang berguna. Yang benar-benar ingin
+ * diketahui siswa cuma satu: berapa yang sudah selesai dari berapa.
+ *
+ * @param {number} total  banyak satuan pekerjaan
+ * @param {string} unit   satuannya, mis. "sel" atau "pasangan"
+ */
+export function createProgressText(total, unit = 'sel') {
+  const node = el('div', 'sim-progress');
+  const value = el('span', 'sim-progress__value');
+  const label = el('span', 'sim-progress__label');
+
+  node.appendChild(value);
+  node.appendChild(label);
+
+  node.set = (done) => {
+    const n = Math.max(0, Math.min(total, done));
+    value.textContent = `${n} dari ${total}`;
+    label.textContent = `${unit} selesai`;
+    node.dataset.done = String(n >= total);
+    node.setAttribute('aria-label', `Progres: ${n} dari ${total} ${unit} selesai`);
+  };
+
+  node.set(0);
+  return node;
+}
+
+/* ============================================================
    Checklist
    ============================================================ */
 export function createChecklist(items) {
@@ -441,6 +476,13 @@ export class Simulation {
      */
     this.savedState = null;
     this.onStateChange = null;
+
+    /**
+     * Apakah `complete()` boleh mengunci seluruh panggung. Engine multi-kasus
+     * mematikannya karena "selesai" di sana berlaku per KASUS, bukan per
+     * simulasi.
+     */
+    this.locksOnComplete = true;
   }
 
   /**
@@ -500,7 +542,17 @@ export class Simulation {
     this.finished = true;
 
     if (this.root) {
-      this.root.classList.add('sim--done');
+      /**
+       * `sim--done` mematikan pointer-events SELURUH simulasi
+       * (`.sim--done .cell--draggable { pointer-events: none }`).
+       *
+       * Untuk simulasi satu-babak itu benar. Untuk simulasi MULTI-KASUS itu
+       * bencana: `complete()` dipanggil begitu kasus PERTAMA tuntas — supaya
+       * Mini Kuis terbuka — dan sejak detik itu kasus kedua dan ketiga ikut
+       * mati, padahal belum tersentuh (Fase 12, isu 9). Engine seperti itu
+       * mematikan penguncian ini dan mengurusnya sendiri per kasus.
+       */
+      if (this.locksOnComplete !== false) this.root.classList.add('sim--done');
       this.root.classList.remove('sim--busy');
 
       // Banner sukses dipasang sebagai OVERLAY di dalam panggung, bukan
@@ -521,6 +573,21 @@ export class Simulation {
     const text = message || this.msg('success');
     if (text) toast.success(text);
     this.onComplete();
+  }
+
+  /**
+   * Daftarkan langkah TANPA menggambar slider.
+   *
+   * Dipakai simulasi yang tidak boleh punya navigasi maju-mundur (Fase 12,
+   * isu 8) tetapi tetap harus bisa memulihkan posisi siswa saat ia keluar
+   * sebentar ke menu — `resumeToStep()` bergantung pada `stepJump`, dan
+   * membuang slider begitu saja ikut membuang kemampuan itu (kontrak §5
+   * butir 28).
+   */
+  useStepsSilent(count, onJump) {
+    this.disposeSlider();
+    this.stepJump = typeof onJump === 'function' ? onJump : null;
+    this.stepCount = count;
   }
 
   useSteps(labels, { allowJump = false, onJump = null } = {}) {

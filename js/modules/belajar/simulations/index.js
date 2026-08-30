@@ -6,7 +6,7 @@
 
 import {
   IdentifyElementSim, OrdoBuilderSim, LabelMatrixTypesSim,
-  TransposeMorphSim, EqualityLinkSim,
+  TransposeMorphSim, EqualityLinkSim, ComingSoonSim,
 } from './simBasics.js';
 
 import {
@@ -29,6 +29,9 @@ export const SIMULATION_REGISTRY = {
   label_matrix_types: LabelMatrixTypesSim,
   transpose_morph: TransposeMorphSim,
   equality_link: EqualityLinkSim,
+
+  // Placeholder untuk sub-topik yang materinya siap tapi simulasinya belum.
+  coming_soon: ComingSoonSim,
 
   elementwise_op: ElementwiseOpSim,
   scalar_sweep: ScalarSweepSim,

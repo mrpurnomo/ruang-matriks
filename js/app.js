@@ -5,7 +5,7 @@
 
 import * as router from './router.js';
 import { icon } from './ui/icons.js';
-import toast, { clearToasts } from './ui/toast.js';
+import toast, { clearToasts, anchorToasts } from './ui/toast.js';
 import { showModal, confirmAction } from './ui/modal.js';
 import { renderMixed } from './engine/katexRenderer.js';
 import { LessonView } from './modules/belajar/lessonRenderer.js';
@@ -109,6 +109,10 @@ async function loadQuizzes() {
    ------------------------------------------------------------ */
 function mountScreen(builder, { isBack = false } = {}) {
   clearToasts();
+
+  // Tambatan toast milik layar sebelumnya ikut dilepas; layar yang punya
+  // kolom panggung akan memasangnya kembali saat ia dirender.
+  anchorToasts(null);
 
   if (state.activeView && typeof state.activeView.destroy === 'function') {
     state.activeView.destroy();

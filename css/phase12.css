@@ -1,0 +1,514 @@
+/* ============================================================
+   phase12.css — Fase 12: Logika Interaksi Lanjutan & Pembaruan Kurikulum
+   DIMUAT PALING AKHIR, sesudah phase11.css.
+
+   Sama seperti phase11.css, berkas ini hanya berisi PERBAIKAN dan
+   komponen baru yang diminta — ia tidak mengubah bahasa desain
+   "TRANSFORMASI" maupun arsitektur Sidebar & Stage.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. TYPEGROUP — satu kategori penggolongan matriks
+
+   Menggantikan carousel di "Jenis-Jenis Matriks". Yang diajarkan di
+   sini adalah PERBANDINGAN: beda matriks diagonal, skalar, dan
+   identitas cuma terlihat kalau ketiganya berdampingan, bukan kalau
+   digeser satu per satu.
+   ------------------------------------------------------------ */
+.typegroup {
+  margin-block: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-soft);
+}
+
+.typegroup:first-child { border-top: 0; padding-top: 0; }
+
+.typegroup__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+/* Nomor kategori: penanda "sudut pandang keberapa", bukan urutan langkah.
+   Siswa merujuknya saat satu matriks punya nama di beberapa kategori. */
+.typegroup__num {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  background: var(--brand-primary);
+  color: var(--white);
+  font-family: var(--display, var(--font-ui));
+  font-weight: 900;
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+
+.typegroup__title {
+  margin: 0;
+  font-family: var(--display, var(--font-ui));
+  font-weight: 800;
+  font-size: clamp(var(--fs-md), 1.15vw, var(--fs-lg));
+  color: var(--ink-900);
+  line-height: 1.25;
+}
+
+.typegroup__lead {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-700);
+}
+
+/* Kartu menyesuaikan diri sendiri: dua kolom di panggung sempit, tiga
+   atau empat di layar lebar — tanpa satu pun media query. */
+.typegroup__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 15vw, 250px), 1fr));
+  gap: var(--sp-3);
+  align-items: stretch;
+}
+
+.typecard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+  min-width: 0;
+}
+
+.typecard__name {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  color: var(--brand-primary);
+  line-height: 1.3;
+}
+
+/* Kotak figur bertinggi SAMA di seluruh baris, supaya kartu tidak
+   bergerigi hanya karena satu contohnya 1x3 dan tetangganya 3x3. */
+.typecard__figure {
+  display: grid;
+  place-items: center;
+  min-height: 86px;
+  padding: var(--sp-2);
+  border-radius: var(--r-sm, 8px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+
+  /* Contoh terlebar (3x3 dengan bilangan negatif) tetap harus muat tanpa
+     memunculkan scrollbar di bawah kartu — lihat bagian 4. */
+  overflow: hidden;
+}
+
+.typecard__figure .katex-display { margin: 0; overflow: visible; }
+.typecard__figure .katex { font-size: clamp(.86em, 1.05vw, 1.05em); }
+
+.typecard__text {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--ink-700);
+}
+
+.typegroup__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--accent-amber-soft);
+  border-left: 3px solid var(--accent-amber);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: #7A5A00;
+}
+
+.typegroup__note svg { flex: 0 0 auto; margin-top: 2px; }
+
+/* ------------------------------------------------------------
+   2. CAROUSEL MATERI — perbaikan kliping
+
+   `phase7.css` §8 memasang `overflow: hidden` pada TRACK dan SLIDE
+   untuk membungkam scrollbar liar. Efek sampingnya fatal: slide ke-2
+   dan seterusnya diletakkan di luar kotak track, lalu ikut terpotong —
+   jadi carousel hanya pernah menampilkan slide pertama.
+
+   Yang boleh memotong hanyalah VIEWPORT. Track harus bebas meluas ke
+   samping karena memang itulah cara kerjanya.
+   ------------------------------------------------------------ */
+.materi-carousel__track,
+.materi-carousel__slide { overflow: visible; }
+.materi-carousel__viewport { overflow: hidden; }
+
+/* ------------------------------------------------------------
+   3. SIMULASI "TEMPEL LABEL JENIS" — tata letak panggung
+
+   Sebelumnya kelas-kelas ini tidak punya CSS sama sekali: teks
+   petunjuk rak menimpa label ordo matriks, dan kartu labelnya
+   menumpuk sebagai satu lajur. Sekarang panggungnya dibagi tegas:
+   matriks + rak di atas, kumpulan label di bawah.
+   ------------------------------------------------------------ */
+.label-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  width: min(560px, 100%);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  border: 1.5px dashed var(--brand-primary-line);
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+
+.label-target[data-over="true"] {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+
+.label-target[data-tap-target="true"] { border-color: var(--success); }
+
+/* Rak label: baris sendiri DI BAWAH matriks, tidak pernah menimpanya. */
+.label-shelf {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 40px;              /* ruangnya dipesan sejak awal */
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border-soft);
+}
+
+.label-shelf__hint {
+  font-size: var(--fs-xs);
+  color: var(--ink-500);
+  font-style: italic;
+}
+
+.label-pool {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: min(620px, 100%);
+  margin-inline: auto;
+}
+
+.label-chip {
+  padding: 10px var(--sp-3);
+  min-height: 44px;              /* ambang sentuh */
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   4. PANEL "SEGERA HADIR"
+   ------------------------------------------------------------ */
+.soon-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: min(520px, 100%);
+  margin: auto;
+  padding: var(--sp-5) var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--bg-sunken);
+  border: 1.5px dashed var(--border-soft);
+  text-align: center;
+}
+
+.soon-panel__mark {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--r-pill);
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
+}
+
+.soon-panel__title {
+  font-family: var(--display, var(--font-ui));
+  font-weight: 900;
+  font-size: var(--fs-lg);
+  color: var(--ink-900);
+}
+
+.soon-panel__note { margin: 0; font-size: var(--fs-sm); color: var(--ink-700); line-height: 1.6; }
+.soon-panel__detail { margin: 0; font-size: var(--fs-xs); color: var(--ink-500); line-height: 1.6; }
+
+/* ------------------------------------------------------------
+   5. TOAST DITAMBATKAN KE KOLOM PANGGUNG
+
+   `--toast-anchor-x` / `--toast-anchor-w` diisi oleh `toast.js` dari
+   kotak `.ws-stage`. Tanpa keduanya, nilai cadangannya mengembalikan
+   perilaku lama: terpusat ke jendela.
+
+   Aturan ini sengaja ditulis dengan `left` + `translateX(-50%)` yang
+   sama seperti aslinya supaya animasi masuk/keluar di components.css
+   tidak perlu diubah sama sekali.
+   ------------------------------------------------------------ */
+.toast-host {
+  left: var(--toast-anchor-x, 50%);
+  width: min(540px, var(--toast-anchor-w, 100vw) - 32px);
+}
+
+/* Di lanskap pendek, panggung sempit — toast tidak boleh lebih lebar
+   daripada kolom yang menampungnya. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .toast-host {
+    width: min(460px, var(--toast-anchor-w, 100vw) - 24px);
+    bottom: var(--sp-3);
+  }
+}
+
+/* ------------------------------------------------------------
+   6. BILAH PROGRES DI KARTU BAB
+
+   `.progressbar` ditulis sebagai <span> di `app.js`, dan span itu
+   INLINE: `height` diabaikan, lebarnya menyusut ke lebar isinya (yang
+   0% saat progres kosong), dan yang tersisa hanya 2px garis tepi.
+   Sebuah bilah progres harus jadi kotak — jadi ia dijadikan blok.
+   ------------------------------------------------------------ */
+.progressbar {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.progressbar__fill {
+  display: block;
+  min-width: 0;
+}
+
+/* Progres 0% tetap harus terbaca sebagai "track kosong", bukan sebagai
+   komponen yang gagal dirender. Track-nya sudah punya latar & tepi;
+   isian 0% sengaja tidak diberi lebar minimum agar tidak berbohong. */
+.chapter-item .progressbar { margin-top: var(--sp-2); }
+
+/* ------------------------------------------------------------
+   7. TIDAK ADA LAGI SCROLLBAR MENDATAR DI BAWAH MATRIKS
+
+   `.katex-display` memakai `overflow-x: auto` sebagai jaring pengaman
+   agar rumus yang sangat lebar tidak mendorong halaman. Efek sampingnya:
+   begitu sebuah matriks lebih lebar SEDIKIT saja dari wadahnya, muncul
+   scrollbar tepat di bawahnya — persis di tempat mata siswa sedang
+   membaca, dan terbaca seperti cacat tampilan.
+
+   Perbaikannya dua lapis:
+     a. Kemampuan gulirnya DIPERTAHANKAN (rumus lebar tetap terjangkau),
+        tapi batang scrollbar-nya disembunyikan — pola yang sudah dipakai
+        `.materi-carousel__figure` sejak Fase 7.
+     b. Yang lebih penting: matriks dibuat MUAT sejak awal lewat
+        penskalaan huruf, sehingga jalur gulir itu nyaris tak pernah
+        terpakai.
+   ------------------------------------------------------------ */
+.katex-display {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.katex-display::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Wadah rumus di dalam panggung & materi tidak boleh melebar melewati
+   kolomnya; kalau isinya lebih besar, hurufnya yang mengalah. */
+.ws-stage .katex-display,
+.ws-stage .katex-display > .katex { max-width: 100%; }
+
+/* ------------------------------------------------------------
+   Sidebar: gulir TEGAK saja
+
+   `.ws-side__hint` hanya diberi `overflow-y: auto`, dan browser
+   menaikkan `overflow-x` menjadi `auto` juga. Di lanskap ponsel kolomnya
+   cuma ±185px sementara navigasi langkah butuh ±240px, jadi muncul
+   scrollbar mendatar di bawah petunjuk. Kendali harus MEMBUNGKUS, bukan
+   menggulir ke samping.
+   ------------------------------------------------------------ */
+.ws-side__hint { overflow-x: hidden; }
+
+.ws-side__hint > * { max-width: 100%; }
+
+.ws-side__hint .slider__nav {
+  flex-wrap: wrap;
+  row-gap: var(--sp-2);
+  max-width: 100%;
+}
+
+.ws-side__hint .slider-dots {
+  flex-wrap: wrap;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------
+   10. SARRUS — KOLOM SALINAN IKUT BERDENYUT
+
+   `.cell--ghost` memasang `animation: none` karena sebelum disalin ia
+   memang cuma bayangan kosong. Tetapi setelah tombol "Salin Dua Kolom"
+   ditekan, kedua kolom itu menjadi bagian sah dari perhitungan —
+   diagonal Sarrus melewatinya persis seperti melewati matriks asli.
+
+   `.cell--copy` menggantikannya: tetap terbaca sebagai SALINAN lewat
+   tepi putus-putus, tetapi mewarisi seluruh logika sorot dan denyut sel
+   biasa (`cell--diag-main`, `cell--diag-anti`, `cell--picked`, …).
+   ------------------------------------------------------------ */
+.cell--copy {
+  border-style: dashed;
+}
+
+/* Saat TIDAK sedang disorot, salinan sedikit lebih redup daripada aslinya
+   supaya mana yang matriks asli tetap terbaca sekilas. */
+.cell--copy:not(.cell--diag-main):not(.cell--diag-anti):not(.cell--picked):not(.cell--struck) {
+  opacity: .72;
+}
+
+/* Begitu diagonalnya menyapu, salinan tampil penuh — sama pekatnya
+   dengan sel asli, karena keduanya sama-sama ikut dihitung. */
+.cell--copy.cell--diag-main,
+.cell--copy.cell--diag-anti,
+.cell--copy.cell--picked,
+.cell--copy.cell--struck {
+  opacity: 1;
+  border-style: solid;
+}
+
+/* ------------------------------------------------------------
+   8. INDIKATOR PROGRES TEKS
+
+   Menggantikan slider langkah di simulasi yang urutannya bebas. Ia
+   hanya melaporkan, tidak menjanjikan navigasi yang tidak ada.
+   ------------------------------------------------------------ */
+.sim-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--brand-primary-soft);
+  border-left: 3px solid var(--brand-primary);
+}
+
+.sim-progress__value {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: var(--fs-md);
+  color: var(--brand-primary-dark);
+  font-variant-numeric: tabular-nums;   /* angka tidak bergeser saat berubah */
+}
+
+.sim-progress__label {
+  font-size: var(--fs-xs);
+  color: var(--ink-700);
+}
+
+.sim-progress[data-done="true"] {
+  background: var(--success-soft);
+  border-left-color: var(--success);
+}
+
+.sim-progress[data-done="true"] .sim-progress__value { color: var(--success-hi); }
+
+/* ------------------------------------------------------------
+   11c. SIFAT DETERMINAN (HOTS) — soal tampil di panggung,
+        pilihan diketuk, yang salah disingkirkan
+   ------------------------------------------------------------ */
+.hots {
+  display: grid;
+  gap: var(--sp-3);
+  width: min(620px, 100%);
+  margin-inline: auto;
+}
+
+.hots__question {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: center;
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--sh-1);
+  text-align: center;
+}
+
+.hots__badge {
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--brand-primary);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+}
+
+.hots__text {
+  font-size: clamp(var(--fs-base), 1.1vw, var(--fs-lg));
+  line-height: 1.6;
+  color: var(--ink-900);
+
+  /* Soal ini campuran teks dan rumus KaTeX inline. Tanpa penyeimbangan,
+     baris terakhirnya sering hanya berisi satu tanda titik yang terlepas
+     sendirian di tengah. */
+  text-wrap: balance;
+  max-width: 46ch;
+  margin-inline: auto;
+}
+
+.hots__work {
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.hots__rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  justify-content: center;
+  width: min(680px, 100%);
+  margin-inline: auto;
+}
+
+.hots__card {
+  min-height: 44px;                     /* ambang sentuh */
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+
+/* Kartu keliru menyusut lalu hilang — pilihannya benar-benar mengerucut. */
+.hots__card--out {
+  opacity: 0;
+  transform: scale(.86);
+  pointer-events: none;
+}
+
+/* Sisa kartu setelah jawaban benar: mati, tapi tetap terbaca. */
+.hots__card--spent {
+  opacity: .4;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hots__card { transition: none; }
+}

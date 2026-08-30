@@ -277,12 +277,36 @@ export class Det3x3SarrusSim extends Simulation {
         const source = this.cells.get(`${i},${j - 3}`);
         ghost.textContent = source.textContent;
         ghost.style.visibility = 'visible';
+
+        /**
+         * Begitu salinannya TAMPIL, ia berhenti jadi bayangan dan mulai jadi
+         * bagian sah dari perhitungan — diagonal Sarrus melintasinya persis
+         * seperti melintasi matriks aslinya.
+         *
+         * Kelas `cell--ghost` memasang `animation: none`, jadi selama ia masih
+         * menempel, kedua kolom salinan TIDAK ikut berdenyut saat diagonalnya
+         * disorot (Fase 12, isu 10). Penandanya diganti `cell--copy`: tepinya
+         * tetap putus-putus supaya siswa tahu itu salinan, tetapi seluruh
+         * logika sorot dan denyutnya sama dengan sel biasa.
+         */
+        ghost.classList.remove('cell--ghost');
+        ghost.classList.add('cell--copy');
+
         ghosts.push(ghost);
         sources.push(source);
       }
     }
 
     await slideCloneColumns(sources, ghosts);
+
+    /**
+     * `slideCloneColumns` menutup animasinya dengan `opacity: 0.55` INLINE.
+     * Gaya inline mengalahkan kelas, jadi selama ia menempel, kolom salinan
+     * tetap pucat betapapun pekat denyut yang dipasang CSS — dan sorot
+     * diagonalnya nyaris tak terlihat (Fase 12, isu 10). Setelah salinannya
+     * mendarat, kendali warna dikembalikan sepenuhnya ke CSS.
+     */
+    ghosts.forEach((ghost) => { ghost.style.opacity = ''; });
 
     // Garis pemisah tegas antara matriks asli dan salinannya.
     this.grid.classList.add('has-divider');
@@ -532,16 +556,14 @@ export class PropertyCalculatorSim extends Simulation {
     this.index = 0;
     this.scaffold({
       brief: this.config.brief,
-      promptText: 'Seret kartu sifat yang tepat ke area kerja.',
+      promptText: 'Ketuk kartu sifat yang tepat untuk soal di panggung.',
       promptStep: `1 / ${this.config.problems.length}`,
     });
 
-    this.problemHost = el('div');
-    this.problemHost.style.cssText = 'width:100%;display:grid;gap:var(--sp-3)';
+    this.problemHost = el('div', 'hots');
     this.stage.appendChild(this.problemHost);
 
-    this.rulesHost = el('div');
-    this.rulesHost.style.cssText = 'display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center';
+    this.rulesHost = el('div', 'hots__rules');
     this.stage.appendChild(this.rulesHost);
 
     this.renderProblem();
@@ -555,25 +577,39 @@ export class PropertyCalculatorSim extends Simulation {
     this.rulesHost.innerHTML = '';
     this.setPrompt(problem.prompt, `${this.index + 1} / ${this.config.problems.length}`);
 
-    const work = el('div', 'dropzone');
-    work.style.cssText = 'min-height:96px;width:100%;max-width:520px;margin-inline:auto';
-    work.innerHTML = '<span>Jatuhkan kartu sifat di sini</span>';
+    /**
+     * SOALNYA DITULIS DI PANGGUNG (Fase 12, isu 11).
+     *
+     * Sebelumnya soal hanya hidup di panel kendali lewat `setPrompt()`,
+     * sementara kartu-kartu sifat yang harus dipilih ada di panggung. Siswa
+     * jadi harus mengingat soal sambil melihat pilihannya — beban memori yang
+     * tidak ada hubungannya dengan matematika yang sedang diuji. Sekarang
+     * soalnya berdiri tepat di atas pilihannya.
+     */
+    const ask = el('div', 'hots__question');
+    ask.appendChild(el('span', 'hots__badge', `Soal ${this.index + 1} dari ${this.config.problems.length}`));
+    ask.appendChild(el('div', 'hots__text', renderMixed(problem.prompt)));
+    this.problemHost.appendChild(ask);
+
+    const work = el('div', 'dropzone hots__work');
+    work.innerHTML = '<span>Ketuk salah satu kartu sifat di bawah</span>';
     this.problemHost.appendChild(work);
+    this.work = work;
 
-    this.track(registerDropZone(work, {
-      padding: 10,
-      onDrop: (data, sourceEl) => this.applyRule(problem, data, sourceEl, work),
-    }));
-
+    // KETUK-KETUK, bukan seret: kartunya besar dan tujuannya cuma satu, jadi
+    // menyeret hanya menambah gerakan tanpa menambah pemahaman.
     this.config.rules.forEach((rule) => {
-      const card = el('div', 'drag-card');
+      const card = el('div', 'drag-card hots__card');
       card.innerHTML = renderMixed(`$${rule.tex}$`);
-      makeDraggable(card, { data: { rule } });
+      this.track(makeTappable(card, () => this.applyRule(problem, { rule }, card, work),
+        `Sifat determinan: ${rule.key}`));
       this.rulesHost.appendChild(card);
     });
   }
 
   applyRule(problem, data, sourceEl, work) {
+    if (this.busy || this.resolved) return;
+
     if (data.rule.key !== problem.rule) {
       const hintMap = {
         scalar: 'perkalian matriks dengan sebuah skalar',
@@ -583,9 +619,22 @@ export class PropertyCalculatorSim extends Simulation {
         inverse: 'determinan matriks invers',
       };
       this.reject(sourceEl, 'wrongRule', { hint: hintMap[problem.rule] || 'sifat lain' });
+
+      /**
+       * Kartu yang keliru DISINGKIRKAN, bukan sekadar ditolak.
+       *
+       * Pilihannya jadi mengerucut: siswa yang salah sekali tidak bisa
+       * menekan kartu yang sama lagi, dan sisa pilihannya makin sedikit
+       * sehingga ia terdorong menimbang, bukan menebak berulang
+       * (kontrak §5 butir 11).
+       */
+      sourceEl.classList.add('hots__card--out');
+      sourceEl.setAttribute('aria-hidden', 'true');
+      this.later(() => sourceEl.remove(), 320);
       return;
     }
 
+    this.resolved = true;
     work.dataset.filled = 'true';
     // Hasil dirapikan lewat kelas .rule-result: seluruh isinya dipusatkan
     // horizontal maupun vertikal, dan ukuran hurufnya dinaikkan supaya
@@ -599,9 +648,15 @@ export class PropertyCalculatorSim extends Simulation {
     `;
     work.classList.add('anim-flash-success');
 
+    // Sisa kartu ikut dimatikan supaya tidak ada ketukan susulan yang
+    // menumpuk di atas jawaban yang sudah benar.
+    this.rulesHost.querySelectorAll('.hots__card').forEach((c) => {
+      if (c !== sourceEl) c.classList.add('hots__card--spent');
+    });
+
     toast.success(this.msg('success'));
     this.index += 1;
-    this.later(() => this.renderProblem(), 2600);
+    this.later(() => { this.resolved = false; this.renderProblem(); }, 2600);
   }
 }
 

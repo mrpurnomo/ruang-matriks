@@ -32,6 +32,220 @@ except ImportError:
 
 BASE = "http://localhost:5173"
 
+# Dipakai bagian 57 & 58: kedua sub-topik invers memakai panel yang sama.
+PANEL_SEGERA_HADIR = """() => ({
+    panel: !!document.querySelector('.soon-panel'),
+    title: (document.querySelector('.soon-panel__title') || {}).textContent.trim(),
+    stage: !!document.querySelector('.stage'),
+    nextEnabled: !([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled,
+    numfields: document.querySelectorAll('.sim .numfield').length,
+})"""
+
+# ============================================================
+# Skrip peramban untuk bagian regresi Fase 12 (87-93).
+# ============================================================
+
+TATA_LETAK_LABEL = """() => {
+    const target = document.querySelector('.label-target');
+    const shelf = document.querySelector('.label-shelf');
+    const pool = document.querySelector('.label-pool');
+    const mx = document.querySelector('.label-target .matrix');
+    if (!target || !shelf || !pool || !mx) return { found: false };
+    const rs = shelf.getBoundingClientRect(), rm = mx.getBoundingClientRect();
+    const chips = [...document.querySelectorAll('.label-chip')];
+    const tops = new Set(chips.map(c => Math.round(c.getBoundingClientRect().top)));
+    const rp = pool.getBoundingClientRect();
+    return {
+        found: true,
+        overlap: (Math.min(rs.right, rm.right) - Math.max(rs.left, rm.left) > 2)
+              && (Math.min(rs.bottom, rm.bottom) - Math.max(rs.top, rm.top) > 2),
+        shelfBelow: rs.top >= rm.bottom - 1,
+        poolRows: tops.size,
+        poolFits: rp.left >= 0 && rp.right <= window.innerWidth + 1,
+        minChipHeight: Math.min(...chips.map(c => Math.round(c.getBoundingClientRect().height))),
+    };
+}"""
+
+TAMBATAN_TOAST = """() => new Promise(resolve => {
+    // Ketuk sel sumber sebelum memilih sel hasil -> penolakan -> toast.
+    const m = [...document.querySelectorAll('.stage .matrix')];
+    m[0].querySelector('.cell').dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    setTimeout(() => {
+        const host = document.querySelector('.toast-host');
+        const stage = document.querySelector('.ws-stage');
+        if (!host || !stage) return resolve({ toasts: 0 });
+        const h = host.getBoundingClientRect(), st = stage.getBoundingClientRect();
+        const hc = h.left + h.width / 2, sc = st.left + st.width / 2;
+        resolve({
+            toasts: document.querySelectorAll('.toast').length,
+            offsetFromStage: Math.round(Math.abs(hc - sc)),
+            stageVsWindow: Math.round(Math.abs(sc - window.innerWidth / 2)),
+            withinStage: h.left >= st.left - 1 && h.right <= st.right + 1,
+        });
+    }, 600);
+})"""
+
+MULTI_KASUS_TUNTAS = """() => new Promise(resolve => {
+    const sim = () => window.__matriksLab.state.activeView.simulation;
+    const mats = () => [...document.querySelectorAll('.stage .matrix')];
+    const cell = (mi, i, j) => mats()[mi].querySelector(
+        '.cell[data-row="' + i + '"][data-col="' + j + '"]');
+    const tap = (el) => el && el.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+    (async () => {
+        // Tuntaskan SELURUH Kasus 1 - di sinilah complete() dipanggil.
+        for (const [i, j] of sim().cellOrder.slice()) {
+            tap(cell(2, i, j)); await wait(220);
+            const need = sim().activeMatrixA[0].length;
+            let spin = 0;
+            while (sim().terms.length < need || sim().terms.some(t => t.b == null)) {
+                if (++spin > 12) break;
+                const open = sim().terms.length
+                    && sim().terms[sim().terms.length - 1].b == null;
+                const k = open ? sim().terms.length - 1 : sim().terms.length;
+                tap(open ? cell(1, k, j) : cell(0, i, k));
+                await wait(130);
+                tap(cell(2, i, j));
+                await wait(680);
+            }
+            tap(document.querySelector('.workstrip__confirm'));
+            await wait(900);
+        }
+
+        const case1Complete = sim().completedCells.size === sim().total;
+        const finished = sim().finished;
+        const lockedAfterCase1 = sim().root.classList.contains('sim--done');
+
+        // Kasus 2 harus tetap hidup.
+        document.querySelectorAll('.case-chip')[1].click(); await wait(800);
+        const src = mats()[0].querySelector('.cell');
+        const r = src.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        tap(cell(2, 0, 0)); await wait(260);
+        tap(cell(0, 0, 0)); await wait(140); tap(cell(2, 0, 0)); await wait(900);
+        const case2Terms = sim().terms.length;
+        const case2PointerEvents = getComputedStyle(src).pointerEvents;
+        const case2HitTest = !!(hit && (hit === src || src.contains(hit)));
+
+        // Tuntaskan sel Kasus 2 agar boleh berpindah, lalu kembali ke Kasus 1.
+        const need2 = sim().activeMatrixA[0].length;
+        const ci = sim().activeCell.i, cj = sim().activeCell.j;
+        let spin2 = 0;
+        while (sim().terms.length < need2 || sim().terms.some(t => t.b == null)) {
+            if (++spin2 > 12) break;
+            const open = sim().terms.length
+                && sim().terms[sim().terms.length - 1].b == null;
+            const k = open ? sim().terms.length - 1 : sim().terms.length;
+            tap(open ? cell(1, k, cj) : cell(0, ci, k));
+            await wait(140); tap(cell(2, ci, cj)); await wait(760);
+        }
+        tap(document.querySelector('.workstrip__confirm')); await wait(1000);
+
+        document.querySelectorAll('.case-chip')[0].click(); await wait(900);
+        const back = cell(2, 0, 0);
+        resolve({
+            case1Complete, finished, lockedAfterCase1,
+            case2Terms, case2PointerEvents, case2HitTest,
+            backComplete: sim().completedCells.size,
+            backCellDone: back.classList.contains('cell--done'),
+        });
+    })();
+})"""
+
+SARRUS_SALINAN = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const tap = (el) => el && el.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    const btn = [...document.querySelectorAll('.stage button')]
+        .find(b => b.textContent.includes('Salin Dua Kolom'));
+    tap(btn);
+    setTimeout(() => {
+        const copies = [...sim.cells.entries()]
+            .filter(([k]) => Number(k.split(',')[1]) >= 3).map(([, c]) => c);
+        // Diagonal pertama seluruhnya di matriks asli; lewati dulu.
+        ['0,0', '1,1', '2,2'].forEach((k, i) => setTimeout(() => tap(sim.cells.get(k)), i * 260));
+        setTimeout(() => {
+            const wanted = sim.wantedKeys();
+            const copyCells = wanted.filter(k => Number(k.split(',')[1]) >= 3)
+                .map(k => sim.cells.get(k));
+            const origCells = wanted.filter(k => Number(k.split(',')[1]) < 3)
+                .map(k => sim.cells.get(k));
+            const nameOf = (c) => { const a = c.getAnimations()[0]; return a ? a.animationName : null; };
+            resolve({
+                stillGhost: copies.filter(c => c.classList.contains('cell--ghost')).length,
+                marked: copies.filter(c => c.classList.contains('cell--copy')).length,
+                copyCount: copyCells.length,
+                sameAnimation: copyCells.length > 0 && origCells.length > 0
+                    && copyCells.every(c => nameOf(c) === nameOf(origCells[0])
+                                         && String(nameOf(c)).endsWith('Fill')),
+                opacity: copyCells.length ? getComputedStyle(copyCells[0]).opacity : null,
+            });
+        }, 3200);
+    }, 2400);
+})"""
+
+KUNCI_KESAMAAN = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const tap = (el) => el && el.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    const dead = () => [...sim.leftCells.values()]
+        .filter(c => getComputedStyle(c).pointerEvents === 'none').length;
+    const first = sim.leftCells.get('0,0');
+    tap(first);
+    setTimeout(() => {
+        const lockedWhilePending = dead();
+        const rightAlive = [...sim.rightCells.values()]
+            .every(c => getComputedStyle(c).pointerEvents !== 'none');
+        tap(first);                                  // ketuk lagi = batal
+        setTimeout(() => resolve({
+            totalLeft: sim.leftCells.size,
+            lockedWhilePending, rightAlive,
+            lockedAfterCancel: dead(),
+            pendingCleared: !sim.pending,
+        }), 420);
+    }, 420);
+})"""
+
+ANTI_SPAM = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const item = sim.config.cases[sim.index];
+    const btns = [...document.querySelectorAll('.stage .btn--lg')];
+    const before = sim.index;
+    btns[item.answerIndex].click();
+    btns[item.answerIndex].click();
+    btns[item.answerIndex].click();
+    setTimeout(() => resolve({
+        buttons: btns.length,
+        allDisabled: btns.every(b => b.disabled),
+        advancedOnce: sim.index === before + 1,
+    }), 400);
+})"""
+
+HOTS_KETUK = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const problem = sim.config.problems[sim.index];
+    const cardsBefore = document.querySelectorAll('.hots__card').length;
+    const out = {
+        questionOnStage: !!document.querySelector('.hots__question'),
+        questionText: (document.querySelector('.hots__text') || {}).textContent || '',
+        cardsBefore,
+        draggables: document.querySelectorAll('.stage [data-draggable]').length,
+        dropzones: document.querySelectorAll('.stage [data-dropzone-id]').length,
+    };
+    const wrongIdx = sim.config.rules.findIndex(r => r.key !== problem.rule);
+    const cards = [...document.querySelectorAll('.hots__card')];
+    cards[wrongIdx].dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    setTimeout(() => {
+        out.errorToast = !!document.querySelector('.toast--error');
+        out.cardsAfterWrong = document.querySelectorAll('.hots__card').length;
+        resolve(out);
+    }, 900);
+})"""
+
 # ============================================================
 # Skrip peramban untuk bagian regresi Fase 11 (bagian 77-86).
 # Dipisahkan dari alur uji supaya blok JS yang panjang tidak
@@ -40,7 +254,7 @@ BASE = "http://localhost:5173"
 
 RENDER_ULANG_SLIDER = """() => new Promise(resolve => {
     const sim = window.__matriksLab.state.activeView.simulation;
-    for (let i = 0; i < 4; i++) { sim.renderSlide(); }
+    for (let i = 0; i < 4; i++) { sim.buildCase(); }
     setTimeout(() => resolve({
         sliders: document.querySelectorAll('.slider__nav').length,
         dots: document.querySelectorAll('.slider-dots').length,
@@ -670,14 +884,37 @@ def run(page, errors):
         record("Toast error singleton (maks 1)", errs["errorToasts"] <= 1, f"aktif: {errs['errorToasts']}")
         record("Opsi salah dinonaktifkan", errs["locked"] >= 1, f"terkunci: {errs['locked']}")
 
-    print("\n19. Materi Jenis Matriks berbentuk carousel")
+    print("\n19. Materi Jenis Matriks: lima kategori penggolongan")
+    # Fase 12 mengganti carousel dengan struktur kategori. Carousel hanya
+    # memperlihatkan satu jenis pada satu waktu, padahal justru PERBANDINGAN
+    # di dalam satu kategori yang jadi pelajarannya — beda matriks diagonal,
+    # skalar, dan identitas cuma terlihat kalau ketiganya berdampingan.
     open_fresh(page, "#/belajar/01_konsep_dasar/jenis_matriks")
-    car = page.evaluate("""() => ({
-        carousel: !!document.querySelector('.materi-carousel'),
-        slides: document.querySelectorAll('.materi-carousel__slide').length
-    })""")
-    record("Carousel jenis matriks ada", car["carousel"] is True, json.dumps(car))
-    record("Enam jenis dijelaskan satu per satu", car["slides"] == 6, json.dumps(car))
+    car = page.evaluate("""() => {
+        const groups = [...document.querySelectorAll('.typegroup')];
+        return {
+            groups: groups.length,
+            titles: groups.map(g => (g.querySelector('.typegroup__title') || {}).textContent || ''),
+            cards: document.querySelectorAll('.typecard').length,
+            figures: document.querySelectorAll('.typecard__figure .katex').length,
+            named: [...document.querySelectorAll('.typecard__name')].map(n => n.textContent.trim()),
+            notes: document.querySelectorAll('.typegroup__note').length,
+        };
+    }""")
+    record("Lima kategori penggolongan ditampilkan", car["groups"] == 5, json.dumps(car)[:200])
+    record("Setiap jenis punya SATU contoh matriks",
+           car["cards"] == 19 and car["figures"] == 19, json.dumps(car)[:200])
+    WAJIB = ["Matriks Baris", "Matriks Kolom", "Matriks Persegi Panjang", "Matriks Persegi",
+             "Matriks Nol", "Matriks Diagonal", "Matriks Skalar", "Matriks Identitas",
+             "Matriks Segitiga Atas", "Matriks Segitiga Bawah",
+             "Matriks Simetris", "Matriks Simetris Miring", "Matriks Ortogonal",
+             "Matriks Idempoten", "Matriks Involutori", "Matriks Nilpoten", "Matriks Periodik",
+             "Matriks Singular", "Matriks Non-Singular"]
+    hilang = [n for n in WAJIB if n not in car["named"]]
+    record("Sembilan belas jenis lengkap, tidak ada yang hilang",
+           not hilang, "hilang: " + json.dumps(hilang, ensure_ascii=False))
+    record("Kategori pengayaan & rujukan bab lain diberi catatan",
+           car["notes"] == 2, json.dumps(car)[:200])
 
     print("\n20. Simulasi jenis matriks: seret label ke matriks")
     btn = page.query_selector("button:has-text('Mulai Simulasi')")
@@ -1112,22 +1349,26 @@ def run(page, errors):
     record("Hasil otomatis disederhanakan", frac["simplified"] == "1", json.dumps(frac))
     record("LaTeX pecahan memakai \\frac", "frac" in frac["latex"], json.dumps(frac))
 
-    print("\n41. Artefak UI carousel bersih")
+    print("\n41. Artefak UI kategori jenis matriks bersih")
     open_fresh(page, "#/belajar/01_konsep_dasar/jenis_matriks")
     art = page.evaluate("""() => {
-        const c = document.querySelector('.materi-carousel');
-        if (!c) return { found: false };
-        const vp = c.querySelector('.materi-carousel__viewport');
-        const slides = [...c.querySelectorAll('.materi-carousel__slide')];
+        const cards = [...document.querySelectorAll('.typecard')];
+        const figs = [...document.querySelectorAll('.typecard__figure')];
+        if (!cards.length) return { found: false };
         return {
             found: true,
-            viewportScrolls: vp.scrollHeight > vp.clientHeight + 1 || vp.scrollWidth > vp.clientWidth + 1,
-            slideScrolls: slides.some(s => s.scrollHeight > s.clientHeight + 1),
-            overflow: getComputedStyle(vp).overflow
+            cardScrolls: cards.some(c => c.scrollWidth > c.clientWidth + 1),
+            figScrolls: figs.some(f => f.scrollWidth > f.clientWidth + 1),
+            // Tidak ada scrollbar mendatar yang TERLIHAT di bawah rumus.
+            visibleBar: [...document.querySelectorAll('.typecard .katex-display')]
+                .some(k => k.scrollWidth > k.clientWidth + 1
+                        && getComputedStyle(k).scrollbarWidth !== 'none'),
         };
     }""")
-    record("Viewport carousel tidak menggulir", art.get("viewportScrolls") is False, json.dumps(art))
-    record("Slide carousel tidak menggulir", art.get("slideScrolls") is False, json.dumps(art))
+    record("Kartu jenis tidak menggulir mendatar", art.get("cardScrolls") is False, json.dumps(art))
+    record("Figur rumus tidak menggulir mendatar", art.get("figScrolls") is False, json.dumps(art))
+    record("Tidak ada scrollbar terlihat di bawah matriks contoh",
+           art.get("visibleBar") is False, json.dumps(art))
 
     print("\n42. Potret menampilkan pengunci orientasi")
     # Fase 9 mengunci aplikasi ke lanskap. Di potret, isi aplikasi
@@ -1306,7 +1547,7 @@ def run(page, errors):
         page.set_viewport_size(vp)
         open_fresh(page, "#/belajar/01_konsep_dasar/jenis_matriks")
         vis = page.evaluate("""() => {
-            const fig = document.querySelector('.materi-carousel__figure');
+            const fig = document.querySelector('.typecard__figure');
             if (!fig) return { found: false };
             const r = fig.getBoundingClientRect();
             const k = fig.querySelector('.katex-html');
@@ -1647,49 +1888,22 @@ def run(page, errors):
     record("Determinan 6x5-2x4 = 22", det["result"] == "22", json.dumps(det))
     record("Simulasi determinan selesai", det["done"] is True, json.dumps(det))
 
-    print("\n57. Invers 2x2: tiga tahap dikerjakan siswa")
+    print("\n57. Invers 2x2 ditangguhkan dengan jujur")
+    # Fase 12: engine invers 2x2 DICABUT dan diganti placeholder. Panggung
+    # kosong tidak bisa dibedakan dari aplikasi yang rusak, jadi ia harus
+    # mengatakan apa adanya — dan tidak boleh ikut mengunci Mini Kuis.
     open_fresh(page, "#/belajar/03_determinan_invers/invers_2x2")
     b = page.query_selector("button:has-text('Mulai Simulasi')")
     if b:
         b.click()
         page.wait_for_timeout(800)
-    inv = page.evaluate("""() => new Promise(resolve => {
-        const cells = () => [...document.querySelectorAll('.sim .matrix .cell')];
-        const log = { steps: document.querySelectorAll('.checklist__item').length };
-        // Tahap 1: determinan manual (K = [[3,5],[1,2]] -> det = 1)
-        const c = cells(); c[0].click(); c[3].click();
-        setTimeout(() => {
-            const c2 = cells(); c2[1].click(); c2[2].click();
-            setTimeout(() => {
-                log.det = (document.querySelector('.scalar-result__value') || {}).textContent;
-                log.before = cells().map(x => x.dataset.value).join(',');
-                // Tahap 2a: tukar diagonal utama
-                const c3 = cells(); c3[0].click(); c3[3].click();
-                setTimeout(() => {
-                    log.afterSwap = cells().map(x => x.dataset.value).join(',');
-                    // Tahap 2b: balik tanda diagonal sekunder
-                    cells()[1].click();
-                    setTimeout(() => {
-                        cells()[2].click();
-                        setTimeout(() => {
-                            log.adjoint = cells().map(x => x.dataset.value).join(',');
-                            log.chip = !!document.querySelector('.scalar-chip--fraction');
-                            log.invited = document.querySelectorAll('.cell--invite').length;
-                            resolve(log);
-                        }, 900);
-                    }, 900);
-                }, 1800);
-            }, 3000);
-        }, 3000);
-    })""")
-    record("Tiga tahap tercantum di checklist", inv.get("steps") == 3, json.dumps(inv))
-    record("Determinan dihitung siswa lebih dulu", inv.get("det") == "1", json.dumps(inv))
-    record("Diagonal utama benar-benar bertukar",
-           inv.get("before") == "3,5,1,2" and inv.get("afterSwap") == "2,5,1,3", json.dumps(inv))
-    record("Diagonal sekunder berbalik tanda",
-           inv.get("adjoint") == "2,-5,-1,3", json.dumps(inv))
-    record("Chip 1/det muncul di tahap 3", inv.get("chip") is True, json.dumps(inv))
-    record("Setiap elemen jadi sasaran tersendiri", inv.get("invited") == 4, json.dumps(inv))
+    soon2 = page.evaluate(PANEL_SEGERA_HADIR)
+    record("Panel 'Segera Hadir' tampil di invers 2x2", soon2["panel"] is True, json.dumps(soon2)[:200])
+    record("Judulnya berbunyi 'Segera Hadir'", soon2["title"] == "Segera Hadir", json.dumps(soon2)[:200])
+    record("Struktur .stage tetap standar", soon2["stage"] is True, json.dumps(soon2)[:200])
+    record("Mini Kuis invers 2x2 tetap terbuka", soon2["nextEnabled"] is True, json.dumps(soon2)[:200])
+    record("Tidak ada isian yang menyesatkan di invers 2x2",
+           soon2["numfields"] == 0, json.dumps(soon2)[:200])
 
     print("\n58. Invers 3x3 ditangguhkan dengan jujur")
     open_fresh(page, "#/belajar/03_determinan_invers/invers_3x3")
@@ -1697,18 +1911,11 @@ def run(page, errors):
     if b:
         b.click()
         page.wait_for_timeout(800)
-    wip = page.evaluate("""() => ({
-        card: !!document.querySelector('.wip-card'),
-        title: (document.querySelector('.wip-card__title') || {}).textContent || '',
-        stage: !!document.querySelector('.stage'),
-        nextEnabled: !([...document.querySelectorAll('button')]
-            .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled,
-        noMathpadField: document.querySelectorAll('.sim .numfield').length,
-    })""")
-    record("Kartu 'sedang dibangun' tampil", wip["card"] is True, json.dumps(wip))
-    record("Struktur .stage tetap standar", wip["stage"] is True, json.dumps(wip))
-    record("Siswa tetap bisa lanjut ke Mini Kuis", wip["nextEnabled"] is True, json.dumps(wip))
-    record("Tidak ada isian kofaktor yang menyesatkan", wip["noMathpadField"] == 0, json.dumps(wip))
+    wip = page.evaluate(PANEL_SEGERA_HADIR)
+    record("Panel 'Segera Hadir' tampil di invers 3x3", wip["panel"] is True, json.dumps(wip)[:200])
+    record("Struktur .stage tetap standar", wip["stage"] is True, json.dumps(wip)[:200])
+    record("Siswa tetap bisa lanjut ke Mini Kuis", wip["nextEnabled"] is True, json.dumps(wip)[:200])
+    record("Tidak ada isian kofaktor yang menyesatkan", wip["numfields"] == 0, json.dumps(wip)[:200])
 
     print("\n59. Layar 'Sub-topik selesai' besar & terpusat")
     # Diuji pada layar penutup SUNGGUHAN: Mini Kuis dikerjakan sampai tuntas,
@@ -1815,21 +2022,21 @@ def run(page, errors):
     if b:
         b.click()
         page.wait_for_timeout(800)
+    # Fase 12: interaksinya KETUK, bukan seret — jadi kartunya diketuk
+    # satu per satu sampai ada yang diterima.
     rule = page.evaluate("""() => new Promise(resolve => {
-        const cards = [...document.querySelectorAll('.drag-card')];
+        const cards = [...document.querySelectorAll('.hots__card')];
         const zone = document.querySelector('.dropzone');
         if (!cards.length || !zone) return resolve({ found: false });
-        // Jatuhkan tiap kartu sampai ada yang diterima.
-        const drop = el => {
-            const b = el.getBoundingClientRect();
-            const z = zone.getBoundingClientRect();
-            const o = (x, y) => ({ bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
-                                   pointerId: 7, pointerType: 'mouse', button: 0, isPrimary: true });
-            el.dispatchEvent(new PointerEvent('pointerdown', o(b.left + b.width/2, b.top + b.height/2)));
-            document.dispatchEvent(new PointerEvent('pointermove', o(z.left + z.width/2, z.top + z.height/2)));
-            document.dispatchEvent(new PointerEvent('pointerup', o(z.left + z.width/2, z.top + z.height/2)));
+        let i = 0;
+        const tapNext = () => {
+            if (i >= cards.length) return;
+            cards[i].dispatchEvent(new MouseEvent('click',
+                { bubbles: true, clientX: 1, clientY: 1 }));
+            i += 1;
+            if (!document.querySelector('.rule-result')) setTimeout(tapNext, 220);
         };
-        cards.forEach(drop);
+        tapNext();
         setTimeout(() => {
             const res = document.querySelector('.rule-result');
             if (!res) return resolve({ found: true, filled: false });
@@ -2725,16 +2932,27 @@ def run(page, errors):
     # ==========================================================
 
     print("\n77. Fase 11 - Isu 7: slider langkah tidak pernah kembar")
+    # Fase 12 mencabut slider dari Penjumlahan (urutannya bebas), jadi penjaga
+    # ini dipindah ke Perkalian — engine multi-kasus yang memang masih memakai
+    # slider, dan justru di sanalah slider kembar pertama kali ditemukan.
+    open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    dup = page.evaluate(RENDER_ULANG_SLIDER)
+    record("Bangun ulang kasus 4x tetap menyisakan satu slider",
+           dup["sliders"] == 1 and dup["dots"] == 1, json.dumps(dup))
+
+    print("\n78. Fase 11 - Isu 8: Jumlah/Kurang murni ketuk-ketuk")
+    # Bagian ini dulu menumpang halaman yang ditinggalkan bagian 77. Sejak
+    # bagian 77 pindah ke Perkalian (Fase 12), ia harus membuka rutenya sendiri
+    # — menumpang keadaan bagian lain membuat urutan uji jadi rapuh.
     open_fresh(page, "#/belajar/02_operasi_aljabar/penjumlahan_pengurangan")
     b = page.query_selector("button:has-text('Mulai Simulasi')")
     if b:
         b.click()
-        page.wait_for_timeout(700)
-    dup = page.evaluate(RENDER_ULANG_SLIDER)
-    record("Render ulang 4x tetap menyisakan satu slider",
-           dup["sliders"] == 1 and dup["dots"] == 1, json.dumps(dup))
-
-    print("\n78. Fase 11 - Isu 8: Jumlah/Kurang murni ketuk-ketuk")
+        page.wait_for_timeout(800)
     tap = page.evaluate(KETUK_KETUK_JUMLAH)
     record("Tidak ada elemen yang bisa diseret di Jumlah/Kurang",
            tap["draggables"] == 0, json.dumps(tap)[:220])
@@ -2895,6 +3113,157 @@ def run(page, errors):
                json.dumps(got))
         record("Teks tetap terbaca di puncak denyut " + role + " (>=4.5:1)",
                bool(got) and got.get("contrast", 0) >= 4.5, json.dumps(got))
+
+    # ==========================================================
+    # FASE 12 — REGRESI
+    # ==========================================================
+
+    print("\n87. Fase 12 - Isu 1: Transpose diajarkan sebelum Jenis-Jenis Matriks")
+    urutan = page.evaluate("""() => fetch('data/lessons.json', {cache:'no-cache'})
+        .then(r => r.json())
+        .then(d => (d.chapters.find(c => c.id === '01_konsep_dasar') || {}).subtopicOrder)""")
+    record("Transpose mendahului Jenis-Jenis Matriks",
+           urutan.index("transpose") < urutan.index("jenis_matriks"), json.dumps(urutan))
+    record("Sub-topik Bab 1 tetap lima dan tidak ada yang hilang",
+           sorted(urutan) == sorted(["pengertian_letak", "ordo_matriks", "transpose",
+                                     "jenis_matriks", "kesamaan_matriks"]), json.dumps(urutan))
+
+    print("\n88. Fase 12 - Isu 3: panggung 'Tempel Label' tidak lagi bertumpuk")
+    open_fresh(page, "#/belajar/01_konsep_dasar/jenis_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    lay = page.evaluate(TATA_LETAK_LABEL)
+    record("Rak label tidak menimpa matriks", lay["overlap"] is False, json.dumps(lay)[:220])
+    record("Rak label berada DI BAWAH matriks", lay["shelfBelow"] is True, json.dumps(lay)[:220])
+    record("Kartu label membungkus, bukan satu lajur panjang",
+           lay["poolRows"] >= 2 and lay["poolFits"] is True, json.dumps(lay)[:220])
+    record("Setiap kartu label memenuhi ambang sentuh 44px",
+           lay["minChipHeight"] >= 44, json.dumps(lay)[:220])
+
+    print("\n89. Fase 12 - Isu 5: toast terpusat ke KOLOM PANGGUNG, bukan jendela")
+    open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    anchor = page.evaluate(TAMBATAN_TOAST)
+    record("Toast muncul saat interaksi ditolak", anchor["toasts"] >= 1, json.dumps(anchor))
+    record("Toast terpusat ke panggung (selisih <=2px)",
+           anchor["offsetFromStage"] <= 2, json.dumps(anchor))
+    record("Pusat panggung memang berbeda dari pusat jendela",
+           anchor["stageVsWindow"] > 20, json.dumps(anchor))
+    record("Toast tidak melebar melewati panggung", anchor["withinStage"] is True, json.dumps(anchor))
+
+    print("\n90. Fase 12 - Isu 6: bilah progres kartu bab benar-benar sebuah track")
+    open_fresh(page, "#/belajar")
+    bars = page.evaluate("""() => [...document.querySelectorAll('.chapter-item .progressbar')]
+        .map(b => { const r = b.getBoundingClientRect();
+            return { w: Math.round(r.width), h: Math.round(r.height),
+                     display: getComputedStyle(b).display }; })""")
+    record("Setiap kartu bab punya bilah progres", len(bars) >= 4, json.dumps(bars)[:200])
+    record("Bilah progres melebar penuh, bukan sliver 2px",
+           all(x["w"] > 100 for x in bars), json.dumps(bars)[:200])
+    record("Tinggi bilah progres sesuai rancangan (8px)",
+           all(x["h"] == 8 and x["display"] == "block" for x in bars), json.dumps(bars)[:200])
+
+    print("\n91. Fase 12 - Isu 8: simulasi urutan-bebas memakai teks progres, bukan slider")
+    for route, unit in [("02_operasi_aljabar/penjumlahan_pengurangan", "sel"),
+                        ("01_konsep_dasar/kesamaan_matriks", "pasangan")]:
+        open_fresh(page, f"#/belajar/{route}")
+        b = page.query_selector("button:has-text('Mulai Simulasi')")
+        if b:
+            b.click()
+            page.wait_for_timeout(800)
+        if "penjumlahan" in route:
+            page.evaluate("""() => { const s = window.__matriksLab.state.activeView.simulation;
+                s.ordoUnderstood = true; s.slide = 1; s.renderSlide(); }""")
+            page.wait_for_timeout(600)
+        prog = page.evaluate("""() => ({
+            sliders: document.querySelectorAll('.slider__nav').length,
+            text: (document.querySelector('.sim-progress') || {}).innerText || '',
+            resumable: typeof (window.__matriksLab.state.activeView.simulation.stepJump),
+        })""")
+        nama = route.split("/")[1]
+        record(f"Tidak ada slider langkah di {nama}", prog["sliders"] == 0, json.dumps(prog))
+        record(f"Teks progres tampil di {nama}",
+               "dari" in prog["text"] and unit in prog["text"], json.dumps(prog))
+
+    print("\n92. Fase 12 - Isu 9: kasus yang tuntas tidak mengunci kasus lain")
+    open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    kasus = page.evaluate(MULTI_KASUS_TUNTAS)
+    record("Kasus 1 bisa diselesaikan sampai tuntas",
+           kasus["case1Complete"] is True, json.dumps(kasus)[:240])
+    record("Mini Kuis terbuka setelah kasus pertama tuntas",
+           kasus["finished"] is True, json.dumps(kasus)[:240])
+    record("Panggung TIDAK dikunci selama masih ada kasus tersisa",
+           kasus["lockedAfterCase1"] is False, json.dumps(kasus)[:240])
+    record("Sel sumber Kasus 2 masih bisa disentuh",
+           kasus["case2PointerEvents"] == "auto" and kasus["case2HitTest"] is True,
+           json.dumps(kasus)[:240])
+    record("Interaksi Kasus 2 benar-benar hidup (suku terbentuk)",
+           kasus["case2Terms"] >= 1, json.dumps(kasus)[:240])
+    record("Kembali ke Kasus 1: hasilnya utuh dan tetap terlihat",
+           kasus["backComplete"] == 4 and kasus["backCellDone"] is True, json.dumps(kasus)[:240])
+
+    print("\n93. Fase 12 - Isu 10 & 11: denyut salinan Sarrus, kunci, dan eliminasi")
+    open_fresh(page, "#/belajar/03_determinan_invers/determinan_3x3")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    sar = page.evaluate(SARRUS_SALINAN)
+    record("Kolom salinan berhenti jadi 'hantu' setelah disalin",
+           sar["stillGhost"] == 0 and sar["marked"] == 6, json.dumps(sar)[:220])
+    record("Salinan Sarrus ikut berdenyut sama seperti matriks asli",
+           sar["sameAnimation"] is True, json.dumps(sar)[:220])
+    record("Salinan tampil pekat penuh saat disorot",
+           sar["opacity"] == "1", json.dumps(sar)[:220])
+
+    open_fresh(page, "#/belajar/01_konsep_dasar/kesamaan_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    kunci = page.evaluate(KUNCI_KESAMAAN)
+    record("Sel sumber lain dikunci saat satu pasangan aktif",
+           kunci["lockedWhilePending"] == kunci["totalLeft"] - 1, json.dumps(kunci))
+    record("Sisi kanan tetap bisa diketuk agar salah pasang tetap dijelaskan",
+           kunci["rightAlive"] is True, json.dumps(kunci))
+    record("Ketuk ulang sel yang sama membatalkan dan membuka kuncinya",
+           kunci["lockedAfterCancel"] == 0 and kunci["pendingCleared"] is True, json.dumps(kunci))
+
+    open_fresh(page, "#/belajar/02_operasi_aljabar/ordo_perkalian")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    spam = page.evaluate(ANTI_SPAM)
+    record("Semua tombol pilihan mati setelah jawaban benar",
+           spam["allDisabled"] is True, json.dumps(spam))
+    record("Klik beruntun tidak melompati kasus",
+           spam["advancedOnce"] is True, json.dumps(spam))
+
+    open_fresh(page, "#/belajar/03_determinan_invers/sifat_determinan")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    hots = page.evaluate(HOTS_KETUK)
+    record("Soal HOTS ditulis di panggung, bukan hanya di panel kiri",
+           hots["questionOnStage"] is True and len(hots["questionText"]) > 10,
+           json.dumps(hots)[:220])
+    record("Kartu sifat diketuk, bukan diseret",
+           hots["draggables"] == 0 and hots["dropzones"] == 0, json.dumps(hots)[:220])
+    record("Kartu yang salah disingkirkan agar tidak bisa dipilih lagi",
+           hots["cardsAfterWrong"] == hots["cardsBefore"] - 1, json.dumps(hots)[:220])
+    record("Penolakan tetap disertai Toast penjelas",
+           hots["errorToast"] is True, json.dumps(hots)[:220])
 
 
 def main():

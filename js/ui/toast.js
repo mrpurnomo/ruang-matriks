@@ -16,6 +16,58 @@ const MAX_VISIBLE = 2;
 let host = null;
 const active = new Set();
 
+/* ------------------------------------------------------------
+   Penambatan toast (Fase 12, isu 5)
+
+   Toast dulu dipusatkan ke SELURUH JENDELA. Di layar belajar itu salah
+   sasaran: mata siswa sedang berada di kolom kanan (panggung), sementara
+   pesannya muncul di tengah layar — yang di monitor lebar berarti
+   melayang di atas panel kendali, jauh dari matriks yang baru saja ia
+   sentuh. Umpan balik harus muncul dekat penyebabnya.
+
+   Jadi toast ditambatkan ke sebuah elemen (biasanya `.ws-stage`), dan
+   posisinya disalurkan ke CSS lewat dua custom property. Kalau tidak ada
+   tambatan, ia kembali ke tengah jendela seperti semula.
+   ------------------------------------------------------------ */
+let anchorEl = null;
+let anchorFrame = 0;
+
+function applyAnchor() {
+  anchorFrame = 0;
+  const root = document.documentElement;
+
+  if (!anchorEl || !document.body.contains(anchorEl)) {
+    root.style.removeProperty('--toast-anchor-x');
+    root.style.removeProperty('--toast-anchor-w');
+    return;
+  }
+
+  const r = anchorEl.getBoundingClientRect();
+  if (!r.width) return;
+  root.style.setProperty('--toast-anchor-x', `${Math.round(r.left + r.width / 2)}px`);
+  root.style.setProperty('--toast-anchor-w', `${Math.round(r.width)}px`);
+}
+
+function scheduleAnchor() {
+  if (anchorFrame) return;
+  anchorFrame = requestAnimationFrame(applyAnchor);
+}
+
+/**
+ * Tambatkan toast ke sebuah kolom. Panggil dengan `null` untuk
+ * mengembalikannya ke tengah jendela.
+ * @param {HTMLElement|null} element
+ */
+export function anchorToasts(element) {
+  anchorEl = element || null;
+  applyAnchor();
+}
+
+if (typeof window !== 'undefined') {
+  // Lebar kolom berubah saat jendela diubah ukurannya atau masuk layar penuh.
+  window.addEventListener('resize', scheduleAnchor);
+}
+
 /**
  * Toast kesalahan bersifat SINGLETON: hanya boleh ada satu pada satu waktu.
  * Kalau kesalahan baru muncul, yang lama langsung diganti — bukan ditumpuk,
@@ -56,6 +108,9 @@ const TITLE_FOR = {
 export function showToast(message, options = {}) {
   const type = options.type || 'info';
   const parent = ensureHost();
+
+  // Kolom panggung bisa baru selesai diukur pada frame ini juga.
+  applyAnchor();
 
   // Satu error pada satu waktu: yang lama diganti seketika.
   if (type === 'error' && activeError) {
@@ -122,6 +177,7 @@ export function clearToasts() {
 }
 
 export const toast = {
+  anchorTo: anchorToasts,
   info: (msg, opts) => showToast(msg, { ...opts, type: 'info' }),
   success: (msg, opts) => showToast(msg, { ...opts, type: 'success' }),
   warn: (msg, opts) => showToast(msg, { ...opts, type: 'warn' }),

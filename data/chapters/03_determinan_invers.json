@@ -414,31 +414,14 @@
         }
       ],
       "simulation": {
-        "engine": "inverse2x2",
-        "title": "Simulasi: Tiga Tahap Invers",
-        "brief": "Tahap 1 hitung determinan sendiri, tahap 2 susun adjoin dengan ketukan, tahap 3 sapukan 1/det ke tiap elemen.",
+        "engine": "coming_soon",
+        "title": "Simulasi: Segera Hadir",
+        "brief": "Bagian ini belum bisa disimulasikan. Lanjutkan ke Mini Kuis kalau materinya sudah kamu pahami.",
         "config": {
-          "matrix": [
-            [
-              3,
-              5
-            ],
-            [
-              1,
-              2
-            ]
-          ],
-          "name": "K"
+          "note": "Simulasi invers $2 \\times 2$ masih dalam pengembangan.",
+          "detail": "Materi di atas sudah lengkap dan Mini Kuisnya sudah bisa dikerjakan. Simulasi langkah-per-langkahnya menyusul di pembaruan berikutnya."
         },
-        "toasts": {
-          "wrongDiagonal": "Elemen itu bukan bagian diagonal yang sedang dikerjakan. Ketuk dua elemen yang sedang berwarna {{warna}}.",
-          "wrongSwap": "Yang ditukar adalah pasangan diagonal UTAMA ($a$ dan $d$). Diagonal sekunder nanti hanya dibalik tandanya, tidak dipindah.",
-          "wrongFlip": "Elemen ini ada di diagonal utama — tandanya tidak dibalik. Yang dibalik tanda hanya $b$ dan $c$ (diagonal sekunder).",
-          "notYet": "Selesaikan tahap yang sedang berjalan dulu. Adjoin baru bisa disusun setelah determinannya kamu hitung sendiri.",
-          "wrongTarget": "Skalar $\\frac{1}{\\det}$ dikenakan ke SETIAP elemen, satu per satu. Elemen ini sudah dikalikan.",
-          "singular": "Matriks ini singular ($\\det = 0$), jadi inversnya tidak ada. Rumus invers akan membagi dengan nol.",
-          "success": "Selesai! Coba buktikan sendiri bahwa $K \\times K^{-1} = I$."
-        }
+        "toasts": {}
       },
       "quiz": [
         {
@@ -514,35 +497,14 @@
         }
       ],
       "simulation": {
-        "engine": "adjoint_flow",
-        "title": "Simulasi: Sedang Dibangun",
-        "brief": "Simulasi invers 3×3 sedang disiapkan. Materi dan Mini Kuis di sub-topik ini tetap bisa kamu kerjakan.",
+        "engine": "coming_soon",
+        "title": "Simulasi: Segera Hadir",
+        "brief": "Bagian ini belum bisa disimulasikan. Lanjutkan ke Mini Kuis kalau materinya sudah kamu pahami.",
         "config": {
-          "matrix": [
-            [
-              1,
-              2,
-              3
-            ],
-            [
-              0,
-              1,
-              4
-            ],
-            [
-              5,
-              6,
-              0
-            ]
-          ],
-          "name": "A"
+          "note": "Simulasi invers $3 \\times 3$ (metode adjoin) masih dalam pengembangan.",
+          "detail": "Materi di atas sudah lengkap dan Mini Kuisnya sudah bisa dikerjakan. Simulasi langkah-per-langkahnya menyusul di pembaruan berikutnya."
         },
-        "toasts": {
-          "lockedCard": "Kartu ini masih terkunci — selesaikan kartu sebelumnya dulu. Adjoin butuh matriks kofaktor, dan kofaktor butuh determinan.",
-          "wrongCofactor": "Kofaktor sel ini belum tepat. Coret baris dan kolom sel tersebut, hitung determinan sub-matriks $2\\times2$ yang tersisa, lalu terapkan tanda papan catur.",
-          "wrongSign": "Nilai minornya benar, tapi tandanya keliru — ikuti pola papan catur $+\\ -\\ +$ berselang-seling mulai dari sudut kiri atas.",
-          "success": "Selesai! Invers $3\\times3$ memang panjang, tapi polanya selalu sama."
-        }
+        "toasts": {}
       },
       "quiz": [
         {

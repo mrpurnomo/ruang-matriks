@@ -7,7 +7,7 @@ import {
   Simulation, el, renderMatrix, rowCells, colCells, clearHighlights,
   stageRow, equationRow, operatorGlyph, createMeetPoint, createScalarChip,
   createFlowArrow, createChecklist, lockWrongOption, makeTappable, setCellsMuted,
-  createBrief, createPrompt, createStage, createColorLegend,
+  createBrief, createPrompt, createStage, createColorLegend, createProgressText,
 } from './simCore.js';
 import {
   add, subtract, multiply, multiplyTerms, scalarMultiply,
@@ -43,13 +43,17 @@ export class ElementwiseOpSim extends Simulation {
       return;
     }
 
-    this.useSteps(['Syarat ordo', 'Hitung elemen seletak'], {
-      allowJump: true,
-      onJump: (index) => {
-        if (index > this.maxSlide()) return;
-        this.slide = index;
-        this.renderSlide();
-      },
+    /**
+     * TANPA slider (Fase 12, isu 8). Engine ini bergerak maju lewat tombol
+     * "Paham — lanjut…" di panggung, dan tahap hitungnya boleh dikerjakan
+     * dalam urutan bebas — dua alasan yang membuat navigasi maju-mundur di
+     * panel kiri tidak pernah berguna. Langkahnya tetap DIDAFTARKAN supaya
+     * posisi siswa bisa dipulihkan setelah keluar ke menu.
+     */
+    this.useStepsSilent(2, (index) => {
+      if (index > this.maxSlide()) return;
+      this.slide = index;
+      this.renderSlide();
     });
 
     this.renderSlide();
@@ -206,23 +210,21 @@ export class ElementwiseOpSim extends Simulation {
     // Semua sel A mengundang sampai salah satunya dipilih.
     this.cellsA.forEach((cell) => cell.classList.add('cell--invite'));
 
-    const labels = [];
     this.cellOrder = [];
     this.result.forEach((row, i) => row.forEach((_, j) => {
-      labels.push(`Sel c${i + 1}${j + 1}`);
       this.cellOrder.push([i, j]);
     }));
 
-    this.useSteps(labels, {
-      allowJump: true,
-      onJump: (index) => {
-        const t = this.cellOrder[index];
-        if (!t) return;
-        if (this.completed.has(`${t[0]},${t[1]}`)) {
-          toast.info(`Sel $c_{${t[0] + 1}${t[1] + 1}}$ sudah selesai.`);
-        }
-      },
-    });
+    /**
+     * TIDAK ADA slider langkah di sini (Fase 12, isu 8).
+     *
+     * Sel hasil boleh dikerjakan dalam urutan apa pun, jadi navigasi
+     * maju-mundur berbohong: panahnya menyiratkan urutan wajib yang tidak
+     * ada, dan menekannya tidak pernah melakukan apa pun selain memunculkan
+     * toast "sudah selesai". Yang benar-benar berguna hanya hitungannya.
+     */
+    this.progress = createProgressText(this.total, 'sel');
+    this.addHint(this.progress);
   }
 
   /* ---------------- Langkah 1: pilih elemen di A ---------------- */
@@ -381,9 +383,7 @@ export class ElementwiseOpSim extends Simulation {
 
     this.completed.add(`${i},${j}`);
     this.doneCount = this.completed.size;
-
-    const stepIndex = this.cellOrder.findIndex(([r, cc]) => r === i && cc === j);
-    if (stepIndex >= 0) this.markStepDone(stepIndex);
+    if (this.progress) this.progress.set(this.completed.size);
 
     const done = this.msg('cellDone', { row: i + 1, col: j + 1 });
     if (done) toast.success(done);
@@ -392,7 +392,6 @@ export class ElementwiseOpSim extends Simulation {
     this.setBusy(false);
 
     if (this.completed.size >= this.total) {
-      this.markStepDone(1);
       this.setPrompt('Seluruh sel matriks hasil terisi.', 'Selesai');
       this.complete();
       return;
@@ -756,6 +755,7 @@ export class OrdoCheckSim extends Simulation {
     // Catat pilihan yang keliru pada kasus ini supaya saat siswa kembali ke
     // slide ini, opsi yang dulu salah tetap terlihat sudah dicoret.
     this.wrongPicks = [];
+    this.answered = false;
 
     this.setPrompt(
       `Ordo $A$ adalah $${item.a[0]} \\times ${item.a[1]}$ dan ordo $B$ adalah $${item.b[0]} \\times ${item.b[1]}$. Bisakah $A \\times B$ dihitung? Kalau bisa, berapa ordo hasilnya?`,
@@ -783,6 +783,12 @@ export class OrdoCheckSim extends Simulation {
 
     const solved = this.getSlideState(this.index);
 
+    // Semua tombol pilihan dikumpulkan supaya bisa dimatikan SEREMPAK begitu
+    // jawaban benar masuk (Fase 12, isu 11). Tanpa itu, tombol yang benar bisa
+    // ditekan berkali-kali dan setiap tekanan menjadwalkan satu perpindahan
+    // kasus — panggung lalu melompat beberapa kali sekaligus.
+    this.optionButtons = [];
+
     item.options.forEach((opt, i) => {
       const btn = el('button', 'btn btn--ghost btn--lg');
       btn.type = 'button';
@@ -795,9 +801,11 @@ export class OrdoCheckSim extends Simulation {
         else if (solved.wrong && solved.wrong.includes(i)) btn.classList.add('is-failed');
       } else {
         btn.addEventListener('click', () => {
-          if (this.busy) return;
+          if (this.busy || this.answered) return;
           if (i === item.answerIndex) {
-            btn.classList.add('anim-flash-success');
+            this.answered = true;
+            btn.classList.add('anim-flash-success', 'btn--success');
+            this.freezeOptions(i);
             this.showVerdict(item);
           } else {
             this.reject(btn, opt.wrongKey || 'wrongOrdo');
@@ -807,6 +815,7 @@ export class OrdoCheckSim extends Simulation {
         });
       }
 
+      this.optionButtons.push(btn);
       answerHost.appendChild(btn);
     });
 
@@ -817,6 +826,20 @@ export class OrdoCheckSim extends Simulation {
       this.verdictHost.appendChild(this.solvedBanner('Kasus ini sudah kamu selesaikan.'));
       this.renderWhy(item);
     }
+  }
+
+  /**
+   * Matikan SEMUA tombol pilihan setelah jawaban benar masuk.
+   *
+   * Yang benar ditandai hijau, sisanya sekadar dinonaktifkan — bukan ditandai
+   * salah, karena siswa memang tidak pernah menekannya.
+   */
+  freezeOptions(correctIndex) {
+    (this.optionButtons || []).forEach((btn, i) => {
+      btn.disabled = true;
+      btn.setAttribute('aria-disabled', 'true');
+      if (i === correctIndex) btn.classList.add('btn--success');
+    });
   }
 
   renderWhy(item) {
@@ -867,6 +890,15 @@ export class MatrixMultiplySim extends Simulation {
 
     this.caseIndex = 0;
     this.solvedCases = new Set();
+
+    /**
+     * Dengan banyak kasus, "selesai" berlaku per KASUS. `complete()` dipanggil
+     * begitu kasus pertama tuntas agar Mini Kuis terbuka — kalau ia sekaligus
+     * memasang `sim--done`, kasus kedua dan ketiga ikut mati sebelum disentuh
+     * (Fase 12, isu 9). Penguncian global dimatikan; panggung baru dikunci
+     * kalau SELURUH kasus sudah selesai.
+     */
+    this.locksOnComplete = false;
 
     /**
      * Kemajuan PER-KASUS: indeks kasus → Set berisi kunci "i,j" sel yang
@@ -1112,6 +1144,11 @@ export class MatrixMultiplySim extends Simulation {
     // sumber bug "slider dobel".
     if (this.slider) this.caseHints.appendChild(this.slider);
 
+    // Panggung kasus BARU selalu hidup. Tanpa baris ini, `sim--done` yang
+    // dipasang saat kasus sebelumnya tuntas ikut terbawa dan mematikan
+    // seluruh interaksi di sini.
+    this.syncDoneLock();
+
     // Pulihkan sel yang sudah tuntas sebelum kasus ini ditinggalkan.
     this.repaintSolvedCells();
 
@@ -1129,6 +1166,19 @@ export class MatrixMultiplySim extends Simulation {
         'Selesai'
       );
     }
+  }
+
+  /**
+   * Kunci panggung HANYA kalau seluruh kasus sudah tuntas.
+   *
+   * Selama masih ada kasus yang belum dikerjakan, siswa harus tetap bisa
+   * menyentuh matriksnya — termasuk saat ia kembali ke kasus yang sudah
+   * selesai untuk melihat hasilnya lagi.
+   */
+  syncDoneLock() {
+    if (!this.root) return;
+    const allSolved = this.cases.every((_, i) => this.solvedCases.has(i));
+    this.root.classList.toggle('sim--done', allSolved);
   }
 
   /**
@@ -1498,6 +1548,7 @@ export class MatrixMultiplySim extends Simulation {
       this.solvedCases.add(this.caseIndex);
       this.syncCaseBar();
       this.persistState();
+      this.syncDoneLock();
 
       const label = (this.cases[this.caseIndex].label) || 'Kasus ini';
       this.setPrompt(`Seluruh sel matriks hasil terisi. ${label} selesai.`, 'Selesai');

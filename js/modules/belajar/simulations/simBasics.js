@@ -6,6 +6,7 @@
 import {
   Simulation, el, renderMatrix, rowCells, colCells, clearHighlights,
   stageRow, createFlowArrow, lockWrongOption, makeTappable, setCellsMuted,
+  createBrief, createStage, createProgressText,
 } from './simCore.js';
 import { renderMixed } from '../../../engine/katexRenderer.js';
 import { transpose, ordoText, formatNumber } from '../../../engine/matrix.js';
@@ -314,7 +315,7 @@ export class OrdoBuilderSim extends Simulation {
 }
 
 /* ============================================================
-   3. label_matrix_types — seret LABEL ke matriks (bisa lebih dari satu)
+   3. label_matrix_types — tempelkan LABEL ke matriks (bisa lebih dari satu)
    ============================================================ */
 export class LabelMatrixTypesSim extends Simulation {
   build() {
@@ -323,7 +324,7 @@ export class LabelMatrixTypesSim extends Simulation {
 
     this.scaffold({
       brief: this.config.brief,
-      promptText: 'Seret semua label jenis yang cocok ke matriks di atas.',
+      promptText: 'Ketuk sebuah label, lalu ketuk matriksnya. Cari SEMUA label yang cocok.',
       promptStep: 'Matriks 1',
     });
 
@@ -356,7 +357,7 @@ export class LabelMatrixTypesSim extends Simulation {
     this.solvedCard = Boolean(remembered);
 
     this.setPrompt(
-      `Matriks ini termasuk jenis apa saja? Seret **semua** label yang cocok (ada ${card.valid.length}).`,
+      `Matriks ini termasuk jenis apa saja? Temukan **semua** label yang cocok (ada ${card.valid.length}).`,
       `Matriks ${this.index + 1} dari ${this.config.cards.length}`
     );
 
@@ -580,6 +581,11 @@ export class EqualityLinkSim extends Simulation {
       ],
     });
 
+    // Pasangan boleh diperiksa dalam urutan bebas, jadi yang ditampilkan
+    // hitungannya — bukan navigasi langkah yang menyiratkan urutan wajib.
+    this.progress = createProgressText(this.total(), 'pasangan');
+    this.addHint(this.progress);
+
     const left = this.renderSide(this.config.left, 'A');
     const right = this.renderSide(this.config.right, 'B');
     this.leftCells = left.cells;
@@ -645,6 +651,37 @@ export class EqualityLinkSim extends Simulation {
     });
   }
 
+  /**
+   * Kunci seluruh elemen KIRI selain yang sedang dipilih (Fase 12, isu 11).
+   *
+   * Selama satu pasangan sedang dikerjakan, mengetuk elemen kiri yang lain
+   * hanya menghasilkan kebingungan: pilihannya berpindah diam-diam dan siswa
+   * kehilangan jejak pasangan mana yang sedang ia periksa. Sisi KANAN sengaja
+   * dibiarkan hidup — di sanalah siswa boleh salah menebak pasangan dan
+   * mendapat penjelasan mengapa itu bukan elemen seletak (kontrak §5 butir 3).
+   */
+  lockOtherSources(activeKey) {
+    this.leftCells.forEach((cell, key) => {
+      if (key === activeKey) return;
+      cell.classList.toggle('cell--muted', activeKey != null);
+      if (activeKey != null) cell.dataset.dragDisabled = 'true';
+      else delete cell.dataset.dragDisabled;
+    });
+  }
+
+  /** Batalkan pilihan yang sedang menggantung dan buka kembali semua sel. */
+  cancelPending() {
+    this.pending = null;
+    this.lockOtherSources(null);
+    clearHighlights(this.leftCells);
+    clearHighlights(this.rightCells);
+    this.repaintVariables();
+    this.setPrompt(
+      'Ketuk satu elemen di matriks **kiri**. Pasangan seletaknya di kanan akan menyala.',
+      `${this.checked.size} / ${this.total()} pasangan`
+    );
+  }
+
   /* ---------------- Ketukan 1: elemen kiri ---------------- */
   pickLeft(i, j) {
     if (this.busy) return;
@@ -652,6 +689,13 @@ export class EqualityLinkSim extends Simulation {
     const key = `${i},${j}`;
     if (this.checked.has(key)) {
       toast.info('Pasangan ini sudah kamu cek.');
+      return;
+    }
+
+    // Ketukan kedua pada sel yang SAMA = batalkan. Ini satu-satunya jalan
+    // keluar setelah sel lain dikunci, jadi ia harus ada.
+    if (this.pending && this.pending.key === key) {
+      this.cancelPending();
       return;
     }
 
@@ -668,9 +712,11 @@ export class EqualityLinkSim extends Simulation {
     rightCell.classList.add('cell--pulse');
 
     this.pending = { i, j, key, leftCell, rightCell };
+    this.lockOtherSources(key);
 
     this.setPrompt(
-      `Sekarang ketuk pasangannya di matriks **kanan** — elemen yang sedang **berkedip** di baris ${i + 1}, kolom ${j + 1}.`,
+      `Sekarang ketuk pasangannya di matriks **kanan** — elemen yang sedang **berkedip** di baris ${i + 1}, kolom ${j + 1}. `
+      + 'Ketuk lagi elemen kiri yang sama kalau ingin membatalkan.',
       `${this.checked.size} / ${this.total()} pasangan`
     );
   }
@@ -701,6 +747,7 @@ export class EqualityLinkSim extends Simulation {
   async mergePair(pair) {
     this.setBusy(true);
     this.pending = null;
+    this.lockOtherSources(null);
 
     const { i, j, key, leftCell, rightCell } = pair;
     const leftRaw = String(this.config.left[i][j]);
@@ -805,6 +852,10 @@ export class EqualityLinkSim extends Simulation {
   markDone(key, leftCell, rightCell) {
     if (this.checked.has(key)) return;
     this.checked.add(key);
+    if (this.progress) this.progress.set(this.checked.size);
+
+    // Pasangan tuntas: seluruh sel sumber dibuka kembali.
+    this.lockOtherSources(null);
 
     [leftCell, rightCell].forEach((c) => {
       c.classList.remove('cell--target', 'cell--pulse');
@@ -824,5 +875,44 @@ export class EqualityLinkSim extends Simulation {
       'Ketuk elemen berikutnya di matriks **kiri** untuk membandingkan pasangannya.',
       `${this.checked.size} / ${this.total()} pasangan`
     );
+  }
+}
+
+/* ============================================================
+   6. coming_soon — placeholder jujur untuk simulasi yang belum dibangun
+   ============================================================ */
+/**
+ * Sub-topik yang materinya sudah lengkap tetapi simulasinya belum ada.
+ *
+ * Sebelumnya engine yang belum siap menampilkan panggung kosong, dan panggung
+ * kosong tidak bisa dibedakan dari aplikasi yang rusak. Placeholder ini
+ * mengatakan apa adanya: apa yang belum ada, apa yang SUDAH bisa dikerjakan,
+ * dan ke mana siswa sebaiknya melanjutkan.
+ *
+ * `onComplete()` sengaja dipanggil langsung supaya Mini Kuis tidak ikut
+ * terkunci oleh simulasi yang memang belum bisa diselesaikan siapa pun.
+ */
+export class ComingSoonSim extends Simulation {
+  build() {
+    const root = el('div', 'sim');
+    this.container.appendChild(root);
+    this.root = root;
+
+    this.addHint(createBrief(this.config.brief
+      || 'Bagian ini belum bisa disimulasikan. Lanjutkan ke Mini Kuis kalau materinya sudah kamu pahami.'));
+
+    this.stage = createStage();
+    root.appendChild(this.stage);
+
+    const card = el('div', 'soon-panel anim-rise');
+    card.innerHTML = `
+      <span class="soon-panel__mark">${icon('clock', { size: 26 })}</span>
+      <div class="soon-panel__title">Segera Hadir</div>
+      <p class="soon-panel__note">${renderMixed(this.config.note || 'Simulasi untuk sub-topik ini masih dalam pengembangan.')}</p>
+      <p class="soon-panel__detail">${renderMixed(this.config.detail || 'Materi dan Mini Kuisnya tetap bisa kamu kerjakan seperti biasa.')}</p>`;
+    this.stage.appendChild(card);
+
+    // Mini Kuis dibuka tanpa syarat — tidak ada yang bisa diselesaikan di sini.
+    this.onComplete();
   }
 }
