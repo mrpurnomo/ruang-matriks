@@ -5,7 +5,7 @@
 
 import {
   Simulation, el, renderMatrix, rowCells, colCells, clearHighlights,
-  stageRow, equationRow, operatorGlyph, createMeetPoint, createScalarChip,
+  stageRow, equationRow, operatorGlyph, createScalarChip,
   createFlowArrow, createChecklist, lockWrongOption, makeTappable, setCellsMuted,
   createBrief, createPrompt, createStage, createColorLegend, createProgressText,
 } from './simCore.js';
@@ -22,9 +22,320 @@ import toast from '../../../ui/toast.js';
 import { parseRational, mulR, toText, toLatexR } from '../../../engine/rational.js';
 
 /* ============================================================
+   MESIN KETUK-KETUK BERPASANGAN (dipakai bersama)
+   ============================================================ */
+/**
+ * Satu mekanik, dua sub-topik.
+ *
+ *   1. Ketuk elemen di matriks KIRI  → pasangan seletaknya di matriks KANAN
+ *      menyala, semua sel lain diredupkan.
+ *   2. Ketuk pasangan itu            → salinannya terbang ke sel hasil, yang
+ *      lalu menampilkan BENTUKNYA dulu: $(6+1)$, belum $7$.
+ *   3. Tekan "Hitung Sel Ini"        → barulah angkanya muncul.
+ *
+ * Kelas ini lahir di Fase 13. Sebelumnya mekanik di atas hanya dimiliki
+ * `elementwise_op`, sementara `combo_op` masih memakai "titik temu" —
+ * seret dua elemen ke sebuah kotak putus-putus di tengah panggung. Dua
+ * mekanik berbeda untuk operasi yang secara matematis identik memaksa siswa
+ * mempelajari aplikasinya, bukan matriksnya. Karena itu mekaniknya diangkat
+ * ke sini supaya keduanya menjalankan KODE YANG SAMA PERSIS, bukan dua
+ * salinan yang pelan-pelan berbeda.
+ *
+ * Subkelas menyediakan matriksnya lewat `attachPairEngine()` dan boleh
+ * mengganti dua kait:
+ *   · `pairsEnabled()`   — kapan ketukan boleh diterima
+ *   · `onPairsComplete()`— apa yang terjadi setelah semua sel terisi
+ */
+export class PairwiseTapSim extends Simulation {
+  /**
+   * Pasang mesinnya pada tiga peta sel yang SUDAH dirender.
+   *
+   * @param {object} opts
+   *   cellsA/cellsB/cellsC — peta sel hasil `renderMatrix()`
+   *   result               — matriks jawaban
+   *   operator             — '+' atau '-'
+   *   nameA/nameB          — nama matriks untuk kalimat petunjuk
+   *   left/right           — matriks sumber (dipakai pesan ordo)
+   *   host                 — tempat papan kerja dipasang
+   */
+  attachPairEngine({ cellsA, cellsB, cellsC, result, operator = '+',
+                     nameA = 'A', nameB = 'B', left, right, host }) {
+    this.cellsA = cellsA;
+    this.cellsB = cellsB;
+    this.cellsC = cellsC;
+    this.result = result;
+    this.pairOperator = operator;
+    this.pairNameA = nameA;
+    this.pairNameB = nameB;
+    this.pairLeft = left;
+    this.pairRight = right;
+
+    this.pending = null;        // elemen kiri yang sedang menunggu pasangannya
+    this.partner = null;
+    this.activeCell = null;     // sel hasil yang sedang dibangun
+    this.doneCount = 0;
+    this.completed = new Set();
+    this.total = result.length * result[0].length;
+
+    // Papan kerja bertinggi TETAP: munculnya tombol hitung tidak boleh
+    // menggeser matriks di atasnya.
+    this.work = el('div', 'workstrip');
+    this.work.innerHTML = `<span class="workstrip__idle">Ketuk elemen di ${nameA} untuk mulai</span>`;
+
+    this.confirmBtn = el('button', 'btn btn--success btn--pulse workstrip__confirm');
+    this.confirmBtn.type = 'button';
+    this.confirmBtn.innerHTML = `${icon('check', { size: 17 })}<span>Hitung Sel Ini</span>`;
+    this.confirmBtn.hidden = true;
+    this.confirmBtn.addEventListener('click', () => this.finishCell());
+
+    const workRow = el('div', 'workstrip-row');
+    workRow.append(this.work, this.confirmBtn);
+    (host || this.stage).appendChild(workRow);
+
+    // Hanya satu jalur: KETUK. Tidak ada `makeDraggable` di sini, jadi tidak
+    // ada pointer-handler yang bersaing dengan ketukan.
+    this.cellsA.forEach((cell, key) => {
+      const [row, col] = key.split(',').map(Number);
+      this.track(makeTappable(cell,
+        () => this.pickFromA({ row, col, value: Number(cell.dataset.value) }, cell),
+        `Elemen ${nameA} baris ${row + 1} kolom ${col + 1}`));
+    });
+
+    this.cellsB.forEach((cell, key) => {
+      const [row, col] = key.split(',').map(Number);
+      this.track(makeTappable(cell,
+        () => this.pickFromB({ row, col, value: Number(cell.dataset.value) }, cell),
+        `Elemen ${nameB} baris ${row + 1} kolom ${col + 1}`));
+    });
+
+    // Semua sel kiri mengundang sampai salah satunya dipilih.
+    this.cellsA.forEach((cell) => cell.classList.add('cell--invite'));
+
+    /**
+     * TIDAK ADA slider langkah (Fase 12, isu 8). Sel hasil boleh dikerjakan
+     * dalam urutan apa pun, jadi navigasi maju-mundur menjanjikan urutan
+     * yang tidak ada. Yang berguna hanya hitungannya.
+     */
+    this.progress = createProgressText(this.total, 'sel');
+    this.addHint(this.progress);
+  }
+
+  /** Kapan ketukan boleh diterima. Subkelas boleh mempersempitnya. */
+  pairsEnabled() { return true; }
+
+  /** Dipanggil setelah SELURUH sel hasil terisi. */
+  onPairsComplete() {
+    this.setPrompt('Seluruh sel matriks hasil terisi.', 'Selesai');
+    this.complete();
+  }
+
+  /* ---------------- Langkah 1: pilih elemen di A ---------------- */
+  pickFromA(data, sourceEl) {
+    if (this.busy) return;
+    if (!this.pairsEnabled()) return;
+
+    const operator = this.pairOperator;
+    const key = `${data.row},${data.col}`;
+
+    if (this.completed.has(key)) {
+      toast.info(`Sel $c_{${data.row + 1}${data.col + 1}}$ sudah selesai.`);
+      return;
+    }
+
+    if (this.pending) {
+      // Sudah ada elemen A terpilih: ketukan ini memindahkan pilihan, bukan
+      // menumpuknya — selama selnya belum dibangun.
+      if (this.pending.data.row === data.row && this.pending.data.col === data.col) return;
+      this.clearSelection();
+    }
+
+    this.pending = { data, el: sourceEl };
+    this.activeCell = { i: data.row, j: data.col };
+
+    // Redupkan semuanya, lalu nyalakan HANYA pasangan seletaknya. Ini yang
+    // membuat aturan "seletak" terlihat, bukan sekadar dibaca.
+    setCellsMuted([...this.cellsA.values()], true);
+    setCellsMuted([...this.cellsB.values()], true);
+    this.cellsA.forEach((c) => c.classList.remove('cell--invite'));
+
+    sourceEl.classList.remove('cell--muted');
+    sourceEl.classList.add('cell--pulse');
+
+    const partner = this.cellsB.get(key);
+    partner.classList.remove('cell--muted');
+    partner.classList.add('cell--pulse', 'cell--invite');
+    delete partner.dataset.dragDisabled;
+
+    const target = this.cellsC.get(key);
+    target.classList.add('cell--target');
+
+    // Tidak ada drop-zone di sini lagi: ketukan pada pasangan di $B$ yang
+    // langsung menerbangkan salinannya ke sel hasil.
+
+    this.updateWorkstrip();
+
+    this.setPrompt(
+      `Menghitung $c_{${data.row + 1}${data.col + 1}}$ — sekarang **ketuk pasangan seletaknya di $${this.pairNameB}$**, ` +
+      `yang sedang berkedip **biru**. Hasilnya mendarat di sel yang **berwarna kuning**.`,
+      `${this.completed.size} / ${this.total} sel`
+    );
+
+    if (operator === '-') {
+      toast.info('Ingat urutannya: elemen $A$ dulu, baru dikurangi elemen $B$.');
+    }
+  }
+
+  /* ---------------- Langkah 2: ketuk pasangan di B ---------------- */
+  pickFromB(data, sourceEl) {
+    if (this.busy) return;
+    if (!this.pairsEnabled()) return;
+
+    // Belum ada elemen $A$ terpilih: mulai dari kiri, bukan dari kanan.
+    if (!this.pending) {
+      this.reject(sourceEl, 'startFromA');
+      return;
+    }
+
+    const first = this.pending.data;
+    if (first.row !== data.row || first.col !== data.col) {
+      this.reject(sourceEl, 'notAligned', {
+        ai: first.row + 1, aj: first.col + 1, bi: data.row + 1, bj: data.col + 1,
+        ordoA: ordoText(this.pairLeft), ordoB: ordoText(this.pairRight),
+      });
+      return;
+    }
+
+    this.acceptPartner(data, sourceEl);
+  }
+
+  async acceptPartner(data, sourceEl) {
+    this.setBusy(true);
+    clearTapSelection();
+
+    const { i, j } = this.activeCell;
+    const target = this.cellsC.get(`${i},${j}`);
+    const operator = this.pairOperator;
+
+    // Salinan elemen terbang ke sel hasil — gerakan yang sama untuk seret
+    // maupun ketuk.
+    const chip = makeFlyChip(sourceEl, { text: sourceEl.dataset.value });
+    await landOn(chip, target, { text: null });
+
+    this.partner = { data, el: sourceEl };
+
+    // Sel hasil menampilkan BENTUKNYA dulu: (6+1), belum 7.
+    const expr = `(${formatNumber(this.pending.data.value)}${operator}${formatNumber(data.value)})`;
+    target.textContent = '';
+    target.appendChild(el('span', 'cell__expr', expr));
+    target.classList.add('cell--building');
+
+    sourceEl.classList.remove('cell--invite');
+    sourceEl.classList.add('cell--spent');
+    this.pending.el.classList.add('cell--spent');
+
+    this.updateWorkstrip(expr);
+    this.setBusy(false);
+
+    this.setPrompt(
+      `Bentuknya sudah lengkap: $${expr.replace('(', '').replace(')', '')}$. ` +
+      `Tekan **Hitung Sel Ini** untuk menyelesaikannya.`,
+      `${this.completed.size} / ${this.total} sel`
+    );
+  }
+
+  updateWorkstrip(expr) {
+    if (!this.activeCell) {
+      this.work.innerHTML = `<span class="workstrip__idle">Ketuk elemen di ${this.pairNameA} untuk mulai</span>`;
+      this.confirmBtn.hidden = true;
+      return;
+    }
+
+    const { i, j } = this.activeCell;
+    const shown = expr || (this.pending ? `${formatNumber(this.pending.data.value)} …` : '…');
+    this.work.innerHTML = `
+      <span class="workstrip__label">${renderMixed(`$c_{${i + 1}${j + 1}}$`)} =</span>
+      <span class="workstrip__expr">${shown}</span>`;
+
+    // Tombol hitung HANYA muncul setelah pasangannya lengkap.
+    this.confirmBtn.hidden = !this.partner;
+  }
+
+  /* ---------------- Langkah 3: hitung & terbangkan hasilnya ---------------- */
+  async finishCell() {
+    if (this.busy || !this.activeCell || !this.partner) return;
+
+    // Tombol "Hitung Sel Ini" bisa ditekan beruntun sebelum `busy` menyala.
+    const { i: gi, j: gj } = this.activeCell;
+    if (!this.claim(`cell-${gi},${gj}`)) return;
+
+    this.setBusy(true);
+    this.confirmBtn.hidden = true;
+
+    const { i, j } = this.activeCell;
+    const target = this.cellsC.get(`${i},${j}`);
+    const value = this.result[i][j];
+
+    target.classList.add('cell--resolving');
+    await this.wait(420);
+
+    target.innerHTML = '';
+    target.textContent = formatNumber(value);
+    target.classList.remove('cell--resolving', 'cell--building', 'cell--target');
+    target.classList.add('cell--done', 'anim-land');
+    target.appendChild(el('span', 'cell__addr', `c${i + 1}${j + 1}`));
+    target.appendChild(el('span', 'cell__check', icon('check', { size: 11 })));
+
+    this.completed.add(`${i},${j}`);
+    this.doneCount = this.completed.size;
+    if (this.progress) this.progress.set(this.completed.size);
+
+    const done = this.msg('cellDone', { row: i + 1, col: j + 1 });
+    if (done) toast.success(done);
+
+    this.clearSelection();
+    this.setBusy(false);
+
+    if (this.completed.size >= this.total) {
+      this.onPairsComplete();
+      return;
+    }
+
+    this.setPrompt(
+      `Ketuk elemen berikutnya di **$${this.pairNameA}$** untuk menghitung sel hasil yang lain.`,
+      `${this.completed.size} / ${this.total} sel`
+    );
+  }
+
+  /** Lepaskan seluruh sorotan & kuncian, kembalikan panggung ke keadaan siaga. */
+  clearSelection() {
+    this.pending = null;
+    this.partner = null;
+    this.activeCell = null;
+
+    setCellsMuted([...this.cellsA.values()], false);
+    setCellsMuted([...this.cellsB.values()], false);
+
+    [this.cellsA, this.cellsB].forEach((map) => map.forEach((c) => {
+      c.classList.remove('cell--pulse', 'cell--invite', 'cell--spent');
+    }));
+
+    this.cellsC.forEach((c, key) => {
+      if (!this.completed.has(key)) c.classList.remove('cell--target');
+    });
+
+    // Sel A yang selnya sudah selesai tidak mengundang lagi.
+    this.cellsA.forEach((c, key) => {
+      if (!this.completed.has(key)) c.classList.add('cell--invite');
+    });
+
+    this.updateWorkstrip();
+  }
+}
+
+/* ============================================================
    1. elementwise_op — horizontal A [op] B = C, + demo ordo ditolak
    ============================================================ */
-export class ElementwiseOpSim extends Simulation {
+export class ElementwiseOpSim extends PairwiseTapSim {
   build() {
     // Di sandbox Whiteboard, siswa sudah memilih ordonya sendiri, jadi slide
     // demo "ordo berbeda ditolak" dilewati dan langsung ke tahap hitung.
@@ -151,282 +462,35 @@ export class ElementwiseOpSim extends Simulation {
    */
   renderComputeSlide() {
     const { matrixA, matrixB, operator = '+', nameA = 'A', nameB = 'B' } = this.config;
-
-    this.pending = null;        // elemen A yang sedang menunggu pasangannya
-    this.activeCell = null;     // sel hasil yang sedang dibangun
-    this.doneCount = 0;
-    this.result = operator === '+' ? add(matrixA, matrixB) : subtract(matrixA, matrixB);
-    this.total = matrixA.length * matrixA[0].length;
-    this.completed = new Set();
+    const result = operator === '+' ? add(matrixA, matrixB) : subtract(matrixA, matrixB);
 
     this.setPrompt(
-      'Ordo keduanya sama, jadi boleh. Ketuk satu elemen di **$A$** untuk memulai.',
-      `0 / ${this.total} sel`
+      `Ordo keduanya sama, jadi boleh. Ketuk satu elemen di **$${nameA}$** untuk memulai.`,
+      `0 / ${matrixA.length * matrixA[0].length} sel`
     );
 
-    // `draggable: false` — kursor "genggam" dari kelas `cell--draggable` akan
-    // berbohong di engine ini: yang diminta ketukan, bukan seretan.
+    // `draggable` sengaja tidak dipakai: kursor "genggam" dari kelas
+    // `cell--draggable` akan berbohong — yang diminta ketukan, bukan seretan.
     const a = renderMatrix(matrixA, { name: nameA, showAddress: true, showOrdo: true });
     const b = renderMatrix(matrixB, { name: nameB, showAddress: true, addressPrefix: 'b', showOrdo: true });
-    const c = renderMatrix(this.result, { name: 'C', empty: true, showAddress: true, addressPrefix: 'c', showOrdo: true });
-
-    this.cellsA = a.cells;
-    this.cellsB = b.cells;
-    this.cellsC = c.cells;
+    const c = renderMatrix(result, { name: 'C', empty: true, showAddress: true, addressPrefix: 'c', showOrdo: true });
 
     this.stage.appendChild(equationRow(
       a.root, operatorGlyph(operator), b.root, operatorGlyph('='), c.root
     ));
 
-    // Papan kerja bertinggi TETAP: munculnya tombol hitung tidak boleh
-    // menggeser matriks di atasnya.
-    this.work = el('div', 'workstrip');
-    this.work.innerHTML = '<span class="workstrip__idle">Ketuk elemen di A untuk mulai</span>';
-
-    this.confirmBtn = el('button', 'btn btn--success btn--pulse workstrip__confirm');
-    this.confirmBtn.type = 'button';
-    this.confirmBtn.innerHTML = `${icon('check', { size: 17 })}<span>Hitung Sel Ini</span>`;
-    this.confirmBtn.hidden = true;
-    this.confirmBtn.addEventListener('click', () => this.finishCell());
-
-    const workRow = el('div', 'workstrip-row');
-    workRow.append(this.work, this.confirmBtn);
-    this.stage.appendChild(workRow);
-
-    // Hanya satu jalur: KETUK. Tidak ada `makeDraggable` di sini, jadi tidak
-    // ada pointer-handler yang bersaing dengan ketukan.
-    this.cellsA.forEach((cell, key) => {
-      const [row, col] = key.split(',').map(Number);
-      this.track(makeTappable(cell, () => this.pickFromA({ row, col, value: Number(cell.dataset.value) }, cell),
-        `Elemen A baris ${row + 1} kolom ${col + 1}`));
+    // Seluruh mekaniknya milik PairwiseTapSim — engine yang sama PERSIS
+    // dipakai `combo_op` sejak Fase 13.
+    this.attachPairEngine({
+      cellsA: a.cells, cellsB: b.cells, cellsC: c.cells,
+      result, operator, nameA, nameB,
+      left: matrixA, right: matrixB,
     });
-
-    this.cellsB.forEach((cell, key) => {
-      const [row, col] = key.split(',').map(Number);
-      this.track(makeTappable(cell, () => this.pickFromB({ row, col, value: Number(cell.dataset.value) }, cell),
-        `Elemen B baris ${row + 1} kolom ${col + 1}`));
-    });
-
-    // Semua sel A mengundang sampai salah satunya dipilih.
-    this.cellsA.forEach((cell) => cell.classList.add('cell--invite'));
-
-    this.cellOrder = [];
-    this.result.forEach((row, i) => row.forEach((_, j) => {
-      this.cellOrder.push([i, j]);
-    }));
-
-    /**
-     * TIDAK ADA slider langkah di sini (Fase 12, isu 8).
-     *
-     * Sel hasil boleh dikerjakan dalam urutan apa pun, jadi navigasi
-     * maju-mundur berbohong: panahnya menyiratkan urutan wajib yang tidak
-     * ada, dan menekannya tidak pernah melakukan apa pun selain memunculkan
-     * toast "sudah selesai". Yang benar-benar berguna hanya hitungannya.
-     */
-    this.progress = createProgressText(this.total, 'sel');
-    this.addHint(this.progress);
   }
 
-  /* ---------------- Langkah 1: pilih elemen di A ---------------- */
-  pickFromA(data, sourceEl) {
-    if (this.busy) return;
-    if (this.slide !== 1) return;
+  /** Ketukan hanya berlaku di slide hitung, bukan di slide demo ordo. */
+  pairsEnabled() { return this.slide === 1; }
 
-    const operator = this.config.operator || '+';
-    const key = `${data.row},${data.col}`;
-
-    if (this.completed.has(key)) {
-      toast.info(`Sel $c_{${data.row + 1}${data.col + 1}}$ sudah selesai.`);
-      return;
-    }
-
-    if (this.pending) {
-      // Sudah ada elemen A terpilih: ketukan ini memindahkan pilihan, bukan
-      // menumpuknya — selama selnya belum dibangun.
-      if (this.pending.data.row === data.row && this.pending.data.col === data.col) return;
-      this.clearSelection();
-    }
-
-    this.pending = { data, el: sourceEl };
-    this.activeCell = { i: data.row, j: data.col };
-
-    // Redupkan semuanya, lalu nyalakan HANYA pasangan seletaknya. Ini yang
-    // membuat aturan "seletak" terlihat, bukan sekadar dibaca.
-    setCellsMuted([...this.cellsA.values()], true);
-    setCellsMuted([...this.cellsB.values()], true);
-    this.cellsA.forEach((c) => c.classList.remove('cell--invite'));
-
-    sourceEl.classList.remove('cell--muted');
-    sourceEl.classList.add('cell--pulse');
-
-    const partner = this.cellsB.get(key);
-    partner.classList.remove('cell--muted');
-    partner.classList.add('cell--pulse', 'cell--invite');
-    delete partner.dataset.dragDisabled;
-
-    const target = this.cellsC.get(key);
-    target.classList.add('cell--target');
-
-    // Tidak ada drop-zone di sini lagi: ketukan pada pasangan di $B$ yang
-    // langsung menerbangkan salinannya ke sel hasil.
-
-    const stepIndex = this.cellOrder.findIndex(([r, cc]) => r === data.row && cc === data.col);
-    if (stepIndex >= 0) this.setStep(stepIndex);
-
-    this.updateWorkstrip();
-
-    this.setPrompt(
-      `Menghitung $c_{${data.row + 1}${data.col + 1}}$ — sekarang **ketuk pasangan seletaknya di $${this.config.nameB || 'B'}$**, ` +
-      `yang sedang berkedip **biru**. Hasilnya mendarat di sel yang **berwarna kuning**.`,
-      `${this.completed.size} / ${this.total} sel`
-    );
-
-    if (operator === '-') {
-      toast.info('Ingat urutannya: elemen $A$ dulu, baru dikurangi elemen $B$.');
-    }
-  }
-
-  /* ---------------- Langkah 2: ketuk pasangan di B ---------------- */
-  pickFromB(data, sourceEl) {
-    if (this.busy) return;
-
-    // Belum ada elemen $A$ terpilih: mulai dari kiri, bukan dari kanan.
-    if (!this.pending) {
-      this.reject(sourceEl, 'startFromA');
-      return;
-    }
-
-    const first = this.pending.data;
-    if (first.row !== data.row || first.col !== data.col) {
-      this.reject(sourceEl, 'notAligned', {
-        ai: first.row + 1, aj: first.col + 1, bi: data.row + 1, bj: data.col + 1,
-        ordoA: ordoText(this.config.matrixA), ordoB: ordoText(this.config.matrixB),
-      });
-      return;
-    }
-
-    this.acceptPartner(data, sourceEl);
-  }
-
-  async acceptPartner(data, sourceEl) {
-    this.setBusy(true);
-    clearTapSelection();
-
-    const { i, j } = this.activeCell;
-    const target = this.cellsC.get(`${i},${j}`);
-    const operator = this.config.operator || '+';
-
-    // Salinan elemen terbang ke sel hasil — gerakan yang sama untuk seret
-    // maupun ketuk.
-    const chip = makeFlyChip(sourceEl, { text: sourceEl.dataset.value });
-    await landOn(chip, target, { text: null });
-
-    this.partner = { data, el: sourceEl };
-
-    // Sel hasil menampilkan BENTUKNYA dulu: (6+1), belum 7.
-    const expr = `(${formatNumber(this.pending.data.value)}${operator}${formatNumber(data.value)})`;
-    target.textContent = '';
-    target.appendChild(el('span', 'cell__expr', expr));
-    target.classList.add('cell--building');
-
-    sourceEl.classList.remove('cell--invite');
-    sourceEl.classList.add('cell--spent');
-    this.pending.el.classList.add('cell--spent');
-
-    this.updateWorkstrip(expr);
-    this.setBusy(false);
-
-    this.setPrompt(
-      `Bentuknya sudah lengkap: $${expr.replace('(', '').replace(')', '')}$. ` +
-      `Tekan **Hitung Sel Ini** untuk menyelesaikannya.`,
-      `${this.completed.size} / ${this.total} sel`
-    );
-  }
-
-  updateWorkstrip(expr) {
-    if (!this.activeCell) {
-      this.work.innerHTML = '<span class="workstrip__idle">Ketuk elemen di A untuk mulai</span>';
-      this.confirmBtn.hidden = true;
-      return;
-    }
-
-    const { i, j } = this.activeCell;
-    const shown = expr || (this.pending ? `${formatNumber(this.pending.data.value)} …` : '…');
-    this.work.innerHTML = `
-      <span class="workstrip__label">${renderMixed(`$c_{${i + 1}${j + 1}}$`)} =</span>
-      <span class="workstrip__expr">${shown}</span>`;
-
-    // Tombol hitung HANYA muncul setelah pasangannya lengkap.
-    this.confirmBtn.hidden = !this.partner;
-  }
-
-  /* ---------------- Langkah 3: hitung & terbangkan hasilnya ---------------- */
-  async finishCell() {
-    if (this.busy || !this.activeCell || !this.partner) return;
-
-    this.setBusy(true);
-    this.confirmBtn.hidden = true;
-
-    const { i, j } = this.activeCell;
-    const target = this.cellsC.get(`${i},${j}`);
-    const value = this.result[i][j];
-
-    target.classList.add('cell--resolving');
-    await this.wait(420);
-
-    target.innerHTML = '';
-    target.textContent = formatNumber(value);
-    target.classList.remove('cell--resolving', 'cell--building', 'cell--target');
-    target.classList.add('cell--done', 'anim-land');
-    target.appendChild(el('span', 'cell__addr', `c${i + 1}${j + 1}`));
-    target.appendChild(el('span', 'cell__check', icon('check', { size: 11 })));
-
-    this.completed.add(`${i},${j}`);
-    this.doneCount = this.completed.size;
-    if (this.progress) this.progress.set(this.completed.size);
-
-    const done = this.msg('cellDone', { row: i + 1, col: j + 1 });
-    if (done) toast.success(done);
-
-    this.clearSelection();
-    this.setBusy(false);
-
-    if (this.completed.size >= this.total) {
-      this.setPrompt('Seluruh sel matriks hasil terisi.', 'Selesai');
-      this.complete();
-      return;
-    }
-
-    this.setPrompt(
-      'Ketuk elemen berikutnya di **$A$** untuk menghitung sel hasil yang lain.',
-      `${this.completed.size} / ${this.total} sel`
-    );
-  }
-
-  /** Lepaskan seluruh sorotan & kuncian, kembalikan panggung ke keadaan siaga. */
-  clearSelection() {
-    this.pending = null;
-    this.partner = null;
-    this.activeCell = null;
-
-    setCellsMuted([...this.cellsA.values()], false);
-    setCellsMuted([...this.cellsB.values()], false);
-
-    [this.cellsA, this.cellsB].forEach((map) => map.forEach((c) => {
-      c.classList.remove('cell--pulse', 'cell--invite', 'cell--spent');
-    }));
-
-    this.cellsC.forEach((c, key) => {
-      if (!this.completed.has(key)) c.classList.remove('cell--target');
-    });
-
-    // Sel A yang selnya sudah selesai tidak mengundang lagi.
-    this.cellsA.forEach((c, key) => {
-      if (!this.completed.has(key)) c.classList.add('cell--invite');
-    });
-
-    this.updateWorkstrip();
-  }
 }
 
 /* ============================================================
@@ -541,7 +605,23 @@ export class ScalarSweepSim extends Simulation {
 /* ============================================================
    3. combo_op — skalar manual, LALU penjumlahan manual (tanpa otomatis)
    ============================================================ */
-export class ComboOpSim extends Simulation {
+export class ComboOpSim extends PairwiseTapSim {
+  /**
+   * Dua tahap, satu mekanik.
+   *
+   *   TAHAP 1 — Ketuk tiap elemen $A$ untuk mengalikannya dengan skalar.
+   *   TAHAP 2 — Ketuk elemen di $kA$, lalu pasangan seletaknya di $B$;
+   *             hasilnya terbang ke matriks Hasil.
+   *
+   * Sebelum Fase 13 tahap 2 memakai "TITIK TEMU": sebuah kotak putus-putus
+   * di tengah panggung yang harus dituju dua seretan. Mekanik itu hanya ada
+   * di sub-topik ini — `penjumlahan_pengurangan`, yang secara matematis
+   * mengerjakan hal yang SAMA, sudah lama memakai ketuk-ketuk. Dua cara
+   * berbeda untuk satu operasi yang sama memaksa siswa mempelajari
+   * aplikasinya, bukan matriksnya. Titik temu dicabut; tahap 2 kini
+   * menjalankan `PairwiseTapSim` — kelas yang sama persis dengan
+   * `elementwise_op`, bukan salinannya.
+   */
   build() {
     const { matrixA, matrixB, scalarA, operator, expression } = this.config;
 
@@ -552,13 +632,11 @@ export class ComboOpSim extends Simulation {
 
     this.phase = 0;
     this.scalarDone = new Set();
-    this.sumDone = new Set();
     this.totalCells = matrixA.length * matrixA[0].length;
-    this.pending = null;
 
     this.scaffold({
       brief: this.config.brief,
-      promptText: `Tahap 1 — seret chip $${scalarA}$ ke setiap elemen $A$, satu per satu.`,
+      promptText: `Tahap 1 — ketuk setiap elemen $A$ untuk mengalikannya dengan $${scalarA}$.`,
       promptStep: `Tahap 1 · 0 / ${this.totalCells}`,
     });
 
@@ -570,44 +648,56 @@ export class ComboOpSim extends Simulation {
 
     const a = renderMatrix(matrixA, { name: 'A', showAddress: true });
     const b = renderMatrix(matrixB, { name: 'B', showAddress: true, addressPrefix: 'b' });
-    const c = renderMatrix(this.finalResult, { name: 'Hasil', empty: true, showAddress: true, addressPrefix: 'c' });
+    const c = renderMatrix(this.finalResult, {
+      name: 'Hasil', empty: true, showAddress: true, addressPrefix: 'c',
+    });
 
-    this.cellsA = a.cells;
-    this.cellsB = b.cells;
-    this.cellsC = c.cells;
     this.viewA = a;
+    this.viewB = b;
+    this.viewC = c;
 
+    // Chip skalar berdiri sebagai OPERAND yang terbaca, bukan sesuatu yang
+    // harus diseret. Ia tidak pernah `makeDraggable` lagi.
     this.chip = createScalarChip(scalarA);
-    makeDraggable(this.chip, { data: { scalar: scalarA }, reusable: true });
+    this.chip.setAttribute('aria-label', `Skalar ${scalarA}`);
 
     this.stage.appendChild(equationRow(
-      this.chip, operatorGlyph('×'), a.root, operatorGlyph(operator), b.root, operatorGlyph('='), c.root
+      this.chip, operatorGlyph('×'), a.root, operatorGlyph(operator), b.root,
+      operatorGlyph('='), c.root
     ));
 
-    this.meet = createMeetPoint({ operator, hint: 'Titik temu' });
-    this.meetRow = stageRow(this.meet);
-    this.meetRow.style.display = 'none';
-    this.stage.appendChild(this.meetRow);
+    // TIDAK ADA titik temu. Papan kerja tahap 2 dipasang belakangan oleh
+    // `attachPairEngine()`, di tempat yang sama dengan Penjumlahan.
+    this.workHost = el('div');
+    this.stage.appendChild(this.workHost);
 
-    matrixA.forEach((row, i) => {
-      row.forEach((_, j) => {
-        const cell = this.cellsA.get(`${i},${j}`);
-        cell.classList.add('cell--awaiting');
-        this.track(registerDropZone(cell, {
-          padding: 4,
-          onDrop: () => this.scaleCell(i, j),
-        }));
-      });
+    // TAHAP 1: ketuk sel — tanpa seret, tanpa drop-zone.
+    this.scalarCleanups = [];
+    a.cells.forEach((cell, key) => {
+      const [i, j] = key.split(',').map(Number);
+      cell.classList.add('cell--awaiting', 'cell--invite');
+      const release = makeTappable(cell, () => this.scaleCell(i, j),
+        `Kalikan elemen A baris ${i + 1} kolom ${j + 1} dengan ${scalarA}`);
+      this.scalarCleanups.push(release);
+      this.track(release);
     });
+
+    this.scalarProgress = createProgressText(this.totalCells, 'elemen');
+    this.addHint(this.scalarProgress);
   }
 
+  /* ---------------- Tahap 1: kalikan dengan skalar ---------------- */
   async scaleCell(i, j) {
     if (this.busy || this.phase !== 0) return;
+
     const key = `${i},${j}`;
     if (this.scalarDone.has(key)) return;
+    // Kunci per-sel: ketukan beruntun pada sel yang sama tidak boleh
+    // menjalankan dua animasi bertumpuk.
+    if (!this.claim(`scale-${key}`)) return;
 
     this.setBusy(true);
-    const cell = this.cellsA.get(key);
+    const cell = this.viewA.cells.get(key);
     const value = this.scaledA[i][j];
 
     cell.classList.add('cell--pulse');
@@ -615,102 +705,78 @@ export class ComboOpSim extends Simulation {
 
     cell.textContent = formatNumber(value);
     cell.dataset.value = String(value);
-    cell.classList.remove('cell--pulse', 'cell--awaiting');
+    cell.classList.remove('cell--pulse', 'cell--awaiting', 'cell--invite');
     cell.classList.add('anim-flash-success');
     this.later(() => cell.classList.remove('anim-flash-success'), 620);
 
+    // Alamat sel dipasang ulang: `textContent` di atas menghapusnya.
+    cell.appendChild(el('span', 'cell__addr', `a${i + 1}${j + 1}`));
+
     this.scalarDone.add(key);
+    if (this.scalarProgress) this.scalarProgress.set(this.scalarDone.size);
     this.setBusy(false);
 
+    if (this.scalarDone.size >= this.totalCells) {
+      this.startSumPhase();
+      return;
+    }
+
     this.setPrompt(
-      `Tahap 1 — lanjutkan ke elemen $A$ berikutnya.`,
+      'Tahap 1 — lanjutkan ke elemen $A$ berikutnya.',
       `Tahap 1 · ${this.scalarDone.size} / ${this.totalCells}`
     );
-
-    if (this.scalarDone.size >= this.totalCells) this.startSumPhase();
   }
 
-  /** Tahap 2 TIDAK otomatis — siswa tetap harus menyeret pasangannya. */
+  /* ---------------- Tahap 2: ketuk-ketuk berpasangan ---------------- */
   startSumPhase() {
+    if (!this.claim('sum-phase')) return;
+
     this.phase = 1;
     this.checklist.advance(0);
-    this.chip.dataset.dragDisabled = 'true';
     this.chip.classList.add('is-spent');
-    this.meetRow.style.display = '';
-    this.meet.dataset.awaiting = 'true';
+
+    // Ketukan tahap 1 dilepas dulu supaya tidak bersaing dengan ketukan
+    // tahap 2 pada sel yang sama.
+    this.scalarCleanups.forEach((fn) => { try { fn(); } catch (err) { /* diabaikan */ } });
+    this.scalarCleanups = [];
+
+    // Hitungan tahap 1 sudah selesai tugasnya; tahap 2 punya hitungannya sendiri.
+    if (this.scalarProgress) {
+      this.scalarProgress.remove();
+      this.scalarProgress = null;
+    }
 
     this.setPrompt(
-      `Tahap 2 — sekarang **kamu sendiri** yang menjumlahkan: seret pasangan elemen seletak dari $A$ dan $B$ ke titik temu.`,
-      `Tahap 2 · 0 / ${this.totalCells}`
+      `Tahap 2 — sekarang **kamu sendiri** yang menjumlahkan. Ketuk satu elemen di **$${this.config.scalarA}A$**, `
+      + 'lalu ketuk pasangan seletaknya di $B$.',
+      `Tahap 2 · 0 / ${this.totalCells} sel`
     );
 
-    this.track(registerDropZone(this.meet, {
-      padding: 12,
-      onDrop: (data, sourceEl) => this.handleSumDrop(data, sourceEl),
-    }));
-
-    this.cellsA.forEach((cell, key) => {
-      const [row, col] = key.split(',').map(Number);
-      cell.classList.add('cell--draggable');
-      makeDraggable(cell, { data: { which: 'A', row, col, value: Number(cell.dataset.value) } });
-    });
-    this.cellsB.forEach((cell, key) => {
-      const [row, col] = key.split(',').map(Number);
-      cell.classList.add('cell--draggable');
-      makeDraggable(cell, { data: { which: 'B', row, col, value: Number(cell.dataset.value) } });
-    });
-  }
-
-  handleSumDrop(data, sourceEl) {
-    if (this.busy || this.phase !== 1) return;
-
-    if (!this.pending) {
-      this.pending = { data, el: sourceEl };
-      sourceEl.classList.add('cell--pulse');
-      delete this.meet.dataset.awaiting;
-      return;
-    }
-
-    if (this.pending.data.which === data.which ||
-        this.pending.data.row !== data.row ||
-        this.pending.data.col !== data.col) {
-      this.reject(sourceEl, 'notAligned', {
-        ai: this.pending.data.row + 1, aj: this.pending.data.col + 1,
-        bi: data.row + 1, bj: data.col + 1,
-      });
-      return;
-    }
-
-    this.runSum(this.pending, { data, el: sourceEl });
-  }
-
-  async runSum(first, second) {
-    this.setBusy(true);
-    const { row, col } = first.data;
-    first.el.classList.remove('cell--pulse');
-    this.pending = null;
-
-    const target = this.cellsC.get(`${row},${col}`);
-    await flyMergeLand([first.el, second.el], this.meet, target, {
+    // Mesin yang SAMA PERSIS dengan Penjumlahan & Pengurangan.
+    this.attachPairEngine({
+      cellsA: this.viewA.cells,
+      cellsB: this.viewB.cells,
+      cellsC: this.viewC.cells,
+      result: this.finalResult,
       operator: this.config.operator,
-      resultText: formatNumber(this.finalResult[row][col]),
+      nameA: `${this.config.scalarA}A`,
+      nameB: 'B',
+      left: this.scaledA,
+      right: this.config.matrixB,
+      host: this.workHost,
     });
+  }
 
-    target.classList.add('cell--done');
-    target.appendChild(el('span', 'cell__check', icon('check', { size: 11 })));
-    [first.el, second.el].forEach((c) => { c.dataset.dragDisabled = 'true'; c.classList.add('cell--spent'); });
+  /** Ketukan berpasangan baru berlaku setelah seluruh skalar dikerjakan. */
+  pairsEnabled() { return this.phase === 1; }
 
-    this.sumDone.add(`${row},${col}`);
-    this.setBusy(false);
-
-    if (this.sumDone.size >= this.totalCells) {
-      this.checklist.advance(1);
-      this.setPrompt(`Selesai: $${this.config.expression} = ${toLatex(this.finalResult)}$`, 'Selesai');
-      this.complete();
-    } else {
-      this.meet.dataset.awaiting = 'true';
-      this.setPrompt('Tahap 2 — pasangan seletak berikutnya.', `Tahap 2 · ${this.sumDone.size} / ${this.totalCells}`);
-    }
+  onPairsComplete() {
+    this.checklist.advance(1);
+    this.setPrompt(
+      `Selesai: $${this.config.expression} = ${toLatex(this.finalResult)}$`,
+      'Selesai'
+    );
+    this.complete();
   }
 }
 
@@ -1593,6 +1659,7 @@ export class PropertyCardsSim extends Simulation {
     const pair = this.config.pairs[this.index];
     if (!pair) return this.complete();
 
+    this.release('advance');
     this.pairHost.innerHTML = '';
     this.proofHost.innerHTML = '';
     this.setPrompt('Apakah kedua ekspresi ini setara?', `${this.index + 1} / ${this.config.pairs.length}`);
@@ -1633,9 +1700,20 @@ export class PropertyCardsSim extends Simulation {
       return;
     }
 
+    /**
+     * Kunci diambil lebih dulu: menjatuhkan ATAU mengetuk simbol yang benar
+     * berkali-kali dulu memicu beberapa pembuktian sekaligus — kotak
+     * pembuktian bertumpuk dan slide berikutnya dijadwalkan berulang
+     * (Fase 13, isu 1).
+     */
+    if (!this.claim('advance')) return;
+
     slot.innerHTML = renderMixed(`$${data.symbol}$`);
     slot.dataset.filled = 'true';
     slot.classList.add('anim-flash-success');
+
+    // Seluruh chip simbol DAN slot tujuannya dimatikan seketika.
+    this.lockChoices(this.pairHost, { keep: sourceEl });
 
     this.showProof(pair);
     this.index += 1;

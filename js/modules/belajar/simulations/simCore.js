@@ -128,12 +128,18 @@ export function createBrief(text) {
   return node;
 }
 
-export function createMeetPoint({ operator, hint } = {}) {
-  const node = el('div', 'meetpoint');
-  if (hint) node.appendChild(el('div', 'meetpoint__hint', renderMixed(hint)));
-  if (operator) node.appendChild(el('div', 'meetpoint__op', operator));
-  return node;
-}
+/**
+ * DICABUT DI FASE 13 — "titik temu" tidak dipakai lagi.
+ *
+ * Mekanik ini meminta siswa menyeret dua elemen ke sebuah kotak putus-putus
+ * di tengah panggung. Ia hanya pernah dipakai `combo_op`, sementara
+ * `elementwise_op` — yang mengerjakan operasi yang sama persis — sudah
+ * memakai ketuk-ketuk. Dua cara berbeda untuk satu operasi yang sama membuat
+ * siswa mempelajari aplikasinya, bukan matriksnya.
+ *
+ * Penggantinya: `PairwiseTapSim` di `simOperations.js`. Jangan hidupkan
+ * kembali fungsi ini — tambahkan mekanik baru sebagai turunan kelas itu.
+ */
 
 export function createScalarChip(value, label) {
   const chip = el('div', 'scalar-chip', label != null ? label : formatNumber(value));
@@ -528,6 +534,80 @@ export class Simulation {
     lockWrongOption(element);
   }
 
+  /* ------------------------------------------------------------
+     GERBANG SEKALI-JALAN (anti klik beruntun)
+
+     `setBusy()` saja tidak cukup. Ia baru menyala SESUDAH penanganan
+     dimulai, sementara klik beruntun tiba di frame yang sama — keduanya
+     lolos pemeriksaan sebelum salah satunya sempat menyalakan `busy`.
+     Akibatnya evaluasi dijalankan dua kali: panel vonis tergandakan dan
+     perpindahan slide dijadwalkan berkali-kali.
+
+     `claim()` menutup celah itu secara sinkron: panggilan PERTAMA
+     mengembalikan `true`, sisanya `false` sampai `release()`.
+     ------------------------------------------------------------ */
+
+  /**
+   * Ambil kunci untuk sebuah langkah. `true` berarti pemanggil ini yang
+   * berhak melanjutkan; `false` berarti sudah ada yang mendahuluinya.
+   */
+  claim(name = 'step') {
+    if (!this._claims) this._claims = new Set();
+    if (this._claims.has(name)) return false;
+    this._claims.add(name);
+    return true;
+  }
+
+  /** Lepaskan kunci — dipakai kalau langkahnya boleh dicoba lagi. */
+  release(name = 'step') {
+    if (this._claims) this._claims.delete(name);
+  }
+
+  releaseAllClaims() {
+    if (this._claims) this._claims.clear();
+  }
+
+  /**
+   * Matikan SELURUH elemen interaktif di dalam sebuah wadah.
+   *
+   * `disabled` hanya berlaku untuk kontrol form, sementara sebagian besar
+   * pilihan di aplikasi ini berupa `div` (kartu sifat, chip simbol, sel
+   * matriks). Karena itu kelas `.is-locked` ikut dipasang — ia yang
+   * mematikan pointer-events untuk elemen non-form.
+   *
+   * @param {HTMLElement} container
+   * @param {object} options { keep: HTMLElement — satu elemen yang tetap
+   *                           ditandai sebagai jawaban terpilih }
+   */
+  lockChoices(container, { keep = null } = {}) {
+    if (!container) return;
+
+    const SELECTOR = [
+      'button',
+      '[role="button"]',
+      '[data-draggable]',
+      '[data-dropzone-id]',
+      '.drag-card',
+      '.symbol-chip',
+      '.scalar-chip',
+      '.label-chip',
+      '.option',
+      '.cell--tappable',
+    ].join(', ');
+
+    container.querySelectorAll(SELECTOR).forEach((node) => {
+      // Jawaban yang DIPILIH ikut dimatikan — menekannya lagi tidak boleh
+      // melakukan apa pun. Yang membedakannya cuma tampilan: `.is-chosen`
+      // membatalkan peredupan supaya ia tetap terbaca sebagai jawaban siswa.
+      node.classList.add('is-locked');
+      if (node === keep) node.classList.add('is-chosen');
+      node.setAttribute('aria-disabled', 'true');
+      node.dataset.dragDisabled = 'true';
+      if ('disabled' in node) node.disabled = true;
+      if (node.tabIndex >= 0) node.tabIndex = -1;
+    });
+  }
+
   /**
    * Kunci seluruh panggung selama animasi berjalan, supaya siswa tidak
    * bisa memicu aksi kedua yang menumpuk di atas animasi pertama.
@@ -777,6 +857,9 @@ export class Simulation {
   resetStage() {
     // Timer milik slide lama tidak boleh menyala di atas slide baru.
     this.clearTimers();
+
+    // Slide baru berarti langkah baru: seluruh kunci sekali-jalan dilepas.
+    this.releaseAllClaims();
 
     // Buang drop-zone lama supaya tidak menangkap drop dari slide baru.
     this.cleanups.forEach((fn) => {

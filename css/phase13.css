@@ -1,0 +1,92 @@
+/* ============================================================
+   phase13.css — Fase 13: Kunci Sistemik & Konsistensi Engine
+   DIMUAT PALING AKHIR, sesudah phase12.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. KUNCI INTERAKSI SISTEMIK
+
+   Dipasang `Simulation.lockChoices()` pada SETIAP elemen yang bisa
+   dipilih begitu satu evaluasi yang benar dimulai.
+
+   `disabled` hanya berlaku untuk kontrol form, sementara sebagian
+   besar pilihan di aplikasi ini berupa `div` (kartu sifat, chip
+   simbol, sel matriks). Kelas inilah yang mematikan sisanya.
+
+   Redupnya mengikuti ambang keadaan nonaktif (0,38–0,5): masih
+   terbaca sebagai konteks, tetapi jelas tidak bisa ditekan lagi.
+   ------------------------------------------------------------ */
+.is-locked {
+  pointer-events: none !important;
+  cursor: default !important;
+  opacity: .45;
+  filter: saturate(.55);
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+/* Jawaban yang DIPILIH ikut dimatikan (menekannya lagi tidak boleh
+   melakukan apa pun) TETAPI tidak diredupkan — ia justru bukti apa
+   yang barusan dijawab siswa, dan harus tetap paling terbaca di
+   antara pilihan lain yang sudah pudar. */
+.is-chosen,
+.is-chosen:disabled,
+.btn.is-chosen:disabled {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* Sel matriks punya bahasa "mati"-nya sendiri (`cell--muted`,
+   `cell--spent`); jangan ditumpuk dua peredupan sekaligus. */
+.cell.is-locked { opacity: 1; filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-locked { transition: none; }
+}
+
+/* ------------------------------------------------------------
+   2. BANNER "SIMULASI SELESAI" — pemusatan yang tidak bisa
+      dibatalkan animasi
+
+   Banner memakai `position:absolute; left:50%; transform:
+   translateX(-50%)`, TETAPI ia juga memakai `.anim-rise` yang
+   `animation-fill-mode: both` dan keyframe-nya menulis
+   `transform: translateY(...)`. Properti `transform` hanya satu:
+   nilai dari animasi MENGGANTIKAN translateX(-50%), bukan
+   menambahinya. Akibatnya banner tidak pernah tergeser balik —
+   tepi KIRInya berhenti tepat di titik tengah panggung, meleset
+   sekitar setengah lebarnya sendiri.
+
+   Diukur sebelum perbaikan: pusat banner 624px vs pusat panggung
+   477px — meleset 147px.
+
+   Solusinya berhenti memakai `transform` untuk memusatkan.
+   Margin otomatis di antara `left:0` dan `right:0` memusatkan
+   secara matematis dan kebal terhadap animasi apa pun.
+   ------------------------------------------------------------ */
+.sim__done-overlay {
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: -moz-fit-content;
+  width: fit-content;
+  max-width: calc(100% - 2 * var(--sp-4));
+  transform: none;
+}
+
+/* ------------------------------------------------------------
+   3. TOAST DITAMBATKAN KE KOTAK ISI, BUKAN KOTAK KOLOM
+
+   Fase 12 menambatkan toast ke `.ws-stage`. Kolom itu memakai
+   `margin-right` negatif supaya scrollbar-nya memeluk tepi layar
+   (kontrak §5 butir 23), jadi kotak KOLOM lebih lebar daripada
+   kotak ISI dan titik tengahnya bergeser ~12px ke kanan.
+
+   `toast.js` kini mengukur kotak isi (lebar dikurangi padding
+   kiri-kanan) dari `.workspace__body`, sehingga toast berbagi
+   sumbu tengah yang sama persis dengan matriks di panggung.
+   ------------------------------------------------------------ */
+.toast-host {
+  left: var(--toast-anchor-x, 50%);
+  transform: translateX(-50%);
+  width: min(540px, var(--toast-anchor-w, 100vw) - 32px);
+}

@@ -54,6 +54,9 @@ export class IdentifyElementSim extends Simulation {
     const step = this.config.steps[this.stepIndex];
     if (!step) return this.complete();
 
+    // Langkah baru = kunci "advance" dilepas kembali.
+    this.release('advance');
+
     this.maxReached = Math.max(this.maxReached, this.stepIndex);
     this.setStep(this.stepIndex);
 
@@ -116,7 +119,12 @@ export class IdentifyElementSim extends Simulation {
       btn.addEventListener('click', () => {
         if (this.busy) return;
         if (index === step.answerIndex) {
-          btn.classList.add('anim-flash-success');
+          // `busy` tidak pernah dinyalakan di jalur ini, jadi klik beruntun
+          // dulu memajukan beberapa langkah sekaligus. Kunci sekali-jalan
+          // menutupnya secara sinkron (Fase 13, audit sistemik).
+          if (!this.claim('advance')) return;
+          btn.classList.add('anim-flash-success', 'btn--success');
+          this.lockChoices(this.answerHost, { keep: btn });
           this.markSlideSolved(this.stepIndex);
           this.stepIndex += 1;
           this.later(() => this.runStep(), 520);
@@ -135,10 +143,12 @@ export class IdentifyElementSim extends Simulation {
       padding: 8,
       onDrop: (data, sourceEl) => {
         if (data.label === step.answerLabel) {
+          if (!this.claim('advance')) return;
           targetCell.classList.remove('cell--pulse');
           targetCell.classList.add('cell--done');
           targetCell.appendChild(el('span', 'cell__check', icon('check', { size: 11 })));
           sourceEl.remove();
+          this.lockChoices(this.answerHost);
           this.markSlideSolved(this.stepIndex);
           this.stepIndex += 1;
           this.later(() => this.runStep(), 620);
@@ -429,6 +439,10 @@ export class LabelMatrixTypesSim extends Simulation {
     this.later(() => this.matrixView.bracket.classList.remove("anim-flash-success"), 620);
 
     if (this.attached.size >= this.needed.size) {
+      // Label terakhir yang diketuk beruntun dulu bisa menjadwalkan dua
+      // perpindahan kartu sekaligus.
+      if (!this.claim('advance')) return;
+      this.lockChoices(this.poolHost);
       toast.success(
         card.valid.length > 1
           ? `Lengkap! Matriks ini memang termasuk ${card.valid.length} jenis sekaligus.`

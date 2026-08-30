@@ -1,26 +1,145 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 12.
-> Status: **fase 1–12 selesai, seluruh pengujian otomatis hijau (21/21 + 383/383).**
+> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 13.
+> Status: **fase 1–13 selesai, seluruh pengujian otomatis hijau (21/21 + 403/403).**
 >
-> ✅ **FASE 12 SELESAI.** Sebelas temuan fungsional & pedagogis ditutup:
-> kurikulum diurut ulang, materi "Jenis-Jenis Matriks" ditulis ulang menjadi
-> lima kategori, dan sejumlah kunci interaksi diperbaiki. Rinciannya di **§0**.
+> ✅ **FASE 13 SELESAI.** Kunci anti klik-beruntun dipasang SISTEMIK di seluruh
+> engine, mekanik "titik temu" dicabut total, dan pemusatan banner/toast
+> diperbaiki. Rinciannya di **§0**.
+>
+> **Fase 12** mengurut ulang kurikulum (Transpose sebelum Jenis-Jenis Matriks),
+> menulis ulang materi Jenis-Jenis Matriks jadi 5 kategori/19 jenis, dan
+> memperbaiki 11 temuan UAT. Ringkasannya di **§0B**.
 >
 > **Fase 11** menutup sembilan bug QA: kebocoran GSAP/timer, slider kembar,
-> kemajuan multi-kasus, ketuk-ketuk Jumlah/Kurang, penjaga layar masuk, denyut
-> berlatar, dan skala layar besar. Ringkasannya di **§0B**.
+> kemajuan multi-kasus, ketuk-ketuk, penjaga masuk, denyut, dan skala.
 >
-> **Fase 10** menetapkan arsitektur **Sidebar & Stage**: kendali di kolom kiri,
-> kanvas matriks di kolom kanan. Arsitektur itu **tidak berubah** di Fase 11
-> maupun Fase 12.
->
-> **Fase 9** adalah pivot besar: Lab Maya dicabut, sistem desain terang
-> "TRANSFORMASI", dan media ini **dikunci ke orientasi lanskap**.
+> **Fase 10** menetapkan arsitektur **Sidebar & Stage** — tidak berubah sejak itu.
 
 ---
 
-## 0. FASE 12 — INTERAKSI LANJUTAN & PEMBARUAN KURIKULUM (SELESAI)
+## 0. FASE 13 — KUNCI SISTEMIK & KONSISTENSI ENGINE (SELESAI)
+
+### 0.1 Anti klik-beruntun, dipasang SISTEMIK
+
+Dua primitif baru di `Simulation` (`simCore.js`) dipakai seluruh engine:
+
+| Primitif | Guna |
+|---|---|
+| `claim(nama)` / `release(nama)` | Gerbang sekali-jalan yang menutup secara **sinkron**. Panggilan pertama `true`, sisanya `false` |
+| `lockChoices(wadah, { keep })` | Mematikan SEMUA elemen terpilih di sebuah wadah — termasuk `div` yang tidak punya atribut `disabled` |
+
+> **Mengapa `setBusy()` saja tidak cukup.** `busy` baru menyala SESUDAH
+> penanganan dimulai — biasanya setelah sebuah `await`. Klik beruntun tiba di
+> frame yang sama dan semuanya lolos pemeriksaan sebelum ada yang sempat
+> menyalakan `busy`. `claim()` menutup celah itu tanpa menunggu apa pun.
+
+> ⚠️ **JEBAKAN yang sempat menggigit di fase ini.** Percobaan pertama memakai
+> `claim(\`case-${this.index}\`)` — dan **gagal total**, karena penangannya
+> menaikkan `this.index` sendiri. Ketukan kedua meminta kunci dengan nama
+> BERBEDA lalu lolos begitu saja; panel vonis tetap tergandakan tiga kali.
+> Kunci WAJIB bernama tetap (`'advance'`), dilepas saat langkah berikutnya
+> digambar. Bug ini tidak terlihat dari membaca kode — yang menangkapnya
+> adalah audit klik-beruntun otomatis.
+
+**Engine yang diperbaiki:**
+
+| Engine | Sub-topik | Gejala sebelumnya |
+|---|---|---|
+| `SingularCheckSim` | singular_nonsingular | Kartu vonis menggandakan diri (terukur 3 panel), kasus melompat 0→3 |
+| `PropertyCardsSim` | sifat_operasi | Pembuktian menumpuk, slide berikutnya dijadwalkan berulang |
+| `IdentifyElementSim` | pengertian_letak | `if (this.busy)` ada tapi `busy` **tidak pernah dinyalakan** di jalur ini — langkah melompat 0→3 |
+| `LabelMatrixTypesSim` | jenis_matriks | Label terakhir bisa menjadwalkan dua perpindahan kartu |
+| `SplSolverSim` | spldv/spltv | "Kerjakan Penuh" menumpuk kotak penyelesaian |
+| `PairwiseTapSim` | penjumlahan, kombinasi | Tombol "Hitung Sel Ini" bisa ditekan beruntun |
+| `ComboOpSim` | kombinasi_operasi | Ketukan beruntun pada satu sel menjalankan dua animasi skalar |
+
+**Sudah aman sejak sebelumnya** (diperiksa ulang, tidak diubah):
+`OrdoBuilderSim` (`this.solved`), `OrdoCheckSim` (`this.answered`, Fase 12),
+`PropertyCalculatorSim` (`this.resolved`, Fase 12), `MultiStatementSim`
+(`this.checked`), `DataTranslationSim` (`this.computed`), `QuizEngine`
+(`this.answered` + tombol dikunci di klik pertama).
+
+### 0.2 "Titik temu" DICABUT TOTAL
+
+`combo_op` adalah satu-satunya engine yang masih meminta siswa menyeret dua
+elemen ke kotak putus-putus di tengah panggung, padahal
+`elementwise_op` — yang secara matematis mengerjakan hal yang **sama** —
+sudah memakai ketuk-ketuk sejak Fase 11. Dua mekanik untuk satu operasi
+memaksa siswa mempelajari aplikasinya, bukan matriksnya.
+
+Alih-alih menyalin kodenya, mekaniknya **diangkat menjadi kelas dasar
+bersama** `PairwiseTapSim` (`simOperations.js`). Keduanya kini menjalankan
+KODE YANG SAMA PERSIS:
+
+```
+ElementwiseOpSim extends PairwiseTapSim   ← penjumlahan_pengurangan
+ComboOpSim       extends PairwiseTapSim   ← kombinasi_operasi
+```
+
+Kaitnya dua: `pairsEnabled()` (kapan ketukan diterima) dan `onPairsComplete()`.
+
+Alur `combo_op` sekarang:
+1. **Tahap 1** — ketuk tiap elemen $A$ → dikalikan skalar (tanpa seret).
+2. **Tahap 2** — ketuk elemen di $kA$ → pasangan seletaknya di $B$ menyala →
+   ketuk pasangan → bentuk $(8+1)$ muncul → "Hitung Sel Ini" → $9$ mendarat.
+
+`createMeetPoint()` **dihapus dari `simCore.js`**; tidak ada lagi pemanggilnya.
+Jangan hidupkan kembali — tambahkan mekanik baru sebagai turunan
+`PairwiseTapSim`.
+
+### 0.3 Pemusatan: dua bug, dua akar berbeda
+
+| Elemen | Meleset | Akar masalah |
+|---|---|---|
+| Banner "Simulasi selesai" | **147px** | `.anim-rise` memakai `animation-fill-mode: both` dan keyframe-nya menulis `transform: translateY(...)`. Properti `transform` hanya satu — nilai animasi **MENGGANTIKAN** `translateX(-50%)`, bukan menambahinya. Tepi KIRI banner berhenti tepat di titik tengah panggung |
+| Toast | **12px** | Ditambatkan ke `.ws-stage`, padahal kolom itu memakai `margin-right` negatif agar scrollbar memeluk tepi layar (kontrak §5 butir 23). Kotak KOLOM karena itu lebih lebar daripada kotak ISI |
+
+Perbaikannya:
+- Banner berhenti memakai `transform` untuk memusatkan; ia memakai
+  `left:0; right:0; margin-inline:auto; width:fit-content` — kebal terhadap
+  animasi apa pun.
+- `toast.js` mengukur **kotak isi** (lebar dikurangi padding) dari
+  `.workspace__body`, bukan kotak kolom.
+
+Keduanya kini terukur **0px** dari sumbu tengah panggung.
+
+> Pelajaran umum: jangan pernah memusatkan dengan `transform` pada elemen yang
+> juga dianimasikan. Animasi menang, dan pemusatannya hilang tanpa jejak di
+> CSS yang bisa dibaca.
+
+### 0.4 Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `css/phase13.css` | **BARU** — `.is-locked`, pemusatan banner, tambatan toast |
+| `js/modules/belajar/simulations/simCore.js` | `claim()`/`release()`/`lockChoices()`; `createMeetPoint()` dicabut |
+| `js/modules/belajar/simulations/simOperations.js` | Kelas dasar `PairwiseTapSim`; `ComboOpSim` direfaktor; `PropertyCardsSim` dikunci |
+| `js/modules/belajar/simulations/simDetInv.js` | `SingularCheckSim` dikunci |
+| `js/modules/belajar/simulations/simBasics.js` | `IdentifyElementSim` & `LabelMatrixTypesSim` dikunci |
+| `js/modules/belajar/simulations/simModeling.js` | `SplSolverSim` dikunci |
+| `js/ui/toast.js` | Tambatan memakai kotak ISI |
+| `js/modules/belajar/lessonRenderer.js` | Menambatkan ke `.workspace__body` |
+| `index.html` | Memuat `css/phase13.css` |
+| `tests/smoke.py` | Bagian 94–97 baru; bagian 18 & 89 diselaraskan |
+
+### 0.5 Bukti
+
+Audit klik-beruntun otomatis: **setiap** elemen yang bisa ditekan di panggung
+diklik **enam kali beruntun dalam frame yang sama**, di 22 sub-topik × langkah
+Simulasi & Mini Kuis. Hasil: tidak ada node hasil yang tergandakan, tidak ada
+penunjuk langkah yang melompat.
+
+### 0.6 Yang SENGAJA ditinggalkan
+
+| Hal | Alasan |
+|---|---|
+| CSS `.meetpoint` di `simulations.css` | Tidak ada lagi yang memakainya, tetapi membuangnya menyentuh berkas lama tanpa manfaat perilaku. Aman dihapus kapan saja |
+| Chip simbol `=` / `≠` di `sifat_operasi` masih memakai `makeDraggable` | `makeDraggable` sudah menyediakan jalur ketuk sekaligus (kontrak §5 butir 12), dan kedua jalurnya kini melewati kunci yang sama. Mengubahnya ke ketuk-murni di luar lingkup Fase 13 |
+
+---
+
+## 0B. FASE 12 — INTERAKSI LANJUTAN & PEMBARUAN KURIKULUM (SELESAI)
 
 ### 0.1 Kurikulum & isi
 
@@ -105,7 +224,7 @@ Jadi tetap: **render, lihat, ukur di peramban, baru tulis pengujiannya.**
 
 ---
 
-## 0B. FASE 11 — BUG SQUASHING (SELESAI)
+## 0C. FASE 11 — BUG SQUASHING (SELESAI)
 
 Sembilan temuan QA manual, semuanya tertutup.
 
@@ -184,7 +303,7 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **383/383 lolos** |
+| `python tests/smoke.py` | **403/403 lolos** |
 
 Fase 9 menambah bagian 63–69; Fase 10 menambah bagian 70–76: identitas aplikasi,
 sapaan masuk & hak cipta, penempatan header, arsitektur Sidebar & Stage (diukur di
@@ -195,6 +314,10 @@ Fase 11 menambah bagian 77–86 (46 pengujian): slider tidak kembar, Jumlah/Kura
 murni ketuk, gerak & timer benar-benar mati saat pindah layar, kemajuan
 multi-kasus, penjaga layar masuk, gulir daftar bab, skala di tiga viewport, dan
 kontras warna pada puncak denyut.
+
+Fase 13 menambah bagian 94–97 (20 pengujian): audit klik-beruntun menyapu
+seluruh sub-topik, kunci pilihan pada modul yang dilaporkan, Kombinasi Skalar
+memakai mesin ketuk-ketuk yang sama, dan pemusatan banner/toast.
 
 Fase 12 menambah bagian 87–93 (37 pengujian): urutan kurikulum, tata letak
 simulasi label, tambatan toast, bilah progres, teks progres pengganti slider,
@@ -245,9 +368,10 @@ matriks-lab-interaktif/
 │   ├── phase11.css                    Perbaikan sembilan isu QA (skala clamp,
 │   │                                    gulir daftar, denyut berlatar, penjaga
 │   │                                    layar masuk)
-│   └── phase12.css                    ← DIMUAT TERAKHIR: kategori jenis matriks,
-│                                        tambatan toast, panel Segera Hadir,
-│                                        HOTS ketuk, denyut salinan Sarrus
+│   ├── phase12.css                    Kategori jenis matriks, tambatan toast,
+│   │                                    panel Segera Hadir, HOTS ketuk
+│   └── phase13.css                    ← DIMUAT TERAKHIR: kunci .is-locked,
+│                                        pemusatan banner & toast
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -407,7 +531,15 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 
 43. **Salinan yang sudah tampil bukan lagi bayangan.** Kolom salinan Sarrus mewarisi seluruh logika sorot & denyut sel biasa. Awas gaya INLINE dari GSAP yang mengalahkan kelas. (Fase 12, bagian uji 93.)
 
-44. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
+44. **Setiap evaluasi yang benar WAJIB mengambil `claim()` lebih dulu, lalu memanggil `lockChoices()`.** `setBusy()` tidak cukup — ia menyala setelah penanganan dimulai, sementara klik beruntun tiba di frame yang sama. Nama kunci harus TETAP dan dilepas saat langkah berikutnya digambar; kunci yang namanya mengandung indeks yang ikut berubah TIDAK menahan apa pun. (Fase 13, bagian uji 94–95.)
+
+45. **Satu operasi matematika = satu mekanik.** Operasi yang secara matematis sama harus dikerjakan dengan cara yang sama di seluruh aplikasi. Mekanik berpasangan hidup di `PairwiseTapSim`; engine baru MEWARISINYA, bukan menyalinnya. "Titik temu" dicabut permanen di Fase 13. (Fase 13, bagian uji 96.)
+
+46. **Jangan pernah memusatkan dengan `transform` pada elemen yang juga dianimasikan.** `transform` hanya satu properti: nilai dari `@keyframes` MENGGANTIKAN `translateX(-50%)`, bukan menambahinya. Pakai `left:0; right:0; margin-inline:auto`. (Fase 13, bagian uji 97.)
+
+47. **Pemusatan diukur terhadap kotak ISI, bukan kotak kolom.** `.ws-stage` memakai margin negatif untuk talang scrollbar, jadi titik tengah kotaknya ~12px meleset dari sumbu matriks. (Fase 13, bagian uji 97.)
+
+48. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
 
 ---
 

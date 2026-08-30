@@ -43,6 +43,143 @@ PANEL_SEGERA_HADIR = """() => ({
 })"""
 
 # ============================================================
+# Skrip peramban untuk bagian regresi Fase 13 (94-97).
+# ============================================================
+
+KLIK_BERUNTUN = """() => new Promise(resolve => {
+    const view = window.__matriksLab.state.activeView;
+    const sim = view.simulation || null;
+    const UNIQUE = ['.verdict-panel', '.rule-result', '.sim__done-overlay',
+                    '.equation-panel', '.slide-solved'];
+    const idxOf = (s) => (s ? [s.index, s.stepIndex, s.slide, s.caseIndex, s.phase]
+        .map(v => (typeof v === 'number' ? v : -1)) : []);
+    const before = idxOf(sim);
+
+    const targets = [...document.querySelectorAll(
+        '.stage button, .stage [role="button"], .stage .drag-card, .stage .symbol-chip,'
+        + ' .stage .scalar-chip, .stage .label-chip, .stage .cell--tappable,'
+        + ' .stage .option, .stage .hots__card, .stage .cell')];
+
+    // Enam ketukan beruntun, tanpa jeda: inilah yang dilakukan siswa yang
+    // tidak sabar, dan inilah yang dulu menggandakan kartu vonis.
+    targets.forEach((t) => {
+        for (let k = 0; k < 6; k++) {
+            t.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+        }
+    });
+
+    setTimeout(() => {
+        const dupes = {};
+        UNIQUE.forEach((sel) => {
+            const n = document.querySelectorAll(sel).length;
+            if (n > 1) dupes[sel] = n;
+        });
+        resolve({ targets: targets.length, before, after: idxOf(sim), dupes,
+                  explains: document.querySelectorAll('.stage .explain').length });
+    }, 1300);
+})"""
+
+SPAM_SINGULAR = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const before = sim.index;
+    const item = sim.config.cases[sim.index];
+    // Cari tombol yang BENAR untuk kasus ini, lalu tekan enam kali.
+    const btns = [...document.querySelectorAll('.stage button')];
+    const det = item.matrix[0][0] * item.matrix[1][1] - item.matrix[0][1] * item.matrix[1][0];
+    const singular = Math.abs(det) < 1e-10;
+    const target = btns.find(b => b.textContent.trim() ===
+        (singular ? 'Singular' : 'Non-Singular'));
+    for (let k = 0; k < 6; k++) target.click();
+    setTimeout(() => resolve({
+        panels: document.querySelectorAll('.verdict-panel').length,
+        allLocked: btns.every(b => b.disabled || b.classList.contains('is-locked')),
+        advanced: sim.index - before,
+    }), 900);
+})"""
+
+SPAM_SIFAT = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const pair = sim.config.pairs[sim.index];
+    const chips = [...document.querySelectorAll('.symbol-chip')];
+    const slot = document.querySelector('.equation__slot');
+    // Ketuk chip yang benar lalu slot-nya, berkali-kali beruntun.
+    const wantNe = pair.answer !== '=';
+    const chip = wantNe ? chips[1] : chips[0];
+    for (let k = 0; k < 6; k++) {
+        chip.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+        slot.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    }
+    setTimeout(() => resolve({
+        proofs: document.querySelectorAll('.stage .explain').length,
+        chipsLocked: chips.every(c => c.classList.contains('is-locked')
+                                   || c.classList.contains('is-failed')),
+    }), 1000);
+})"""
+
+KOMBINASI_KETUK = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    const tap = (el) => el && el.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    const mats = () => [...document.querySelectorAll('.stage .matrix')];
+    const cell = (mi, i, j) => mats()[mi].querySelector(
+        '.cell[data-row="' + i + '"][data-col="' + j + '"]');
+
+    const out = {
+        meetPoints: document.querySelectorAll('.meetpoint').length,
+        draggables: document.querySelectorAll('.stage [data-draggable]').length,
+        dropzones: document.querySelectorAll('.stage [data-dropzone-id]').length,
+        usesPairEngine: typeof sim.attachPairEngine === 'function',
+    };
+
+    (async () => {
+        // Tahap 1 dengan klik beruntun pada sel pertama.
+        tap(cell(0, 0, 0)); tap(cell(0, 0, 0)); tap(cell(0, 0, 0));
+        await wait(700);
+        out.spamPhase1 = sim.scalarDone.size;
+
+        for (const [i, j] of [[0, 1], [1, 0], [1, 1]]) { tap(cell(0, i, j)); await wait(480); }
+        await wait(700);
+        out.phase = sim.phase;
+        out.scaledA = [...sim.viewA.cells.values()].map(x => x.dataset.value).join(',');
+
+        // Tahap 2 - ketuk-ketuk.
+        tap(cell(0, 0, 0)); await wait(400);
+        out.partnerLit = cell(1, 0, 0).classList.contains('cell--pulse');
+        out.muted = document.querySelectorAll('.stage .cell--muted').length;
+        tap(cell(1, 0, 0)); await wait(1100);
+        out.expr = (cell(2, 0, 0).querySelector('.cell__expr') || {}).textContent || '';
+
+        const btn = document.querySelector('.workstrip__confirm');
+        tap(btn); tap(btn); tap(btn);
+        await wait(1200);
+        out.cellText = cell(2, 0, 0).textContent;
+        out.completed = sim.completed.size;
+        resolve(out);
+    })();
+})"""
+
+PUSAT_PANGGUNG = """() => new Promise(resolve => {
+    const sim = window.__matriksLab.state.activeView.simulation;
+    sim.complete('Uji penempatan');
+    setTimeout(() => {
+        const c = (e) => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; };
+        const stage = document.querySelector('.stage');
+        const col = document.querySelector('.ws-stage');
+        const ov = document.querySelector('.sim__done-overlay');
+        const host = document.querySelector('.toast-host');
+        const rs = stage.getBoundingClientRect();
+        const ro = ov ? ov.getBoundingClientRect() : null;
+        resolve({
+            overlayOffset: ov ? Math.round(Math.abs(c(ov) - c(stage))) : 999,
+            overlayInside: ro ? (ro.left >= rs.left - 1 && ro.right <= rs.right + 1) : false,
+            toastOffset: host ? Math.round(Math.abs(c(host) - c(stage))) : 999,
+            contentVsColumn: Math.round(Math.abs(c(stage) - c(col))),
+        });
+    }, 800);
+})"""
+
+# ============================================================
 # Skrip peramban untuk bagian regresi Fase 12 (87-93).
 # ============================================================
 
@@ -74,15 +211,23 @@ TAMBATAN_TOAST = """() => new Promise(resolve => {
         new MouseEvent('click', { bubbles: true, clientX: 1, clientY: 1 }));
     setTimeout(() => {
         const host = document.querySelector('.toast-host');
-        const stage = document.querySelector('.ws-stage');
-        if (!host || !stage) return resolve({ toasts: 0 });
+        // Patokannya kanvas ISI, bukan kotak KOLOM.
+        //
+        // `.ws-stage` memakai margin kanan negatif agar scrollbar-nya memeluk
+        // tepi layar, jadi titik tengah kotaknya ~12px di kanan sumbu isi.
+        // Sampai Fase 12 uji ini memakai kolom sebagai patokan dan karena itu
+        // MENGESAHKAN toast yang sebenarnya meleset dari matriksnya.
+        const stage = document.querySelector('.stage');
+        const col = document.querySelector('.ws-stage');
+        if (!host || !stage || !col) return resolve({ toasts: 0 });
         const h = host.getBoundingClientRect(), st = stage.getBoundingClientRect();
+        const cl = col.getBoundingClientRect();
         const hc = h.left + h.width / 2, sc = st.left + st.width / 2;
         resolve({
             toasts: document.querySelectorAll('.toast').length,
             offsetFromStage: Math.round(Math.abs(hc - sc)),
             stageVsWindow: Math.round(Math.abs(sc - window.innerWidth / 2)),
-            withinStage: h.left >= st.left - 1 && h.right <= st.right + 1,
+            withinStage: h.left >= cl.left - 1 && h.right <= cl.right + 1,
         });
     }, 600);
 })"""
@@ -868,14 +1013,30 @@ def run(page, errors):
     record("Tidak ada toggle 0.5x/1x/2x", speed == 0, f"ditemukan: {speed}")
 
     print("\n18. Toast error singleton + opsi salah dikunci")
+    # Yang diklik HARUS opsi yang salah.
+    #
+    # Versi lama menekan SEMUA tombol lalu berharap salah satunya tercatat
+    # keliru. Sejak Fase 13, menekan opsi yang BENAR langsung mengunci sisanya
+    # (`.is-locked`) — dan opsi yang tidak pernah dipilih siswa memang tidak
+    # boleh ditandai salah. Kalau jawaban benar kebetulan berada paling kiri,
+    # tidak ada satu pun `.is-failed` yang lahir, dan uji lama gagal karena
+    # patokannya, bukan karena aplikasinya.
     errs = page.evaluate("""() => new Promise(resolve => {
-        const wrong = [...document.querySelectorAll('.stage__row .btn')];
-        if (!wrong.length) return resolve({ skipped: true });
-        wrong.forEach(b => b.click());
+        const sim = window.__matriksLab.state.activeView.simulation;
+        const step = sim.config.steps[sim.stepIndex];
+        const opts = [...document.querySelectorAll('.stage__row .btn')];
+        if (!opts.length || !step) return resolve({ skipped: true });
+
+        const wrongIdx = step.options.findIndex((_, i) => i !== step.answerIndex);
+        if (wrongIdx < 0 || !opts[wrongIdx]) return resolve({ skipped: true });
+
+        opts[wrongIdx].click();
         setTimeout(() => resolve({
             skipped: false,
             errorToasts: document.querySelectorAll('.toast--error').length,
-            locked: document.querySelectorAll('.is-failed').length
+            locked: document.querySelectorAll('.is-failed').length,
+            // Opsi yang benar HARUS tetap bisa ditekan sesudahnya.
+            correctStillLive: !opts[step.answerIndex].disabled,
         }), 500);
     })""")
     if errs.get("skipped"):
@@ -883,6 +1044,8 @@ def run(page, errors):
     else:
         record("Toast error singleton (maks 1)", errs["errorToasts"] <= 1, f"aktif: {errs['errorToasts']}")
         record("Opsi salah dinonaktifkan", errs["locked"] >= 1, f"terkunci: {errs['locked']}")
+        record("Opsi yang benar tetap bisa ditekan setelah satu salah",
+               errs.get("correctStillLive") is True, json.dumps(errs))
 
     print("\n19. Materi Jenis Matriks: lima kategori penggolongan")
     # Fase 12 mengganti carousel dengan struktur kategori. Carousel hanya
@@ -3264,6 +3427,115 @@ def run(page, errors):
            hots["cardsAfterWrong"] == hots["cardsBefore"] - 1, json.dumps(hots)[:220])
     record("Penolakan tetap disertai Toast penjelas",
            hots["errorToast"] is True, json.dumps(hots)[:220])
+
+    # ==========================================================
+    # FASE 13 — KUNCI SISTEMIK & KONSISTENSI ENGINE
+    # ==========================================================
+
+    print("\n94. Fase 13 - Klik beruntun tidak pernah menggandakan evaluasi")
+    # Bagian ini menyapu SELURUH sub-topik, bukan hanya yang dilaporkan.
+    # Tiap elemen yang bisa ditekan di panggung diklik enam kali beruntun
+    # dalam frame yang sama, lalu diperiksa dua hal: node hasil tidak
+    # tergandakan, dan penunjuk langkah tidak melompat lebih dari satu.
+    semua_rute = []
+    for bab, subs in [
+        ("01_konsep_dasar", ["pengertian_letak", "ordo_matriks", "transpose",
+                             "jenis_matriks", "kesamaan_matriks"]),
+        ("02_operasi_aljabar", ["penjumlahan_pengurangan", "perkalian_skalar",
+                                "kombinasi_operasi", "ordo_perkalian",
+                                "perkalian_matriks", "sifat_operasi"]),
+        ("03_determinan_invers", ["determinan_2x2", "determinan_3x3",
+                                  "singular_nonsingular", "sifat_determinan",
+                                  "persamaan_matriks"]),
+        ("04_pemodelan_tka", ["translasi_data", "spldv_matriks", "spltv_matriks",
+                              "analisis_multi_kondisi"]),
+    ]:
+        for sub in subs:
+            semua_rute.append((bab, sub))
+
+    korban = []
+    for bab, sub in semua_rute:
+        open_fresh(page, f"#/belajar/{bab}/{sub}")
+        b = page.query_selector("button:has-text('Mulai Simulasi')")
+        if b:
+            b.click()
+            page.wait_for_timeout(700)
+        r = page.evaluate(KLIK_BERUNTUN)
+        lompat = [(a, c) for a, c in zip(r["before"], r["after"]) if a >= 0 and c - a > 1]
+        if r["dupes"] or lompat or r["explains"] > 1:
+            korban.append({"sub": sub, "dupes": r["dupes"],
+                           "lompat": lompat, "explains": r["explains"]})
+    record("Tidak ada node hasil yang tergandakan di 20 sub-topik",
+           not [k for k in korban if k["dupes"]],
+           json.dumps([k for k in korban if k["dupes"]], ensure_ascii=False)[:300])
+    record("Tidak ada penunjuk langkah yang melompat",
+           not [k for k in korban if k["lompat"]],
+           json.dumps([k for k in korban if k["lompat"]], ensure_ascii=False)[:300])
+
+    print("\n95. Fase 13 - Kunci pilihan pada dua modul yang dilaporkan")
+    open_fresh(page, "#/belajar/03_determinan_invers/singular_nonsingular")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(700)
+    sing = page.evaluate(SPAM_SINGULAR)
+    record("Vonis singular hanya muncul SATU kali walau diklik enam kali",
+           sing["panels"] == 1, json.dumps(sing))
+    record("Tombol pilihan singular terkunci setelah klik pertama",
+           sing["allLocked"] is True, json.dumps(sing))
+    record("Kasus singular hanya maju satu langkah",
+           sing["advanced"] <= 1, json.dumps(sing))
+
+    open_fresh(page, "#/belajar/02_operasi_aljabar/sifat_operasi")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(700)
+    sif = page.evaluate(SPAM_SIFAT)
+    record("Pembuktian sifat operasi tidak menumpuk",
+           sif["proofs"] <= 1, json.dumps(sif))
+    record("Chip simbol terkunci setelah jawaban benar",
+           sif["chipsLocked"] is True, json.dumps(sif))
+
+    print("\n96. Fase 13 - Kombinasi Skalar memakai mesin ketuk-ketuk yang sama")
+    open_fresh(page, "#/belajar/02_operasi_aljabar/kombinasi_operasi")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    combo = page.evaluate(KOMBINASI_KETUK)
+    record("Titik temu sudah tidak ada di panggung",
+           combo["meetPoints"] == 0, json.dumps(combo)[:240])
+    record("Tidak ada seret maupun drop-zone di Kombinasi",
+           combo["draggables"] == 0 and combo["dropzones"] == 0, json.dumps(combo)[:240])
+    record("Tahap 1: ketuk elemen mengalikannya dengan skalar",
+           combo["scaledA"] == "8,0,-2,4", json.dumps(combo)[:240])
+    record("Tahap 1 kebal klik beruntun", combo["spamPhase1"] == 1, json.dumps(combo)[:240])
+    record("Tahap 2 memakai mesin PairwiseTapSim yang sama dengan Penjumlahan",
+           combo["usesPairEngine"] is True and combo["phase"] == 1, json.dumps(combo)[:240])
+    record("Tahap 2: ketuk A menyalakan pasangan seletak di B",
+           combo["partnerLit"] is True and combo["muted"] > 0, json.dumps(combo)[:240])
+    record("Bentuk (8+1) muncul sebelum angkanya",
+           combo["expr"] == "(8+1)", json.dumps(combo)[:240])
+    record("Hasil 9 mendarat, dan tombol hitung kebal klik beruntun",
+           combo["cellText"].startswith("9") and combo["completed"] == 1,
+           json.dumps(combo)[:240])
+
+    print("\n97. Fase 13 - Pemusatan tepat terhadap isi panggung")
+    open_fresh(page, "#/belajar/02_operasi_aljabar/perkalian_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(800)
+    pusat = page.evaluate(PUSAT_PANGGUNG)
+    record("Banner 'Simulasi selesai' terpusat tepat di panggung",
+           pusat["overlayOffset"] <= 1, json.dumps(pusat))
+    record("Banner tidak meluber keluar panggung",
+           pusat["overlayInside"] is True, json.dumps(pusat))
+    record("Toast terpusat tepat di kotak ISI panggung",
+           pusat["toastOffset"] <= 1, json.dumps(pusat))
+    record("Sumbu isi memang berbeda dari sumbu kolom (talang scrollbar)",
+           pusat["contentVsColumn"] >= 2, json.dumps(pusat))
 
 
 def main():

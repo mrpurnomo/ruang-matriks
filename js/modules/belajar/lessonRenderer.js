@@ -335,15 +335,21 @@ export class LessonView {
     workspace.appendChild(side);
 
     const stage = el('section', 'ws-stage');
-
-    // Umpan balik ("Tepat!", "Belum tepat") muncul di tengah PANGGUNG, bukan
-    // di tengah jendela — dekat matriks yang baru saja disentuh siswa.
-    anchorToasts(stage);
     stage.setAttribute('aria-label', 'Area kerja');
 
     this.body = el('div', 'workspace__body');
     stage.appendChild(this.body);
     workspace.appendChild(stage);
+
+    /**
+     * Umpan balik ("Tepat!", "Belum tepat") muncul di tengah PANGGUNG, bukan
+     * di tengah jendela — dekat matriks yang baru saja disentuh siswa.
+     *
+     * Yang ditambatkan adalah `.workspace__body`, bukan `.ws-stage`: kolom
+     * itu punya margin negatif untuk scrollbar sehingga titik tengahnya
+     * meleset ~12px dari sumbu isi (Fase 13, isu 5).
+     */
+    anchorToasts(this.body);
 
     this.workspace = workspace;
     this.host.appendChild(workspace);

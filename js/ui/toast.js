@@ -44,8 +44,27 @@ function applyAnchor() {
 
   const r = anchorEl.getBoundingClientRect();
   if (!r.width) return;
-  root.style.setProperty('--toast-anchor-x', `${Math.round(r.left + r.width / 2)}px`);
-  root.style.setProperty('--toast-anchor-w', `${Math.round(r.width)}px`);
+
+  /**
+   * Yang diukur adalah KOTAK ISI, bukan kotak elemen.
+   *
+   * Kolom panggung memakai `margin-right` negatif agar scrollbar-nya
+   * memeluk tepi layar (kontrak §5 butir 23), lalu mengembalikan jarak itu
+   * sebagai `padding-right` di dalamnya. Kotak elemennya karena itu lebih
+   * lebar daripada ruang yang benar-benar ditempati isi, dan titik tengahnya
+   * bergeser ~12px ke kanan dari sumbu matriks di panggung.
+   *
+   * Mengurangi padding kiri-kanan membuat toast berbagi sumbu tengah yang
+   * sama PERSIS dengan kartu dan matriks di dalamnya (Fase 13, isu 5).
+   */
+  const cs = getComputedStyle(anchorEl);
+  const padLeft = parseFloat(cs.paddingLeft) || 0;
+  const padRight = parseFloat(cs.paddingRight) || 0;
+  const width = r.width - padLeft - padRight;
+  if (width <= 0) return;
+
+  root.style.setProperty('--toast-anchor-x', `${Math.round(r.left + padLeft + width / 2)}px`);
+  root.style.setProperty('--toast-anchor-w', `${Math.round(width)}px`);
 }
 
 function scheduleAnchor() {

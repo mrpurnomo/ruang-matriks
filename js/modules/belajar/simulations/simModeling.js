@@ -286,6 +286,7 @@ export class SplSolverSim extends Simulation {
     toast.success('Bentuk matriksnya sudah benar! Sekarang selesaikan.');
 
     const buttons = el('div', 'stage__row');
+    this.buttonHost = buttons;
 
     const full = el('button', 'btn btn--primary');
     full.type = 'button';
@@ -313,6 +314,14 @@ export class SplSolverSim extends Simulation {
       toast.error('Matriks koefisiennya singular — sistem ini tidak punya solusi tunggal.');
       return;
     }
+
+    /**
+     * Sekali jalan saja. Tanpa kunci ini, menekan "Kerjakan Penuh" atau
+     * "Percepat" berulang kali menumpuk kotak penyelesaian yang sama
+     * berkali-kali di panggung (Fase 13, audit sistemik).
+     */
+    if (!this.claim('solve')) return;
+    if (this.buttonHost) this.lockChoices(this.buttonHost);
 
     const inv = inverse(A);
     const X = multiply(inv, B);

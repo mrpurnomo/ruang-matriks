@@ -6,7 +6,7 @@
 
 import {
   Simulation, el, renderMatrix, stageRow, equationRow, operatorGlyph,
-  createMeetPoint, createScalarResult, createFlowArrow, createChecklist,
+  createScalarResult, createFlowArrow, createChecklist,
   createScalarChip, clearHighlights, lockWrongOption,
   makeTappable, setCellsMuted, createStrikeLayer,
 } from './simCore.js';
@@ -488,6 +488,7 @@ export class SingularCheckSim extends Simulation {
     const item = this.config.cases[this.index];
     if (!item) return this.complete();
 
+    this.release('advance');
     this.caseHost.innerHTML = '';
     this.verdictHost.innerHTML = '';
     this.setPrompt('Matriks ini singular atau non-singular?', `${this.index + 1} / ${this.config.cases.length}`);
@@ -496,6 +497,7 @@ export class SingularCheckSim extends Simulation {
     this.caseHost.appendChild(m.root);
 
     const buttons = el('div', 'stage__row');
+    this.choiceHost = buttons;
     [
       { label: 'Singular', value: true, style: 'ghost' },
       { label: 'Non-Singular', value: false, style: 'ghost' },
@@ -518,8 +520,30 @@ export class SingularCheckSim extends Simulation {
         det: formatNumber(det),
         status: actuallySingular ? 'singular' : 'non-singular',
       });
+      lockWrongOption(btn);
       return;
     }
+
+    /**
+     * Kunci diambil SEBELUM apa pun dibangun.
+     *
+     * Tanpa ini, klik beruntun pada tombol yang benar menambahkan satu
+     * panel vonis BARU setiap kali — kartunya seolah menggandakan diri
+     * memenuhi layar — sekaligus menjadwalkan beberapa perpindahan kasus
+     * sehingga panggung melompat jauh (Fase 13, isu 2).
+     */
+    /**
+     * Kunci memakai nama TETAP, bukan nomor langkah.
+     *
+     * Versi pertama memakai `claim(`x-${this.index}`)` — dan gagal, karena
+     * `this.index` dinaikkan di dalam penangan yang sama. Ketukan kedua
+     * karena itu meminta kunci dengan nama BERBEDA dan lolos begitu saja.
+     * Nama tetap + pelepasan saat langkah berikutnya digambar adalah satu-
+     * satunya bentuk yang benar-benar menahan klik beruntun.
+     */
+    if (!this.claim('advance')) return;
+    this.lockChoices(this.caseHost, { keep: btn });
+    btn.classList.add('btn--success');
 
     // Panel vonis dibangun sebagai NODE DOM, bukan string yang dilewatkan ke
     // renderMixed(). renderMixed() meng-escape seluruh masukannya, jadi markup
