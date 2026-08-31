@@ -17,6 +17,7 @@ import {
   setChapterCompleteIfDone, unlockBadge, getSubtopicProgress,
 } from '../../state/progressStore.js';
 import toast, { anchorToasts } from '../../ui/toast.js';
+import { createScratchpad } from '../../ui/scratchpad.js';
 import { lessonKey, getResume, patchResume, clearResume } from '../../state/sessionState.js';
 
 const STEPS = [
@@ -350,6 +351,18 @@ export class LessonView {
      * meleset ~12px dari sumbu isi (Fase 13, isu 5).
      */
     anchorToasts(this.body);
+
+    /**
+     * Papan coret menempel pada KOLOM panggung, bukan pada `workspace__body`
+     * yang menggulir: coretan harus diam di tempat saat isinya digulirkan,
+     * persis seperti kertas yang ditaruh di sebelah buku.
+     *
+     * Ia dibuat sekali per SUB-TOPIK dan dibongkar di `destroy()`. Karena
+     * `mountScreen()` membongkar view lama setiap perpindahan rute, berpindah
+     * sub-topik otomatis memberi papan yang bersih — tidak ada coretan bab
+     * lain yang ikut terbawa, dan memorinya ikut dilepas.
+     */
+    this.scratchpad = createScratchpad(stage);
 
     this.workspace = workspace;
     this.host.appendChild(workspace);
@@ -758,6 +771,11 @@ export class LessonView {
 
   destroy() {
     if (this.simulation) this.simulation.destroy();
+    // Isolasi rute: papan coret ikut dibongkar bersama layarnya.
+    if (this.scratchpad) {
+      this.scratchpad.destroy();
+      this.scratchpad = null;
+    }
   }
 }
 

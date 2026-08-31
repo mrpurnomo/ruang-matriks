@@ -1,7 +1,15 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 14.
-> Status: **fase 1–14 selesai, seluruh pengujian otomatis hijau (21/21 + 425/425).**
+> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 15.
+> Status: **fase 1–15 selesai, seluruh pengujian otomatis hijau (21/21 + 451/451).**
+>
+> ✅ **FASE 15 SELESAI.** Papan Coret: kanvas gambar di atas panggung dengan
+> bilah alat mengambang dan mekanik **"Mengintip"** (tahan untuk melihat soal
+> di bawahnya). Rinciannya di **§000**.
+>
+> ⚠️ **Catatan penomoran:** permintaannya menyebut ini "Fase 14", padahal nomor
+> itu sudah dipakai layar muat + `localStorage`. Di dokumen ini ia dicatat
+> sebagai **Fase 15** agar riwayatnya tetap runut.
 >
 > ✅ **FASE 14 SELESAI.** Layar muat bermerek (matriks 2×2 berdenyut warna
 > royal → cyan → yellow), `#app` baru tampil setelah semuanya siap, identitas
@@ -23,6 +31,76 @@
 > kemajuan multi-kasus, ketuk-ketuk, penjaga masuk, denyut, dan skala.
 >
 > **Fase 10** menetapkan arsitektur **Sidebar & Stage** — tidak berubah sejak itu.
+
+---
+
+## 000. FASE 15 — PAPAN CORET (SELESAI)
+
+Kanvas coret-coret di atas KOLOM PANGGUNG, untuk siswa yang menghitung
+determinan/invers 3×3. Modulnya berdiri sendiri: `js/ui/scratchpad.js` +
+`css/phase15.css`, dipasang `lessonRenderer` tepat setelah `.ws-stage` dibuat.
+
+### Keputusan teknis yang perlu diketahui
+
+**Goresan disimpan sebagai VEKTOR, bukan cuplikan `toDataURL()`/`getImageData`.**
+Permintaannya menyebut bitmap sebagai contoh; di aplikasi ini ia justru
+membengkakkan memori yang ingin dihemat:
+
+| Cara | Memori per langkah | 20 langkah | Setelah ubah ukuran |
+|---|---|---|---|
+| Cuplikan bitmap | ±9,6 MB (2000×1200×4 byte) | **±190 MB** | buram (diregangkan) |
+| Vektor goresan | **±2 KB** | ±40 KB | **tajam** (digambar ulang) |
+
+Titiknya ternormalisasi (0..1), jadi `ResizeObserver` bisa menggambar ulang
+tajam pada ukuran baru — memenuhi syarat "ubah ukuran tanpa merusak gambar"
+yang tidak bisa dipenuhi bitmap.
+
+**Batas 20 goresan ditegakkan lewat penanda `committed` yang hanya NAIK.**
+Versi pertama menghitungnya sebagai `strokes.length - 20` setiap saat — dan
+gagal total, karena batasnya ikut turun setiap satu goresan di-undo sehingga
+undo tetap menyapu seluruh papan. Goresan di luar batas **tidak dihapus dari
+gambar**, hanya berhenti bisa diurungkan; menghapusnya berarti coretan siswa
+lenyap sendiri di tengah pengerjaan.
+
+### Mekanik "Mengintip"
+
+Ikon mata **ditahan**, bukan diklik: `pointerdown` menyembunyikan kanvas dan
+bilah alat (`opacity: 0`, transisi 90ms) dan mematikan menggambar; melepas
+mengembalikannya.
+
+> ⚠️ Pelepasannya didengarkan di **`window`**, bukan di tombolnya. Saat
+> mengintip, tombol itu sendiri ikut `pointer-events: none`, jadi `pointerup`
+> di atasnya tidak akan pernah sampai — dan papan akan tersangkut tembus
+> pandang selamanya. `blur` jendela juga ikut melepas.
+
+### Jebakan yang sudah digigit (jangan diulang)
+
+1. **`left: 50%` pada elemen absolut memangkas lebar yang TERSEDIA jadi
+   separuh.** Bilah alat menghitung dirinya muat di 435px padahal panggungnya
+   869px, lalu membungkus jadi tiga baris. `transform: translateX(-50%)` hanya
+   menggeser tampilannya SETELAH lebar itu terlanjur dihitung. Pakai
+   `left:0; right:0; margin-inline:auto; width:fit-content` — sepupu persis
+   dari jebakan banner di Fase 13.
+2. **`getCoalescedEvents()` bisa mengembalikan array KOSONG.** Kalau hasilnya
+   dipakai mentah, goresan tidak pernah bertambah titik dan yang tergambar
+   cuma satu noktah. Selalu sediakan cadangan ke peristiwanya sendiri.
+3. **Buffer kanvas harus diperiksa TERPISAH dari kotak CSS-nya.** Kanvas yang
+   sempat dibuat saat panggung belum terukur tersangkut di ukuran bawaan
+   300×150, dan seluruh goresan mendarat di koordinat yang salah.
+4. **Menguji transisi CSS di pane peramban yang TERSEMBUNYI akan menyesatkan.**
+   Halaman tersembunyi menghentikan transisi, jadi `opacity` beku di nilai
+   awalnya sementara properti non-animasi (`pointer-events`) tetap berubah —
+   terbaca seolah mekanik "Mengintip" rusak, padahal ia benar. Ukur di halaman
+   yang benar-benar dirender (Playwright).
+
+### Isolasi rute
+
+Papan dibuat sekali per SUB-TOPIK dan dibongkar di `LessonView.destroy()`.
+Karena `mountScreen()` membongkar view lama di setiap perpindahan rute,
+berpindah sub-topik otomatis memberi papan bersih. Berpindah LANGKAH
+(Materi → Simulasi → Kuis) di dalam satu sub-topik **mempertahankan** coretan
+— siswa sering menyiapkan hitungan saat membaca materi lalu memakainya di
+simulasi.
 
 ---
 
@@ -383,7 +461,7 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **425/425 lolos** |
+| `python tests/smoke.py` | **451/451 lolos** |
 
 Fase 9 menambah bagian 63–69; Fase 10 menambah bagian 70–76: identitas aplikasi,
 sapaan masuk & hak cipta, penempatan header, arsitektur Sidebar & Stage (diukur di
@@ -394,6 +472,10 @@ Fase 11 menambah bagian 77–86 (46 pengujian): slider tidak kembar, Jumlah/Kura
 murni ketuk, gerak & timer benar-benar mati saat pindah layar, kemajuan
 multi-kasus, penjaga layar masuk, gulir daftar bab, skala di tiga viewport, dan
 kontras warna pada puncak denyut.
+
+Fase 15 menambah bagian 101–103 (23 pengujian): tombol & bilah alat papan
+coret, mesin gambar, undo/redo/penghapus/batas 20, mekanik Mengintip, ubah
+ukuran, dan isolasi rute.
 
 Fase 14 menambah bagian 98–100 (16 pengujian): layar muat & munculnya
 aplikasi, identitas bertahan lintas muat-ulang/tab, dan alur "Ganti Akun".
@@ -455,8 +537,10 @@ matriks-lab-interaktif/
 │   ├── phase12.css                    Kategori jenis matriks, tambatan toast,
 │   │                                    panel Segera Hadir, HOTS ketuk
 │   ├── phase13.css                    Kunci .is-locked, pemusatan banner & toast
-│   └── phase14.css                    ← DIMUAT TERAKHIR: layar muat bermerek,
-│                                        #app fade-in, tombol Ganti Akun
+│   ├── phase14.css                    Layar muat bermerek, #app fade-in,
+│   │                                    tombol Ganti Akun
+│   └── phase15.css                    ← DIMUAT TERAKHIR: papan coret (FAB,
+│                                        kanvas, bilah alat, Mengintip)
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -478,6 +562,8 @@ matriks-lab-interaktif/
 │   │                                     pembersihan gerak lintas-layar
 │   │
 │   ├── ui/
+│   │   ├── scratchpad.js              ← FASE 15: papan coret (kanvas vektor,
+│   │   │                                bilah alat, mekanik Mengintip)
 │   │   ├── mathpad.js            490  SATU-SATUNYA jalur input angka
 │   │   ├── toast.js              136  Toast singleton
 │   │   ├── modal.js              165  Pengganti confirm()/prompt()
@@ -630,7 +716,15 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 
 50. **Keluar akun membuang identitas + posisi, TIDAK membuang pencapaian.** Progres milik perangkat, bukan milik satu siswa; menghapusnya diam-diam membuang pekerjaan seisi kelas. (Fase 14, bagian uji 100.)
 
-51. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
+51. **Papan coret memakai VEKTOR, bukan cuplikan bitmap.** Cuplikan `getImageData` di panggung sebesar ini ±9,6 MB per langkah; dua puluh langkah ±190 MB. Vektor ±2 KB per goresan, dan hanya vektor yang bisa digambar ulang tajam setelah ubah ukuran. (Fase 15, bagian uji 101–103.)
+
+52. **Batas undo dihitung dari penanda yang hanya NAIK.** Menghitungnya ulang sebagai `panjang - batas` membuat batasnya ikut turun tiap undo, dan batas itu tidak pernah berlaku. Goresan di luar batas berhenti bisa diurungkan, TIDAK dihapus dari gambar. (Fase 15, bagian uji 102.)
+
+53. **Interaksi "tahan" melepas lewat `window`, bukan lewat tombolnya.** Elemen yang menyembunyikan dirinya sendiri tidak bisa lagi menerima `pointerup`. (Fase 15, bagian uji 103.)
+
+54. **Jangan memusatkan elemen absolut dengan `left: 50%` saja.** Itu memangkas lebar yang TERSEDIA jadi separuh dan memicu pembungkusan palsu. Pakai `left:0; right:0; margin-inline:auto`. (Fase 13 butir 46 & Fase 15, bagian uji 101.)
+
+55. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
 
 ---
 

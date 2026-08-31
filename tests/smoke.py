@@ -43,6 +43,227 @@ PANEL_SEGERA_HADIR = """() => ({
 })"""
 
 # ============================================================
+# Skrip peramban untuk bagian regresi Fase 15 (101-103).
+# ============================================================
+
+# Perkakas bersama: dipasang sekali, dipakai ketiga bagian.
+PAPAN_SIAPKAN = """
+    const pad = window.__matriksLab.state.activeView.scratchpad;
+    window.__padS = pad;
+    const cv = document.querySelector('.pad__canvas');
+    window.__padCv = cv;
+    const ctx = cv.getContext('2d');
+    window.__padInk = () => {
+        const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
+        return n;
+    };
+    window.__padPe = (x, y, t) => new PointerEvent(t, {
+        bubbles: true, cancelable: true, clientX: x, clientY: y,
+        pointerId: 1, pointerType: 'pen', isPrimary: true, button: 0, buttons: 1 });
+    window.__padDraw = (x, y, n, dx) => {
+        const r = cv.getBoundingClientRect();
+        const X = r.left + x, Y = r.top + y;
+        cv.dispatchEvent(window.__padPe(X, Y, 'pointerdown'));
+        for (let i = 1; i <= (n || 20); i++)
+            cv.dispatchEvent(window.__padPe(X + i * (dx || 7),
+                Y + Math.sin(i / 3) * 18, 'pointermove'));
+        cv.dispatchEvent(window.__padPe(X + (n || 20) * (dx || 7), Y, 'pointerup'));
+    };
+"""
+
+PAPAN_DASAR = """() => new Promise(resolve => {
+    const fab = document.querySelector('.pad-fab');
+    const stage = document.querySelector('.ws-stage');
+    const fr = fab ? fab.getBoundingClientRect() : null;
+    const sr = stage.getBoundingClientRect();
+    const out = {
+        fabAda: !!fab,
+        fabUkuran: fr ? [Math.round(fr.width), Math.round(fr.height)] : [0, 0],
+        // Di dalam panggung, dan menempel ke sudut kanan-bawahnya.
+        diDalamPanggung: !!fr && fr.right <= sr.right + 1 && fr.bottom <= sr.bottom + 1
+                         && (sr.right - fr.right) < 80 && (sr.bottom - fr.bottom) < 80,
+        tertutupDiAwal: document.querySelector('.pad').hidden === true,
+    };
+
+    fab.click();
+    setTimeout(() => {
+        """ + PAPAN_SIAPKAN + """
+        const bar = document.querySelector('.pad__bar');
+        const rb = bar.getBoundingClientRect();
+        const padBox = document.querySelector('.pad').getBoundingClientRect();
+        // Satu baris = semua grup berbagi titik tengah vertikal. Membandingkan
+        // `top` saja salah: `align-items:center` membuat grup yang lebih
+        // pendek (deret warna) punya `top` berbeda di baris yang sama.
+        const mids = new Set([...bar.querySelectorAll('.pad__group')]
+            .map(g => { const q = g.getBoundingClientRect();
+                        return Math.round(q.top + q.height / 2); }));
+
+        out.grup = [...bar.querySelectorAll('.pad__group')]
+            .map(g => g.getAttribute('aria-label'));
+        out.warna = bar.querySelectorAll('.pad__swatch').length;
+        out.tebal = bar.querySelectorAll('.pad__width').length;
+        out.satuBaris = mids.size === 1;
+        out.barTerpusat =
+            Math.abs((rb.left + rb.width / 2) - (padBox.left + padBox.width / 2)) <= 2;
+
+        const cs = getComputedStyle(window.__padCv);
+        out.touchAction = cs.touchAction;
+        const r = window.__padCv.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        out.bufferBenar = window.__padCv.width === Math.round(r.width * dpr)
+                       && window.__padCv.height === Math.round(r.height * dpr);
+
+        window.__padDraw(90, 110, 26, 7);
+        setTimeout(() => {
+            const c2 = window.__padCv.getContext('2d');
+            out.lineCap = c2.lineCap;
+            out.lineJoin = c2.lineJoin;
+            out.tintaSetelahGambar = window.__padInk();
+            out.strokes = window.__padS.state.strokes;
+            resolve(out);
+        }, 200);
+    }, 500);
+})"""
+
+PAPAN_RIWAYAT = """() => new Promise(resolve => {
+    const pad = window.__padS, out = {};
+    const btn = (l) => document.querySelector('[aria-label="' + l + '"]');
+
+    window.__padDraw(90, 230, 24, 7);
+    setTimeout(() => {
+        const penuh = window.__padInk();
+
+        const strokesPenuh = pad.state.strokes;
+        btn('Urungkan').click();
+        setTimeout(() => {
+            const sesudahUndo = window.__padInk();
+            out.undoMengurangi = sesudahUndo < penuh;
+
+            btn('Ulangi').click();
+            setTimeout(() => {
+                const sesudahRedo = window.__padInk();
+                /**
+                 * Tintanya dibandingkan dengan TOLERANSI, bukan sama persis.
+                 *
+                 * Saat digambar langsung, tiap ruas digambar sebagai path
+                 * tersendiri mengikuti gerakan jari; saat dipulihkan,
+                 * `redrawAll()` menggambar seluruh goresan sebagai SATU path.
+                 * Anti-aliasing kedua cara itu berbeda tipis (terukur ~2%),
+                 * jadi menuntut angka yang identik akan menandai perilaku
+                 * yang sebenarnya benar sebagai gagal. Yang penting: goresannya
+                 * kembali utuh dan tintanya pulih ke sekitar nilai semula.
+                 */
+                out.redoStrokes = pad.state.strokes;
+                out.redoInk = sesudahRedo;
+                out.redoMengembalikan =
+                    pad.state.strokes === strokesPenuh
+                    && sesudahRedo > sesudahUndo
+                    && Math.abs(sesudahRedo - penuh) / penuh < 0.05;
+
+                // Penghapus harus MENGURANGI tinta, bukan menambah cat putih.
+                btn('Penghapus').click();
+                const sebelumHapus = window.__padInk();
+                window.__padDraw(90, 230, 24, 7);
+                setTimeout(() => {
+                    out.penghapusMengurangi = window.__padInk() < sebelumHapus;
+
+                    btn('Hapus semua').click();
+                    setTimeout(() => {
+                        out.hapusSemuaBersih = window.__padInk() === 0
+                                            && pad.state.strokes === 0;
+
+                        // 25 goresan -> undo hanya boleh mundur 20.
+                        btn('Pena').click();
+                        for (let i = 0; i < 25; i++)
+                            window.__padDraw(50 + i * 9, 90 + (i % 5) * 40, 6, 4);
+                        setTimeout(() => {
+                            out.dibuat = pad.state.strokes;
+                            const u = btn('Urungkan');
+                            let k = 0;
+                            while (!u.disabled && k < 60) { u.click(); k += 1; }
+                            out.undoSejauh = k;
+                            out.tersisa = pad.state.strokes;
+                            out.goresanLamaSelamat =
+                                pad.state.strokes > 0 && window.__padInk() > 0;
+                            resolve(out);
+                        }, 900);
+                    }, 250);
+                }, 250);
+            }, 250);
+        }, 250);
+    }, 250);
+})"""
+
+PAPAN_INTIP = """() => new Promise(resolve => {
+    const pad = window.__padS, cv = window.__padCv;
+    const bar = document.querySelector('.pad__bar');
+    const eye = document.querySelector('.pad__peek');
+    const out = {};
+    const vis = () => ({ canvas: getComputedStyle(cv).opacity,
+                         bar: getComputedStyle(bar).opacity,
+                         pe: getComputedStyle(cv).pointerEvents,
+                         peeking: pad.state.peeking });
+
+    document.querySelector('[aria-label="Hapus semua"]').click();
+    document.querySelector('[aria-label="Pena"]').click();
+    window.__padDraw(90, 120, 24, 7);
+
+    setTimeout(() => {
+        out.strokesAwal = pad.state.strokes;
+        out.sebelum = vis();
+
+        eye.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true,
+            cancelable: true, pointerId: 9, isPrimary: true, button: 0 }));
+
+        // Transisinya 90ms; 250ms sudah pasti tuntas.
+        setTimeout(() => {
+            out.saatDitahan = vis();
+            const ink = window.__padInk();
+            window.__padDraw(300, 400, 12, 7);      // harus DIABAIKAN
+            setTimeout(() => {
+                out.gambarDiabaikan = window.__padInk() === ink
+                                   && pad.state.strokes === out.strokesAwal;
+
+                // Dilepas di `window`: saat mengintip, tombolnya sendiri
+                // `pointer-events: none`, jadi pointerup di atasnya tak sampai.
+                window.dispatchEvent(new PointerEvent('pointerup',
+                    { bubbles: true, pointerId: 9, isPrimary: true }));
+                setTimeout(() => {
+                    out.setelahLepas = vis();
+                    const ink2 = window.__padInk();
+                    window.__padDraw(300, 440, 12, 7);
+                    setTimeout(() => {
+                        out.gambarHidupLagi = window.__padInk() > ink2
+                            && pad.state.strokes === out.strokesAwal + 1;
+                        resolve(out);
+                    }, 250);
+                }, 250);
+            }, 250);
+        }, 250);
+    }, 250);
+})"""
+
+PAPAN_SIAP_RESIZE = """() => {
+    document.querySelector('[aria-label="Hapus semua"]').click();
+    window.__padDraw(80, 100, 26, 7);
+    window.__padDraw(80, 200, 26, 7);
+}"""
+
+PAPAN_RUTE_BARU = """() => new Promise(resolve => {
+    document.querySelector('.pad-fab').click();
+    setTimeout(() => {
+        """ + PAPAN_SIAPKAN + """
+        resolve({
+            strokes: window.__padS.state.strokes,
+            ink: window.__padInk(),
+            instances: document.querySelectorAll('.pad').length,
+            fabs: document.querySelectorAll('.pad-fab').length,
+        });
+    }, 500);
+})"""
+
+# ============================================================
 # Skrip peramban untuk bagian regresi Fase 14 (98-100).
 # ============================================================
 
@@ -3777,6 +3998,107 @@ def run(page, errors):
            ganti["posisiTerhapus"] is True, json.dumps(ganti)[:240])
     record("Pencapaian di perangkat TIDAK ikut terhapus",
            ganti["progresBertahan"] is True, json.dumps(ganti)[:240])
+
+    # ==========================================================
+    # FASE 15 — PAPAN CORET
+    # ==========================================================
+
+    print("\n101. Fase 15 - Papan coret: tombol, bilah alat, dan mesin gambar")
+    # Bagian 100 sengaja MENGELUARKAN siswa, jadi identitasnya dipasang lagi di
+    # sini. Tanpa ini, penjaga rute melempar bagian ini ke #/login dan
+    # `.ws-stage` — tempat papan coret menempel — tidak pernah ada.
+    page.evaluate("""() => { try {
+        localStorage.setItem('matriksLab.identity.v1',
+            JSON.stringify({ nama: 'Uji Otomatis', sekolah: 'SMAS YPVDP Bontang' }));
+    } catch (e) {} }""")
+    open_fresh(page, "#/belajar/03_determinan_invers/determinan_3x3")
+    page.wait_for_selector('.ws-stage', timeout=10000)
+    pad = page.evaluate(PAPAN_DASAR)
+    record("Tombol mengambang ada di sudut kanan-bawah panggung",
+           pad["fabAda"] is True and pad["diDalamPanggung"] is True, json.dumps(pad)[:260])
+    record("Tombol mengambang memenuhi ambang sentuh 44px",
+           pad["fabUkuran"][0] >= 44 and pad["fabUkuran"][1] >= 44, json.dumps(pad)[:260])
+    record("Papan tertutup sampai tombolnya ditekan",
+           pad["tertutupDiAwal"] is True, json.dumps(pad)[:260])
+    record("Bilah alat lengkap: alat, warna, ketebalan, tindakan, tampilan",
+           pad["grup"] == ["Alat", "Warna", "Ketebalan", "Tindakan", "Tampilan"],
+           json.dumps(pad)[:260])
+    record("Empat warna tersedia (hitam, merah, biru, kuning)",
+           pad["warna"] == 4, json.dumps(pad)[:260])
+    record("Tiga ketebalan tersedia", pad["tebal"] == 3, json.dumps(pad)[:260])
+    record("Bilah alat muat satu baris dan terpusat di panggung",
+           pad["satuBaris"] is True and pad["barTerpusat"] is True, json.dumps(pad)[:260])
+    record("Kanvas memakai lineCap & lineJoin bulat",
+           pad["lineCap"] == "round" and pad["lineJoin"] == "round", json.dumps(pad)[:260])
+    record("Kanvas memblokir gulir sentuh (touch-action: none)",
+           pad["touchAction"] == "none", json.dumps(pad)[:260])
+    record("Buffer kanvas cocok dengan kotak CSS x devicePixelRatio",
+           pad["bufferBenar"] is True, json.dumps(pad)[:260])
+    record("Menggambar dengan Pointer Events meninggalkan tinta",
+           pad["tintaSetelahGambar"] > 200 and pad["strokes"] == 1, json.dumps(pad)[:260])
+
+    print("\n102. Fase 15 - Urungkan/Ulangi, penghapus, dan batas 20 goresan")
+    riwayat = page.evaluate(PAPAN_RIWAYAT)
+    record("Urungkan menghapus goresan terakhir",
+           riwayat["undoMengurangi"] is True, json.dumps(riwayat)[:260])
+    record("Ulangi mengembalikannya persis",
+           riwayat["redoMengembalikan"] is True, json.dumps(riwayat)[:260])
+    record("Penghapus benar-benar melubangi, bukan mengecat putih",
+           riwayat["penghapusMengurangi"] is True, json.dumps(riwayat)[:260])
+    record("Hapus semua mengosongkan kanvas",
+           riwayat["hapusSemuaBersih"] is True, json.dumps(riwayat)[:260])
+    # Batas riwayat: 25 goresan, undo hanya boleh mundur 20.
+    record("Undo dibatasi tepat 20 goresan terakhir",
+           riwayat["undoSejauh"] == 20, json.dumps(riwayat)[:260])
+    record("Goresan lama tetap tergambar, tidak ikut lenyap",
+           riwayat["goresanLamaSelamat"] is True, json.dumps(riwayat)[:260])
+
+    print("\n103. Fase 15 - Mengintip, ubah ukuran, dan isolasi rute")
+    intip = page.evaluate(PAPAN_INTIP)
+    record("Menahan ikon mata menyembunyikan kanvas DAN bilah alat",
+           intip["saatDitahan"]["canvas"] == "0"
+           and intip["saatDitahan"]["bar"] == "0", json.dumps(intip)[:280])
+    record("Menggambar dimatikan selama mengintip",
+           intip["gambarDiabaikan"] is True, json.dumps(intip)[:280])
+    record("Melepas tekanan memunculkannya kembali seketika",
+           intip["setelahLepas"]["canvas"] == "1"
+           and intip["setelahLepas"]["bar"] == "1", json.dumps(intip)[:280])
+    record("Menggambar hidup lagi setelah dilepas",
+           intip["gambarHidupLagi"] is True, json.dumps(intip)[:280])
+
+    # --- Ubah ukuran: gambar tidak boleh hilang ---
+    page.evaluate(PAPAN_SIAP_RESIZE)
+    sebelum = page.evaluate("() => ({strokes: window.__padS.state.strokes, ink: window.__padInk(),"
+                            " buf: [window.__padCv.width, window.__padCv.height]})")
+    page.set_viewport_size({"width": 900, "height": 1000})
+    page.wait_for_timeout(800)
+    sesudah = page.evaluate("() => ({strokes: window.__padS.state.strokes, ink: window.__padInk(),"
+                            " buf: [window.__padCv.width, window.__padCv.height]})")
+    page.set_viewport_size({"width": 1280, "height": 860})
+    page.wait_for_timeout(500)
+    record("Ubah ukuran menghitung ulang ruang koordinat kanvas",
+           sesudah["buf"] != sebelum["buf"],
+           json.dumps({"sebelum": sebelum, "sesudah": sesudah}))
+    record("Ubah ukuran TIDAK menghancurkan gambarnya",
+           sesudah["strokes"] == sebelum["strokes"] and sesudah["ink"] > 0,
+           json.dumps({"sebelum": sebelum, "sesudah": sesudah}))
+
+    # --- Isolasi rute ---
+    page.evaluate("""() => { const v = window.__matriksLab.state.activeView;
+        v.step = 1; v.renderStep(); }""")
+    page.wait_for_timeout(700)
+    langkah = page.evaluate("""() => ({
+        strokes: window.__matriksLab.state.activeView.scratchpad.state.strokes,
+        instances: document.querySelectorAll('.pad').length })""")
+    record("Pindah langkah dalam satu sub-topik TIDAK menghapus coretan",
+           langkah["strokes"] > 0 and langkah["instances"] == 1, json.dumps(langkah))
+
+    open_fresh(page, "#/belajar/01_konsep_dasar/transpose")
+    rute = page.evaluate(PAPAN_RUTE_BARU)
+    record("Pindah sub-topik memberi papan yang BERSIH",
+           rute["strokes"] == 0 and rute["ink"] == 0, json.dumps(rute))
+    record("Tidak ada papan/tombol yang menumpuk antar-rute",
+           rute["instances"] == 1 and rute["fabs"] == 1, json.dumps(rute))
 
 
 def main():

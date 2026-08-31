@@ -1,0 +1,252 @@
+/* ============================================================
+   phase15.css — Fase 15: Papan Coret (Smart Scratchpad)
+   DIMUAT PALING AKHIR, sesudah phase14.css.
+   ============================================================ */
+
+/* Kanvas & tombolnya diposisikan terhadap KOLOM PANGGUNG, jadi
+   kolom itu harus jadi acuan posisi. `.ws-stage` sendiri memakai
+   margin kanan negatif untuk talang scrollbar (kontrak §5 butir
+   23), dan itu sengaja dibiarkan — tombol di bawah menghitungnya. */
+.ws-stage { position: relative; }
+
+/* ------------------------------------------------------------
+   1. TOMBOL MENGAMBANG (FAB)
+
+   Duduk di sudut kanan-bawah panggung. `--sp-5` ditambahkan pada
+   `right` untuk mengganti margin negatif kolom, supaya tombolnya
+   sejajar dengan tepi ISI, bukan menggantung di talang scrollbar.
+   ------------------------------------------------------------ */
+.pad-fab {
+  position: absolute;
+  right: calc(var(--sp-5) + var(--sp-3));
+  bottom: var(--sp-4);
+  z-index: 6;
+
+  display: grid;
+  place-items: center;
+  width: 48px;                    /* ambang sentuh 44px terlampaui */
+  height: 48px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--brand-primary-line);
+  background: var(--bg-surface);
+  color: var(--royal);
+  box-shadow: var(--sh-2);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+
+.pad-fab:hover,
+.pad-fab:focus-visible {
+  background: var(--royal);
+  color: var(--white);
+  transform: translateY(-2px);
+}
+
+/* Saat papan terbuka, FAB jadi penanda status — bukan tombol yang
+   bersaing dengan bilah alat. */
+.ws-stage[data-pad-open="true"] .pad-fab {
+  background: var(--royal);
+  color: var(--white);
+}
+
+/* ------------------------------------------------------------
+   2. LAPISAN KANVAS
+   ------------------------------------------------------------ */
+.pad {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  /* Talang scrollbar kolom tidak ikut ditutupi. */
+  right: var(--sp-5);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.pad[hidden] { display: none; }
+
+.pad__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Latar tipis: cukup untuk menandai "ini lapisan coret", masih
+     tembus supaya matriks di bawahnya tetap terbaca sambil
+     menghitung. */
+  background: rgba(255, 255, 255, .72);
+  cursor: crosshair;
+  /* Wajib: tanpa ini, menggeser jari di kanvas akan menggulir
+     panggung, bukan menggambar. */
+  touch-action: none;
+}
+
+.pad[data-tool="eraser"] .pad__canvas { cursor: cell; }
+
+/* ------------------------------------------------------------
+   3. BILAH ALAT MENGAMBANG (gaya Samsung Notes)
+   ------------------------------------------------------------ */
+/* Dipusatkan dengan margin otomatis di antara `left:0` dan `right:0`,
+   BUKAN `left:50%` + `translateX(-50%)`.
+
+   Alasannya bukan gaya: pada elemen absolut, `left:50%` sendirian membuat
+   lebar yang TERSEDIA hanya separuh kanan wadahnya. Bilah ini lalu
+   menghitung dirinya muat di 435px padahal panggungnya 869px, dan
+   membungkus jadi tiga baris. `transform` hanya menggeser tampilannya
+   setelah lebar itu terlanjur dihitung. (Sepupu dari jebakan banner di
+   Fase 13 — di sana `transform` juga yang jadi biang keladinya.) */
+.pad__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--sp-4);
+  margin-inline: auto;
+  width: -moz-fit-content;
+  width: fit-content;
+  z-index: 7;
+
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100% - 2 * var(--sp-4));
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--sh-3);
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+}
+
+.pad__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: var(--sp-2);
+  border-right: 1px solid var(--border-soft);
+}
+
+.pad__group:last-child { padding-right: 0; border-right: 0; }
+
+.pad__btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+
+.pad__btn:hover:not(:disabled),
+.pad__btn:focus-visible { background: var(--blue-50); color: var(--royal); }
+
+.pad__btn.is-on {
+  background: var(--royal);
+  border-color: var(--royal);
+  color: var(--white);
+}
+
+.pad__btn:disabled {
+  opacity: .32;
+  cursor: default;
+}
+
+/* --- Warna --- */
+.pad__swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background: var(--swatch);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(10, 27, 69, .16);
+  transition: transform var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.pad__swatch:hover { transform: scale(1.08); }
+
+/* Warna terpilih ditandai CINCIN, bukan sekadar warna yang lebih
+   pekat — kuning di atas putih nyaris tak terbaca kalau hanya
+   mengandalkan perbedaan warna (kontrak §5 butir 8). */
+.pad__swatch.is-on {
+  border-color: var(--ink);
+  transform: scale(1.12);
+}
+
+/* --- Ketebalan --- */
+.pad__width {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pad__width span {
+  display: block;
+  width: 18px;
+  border-radius: var(--r-pill);
+  background: var(--ink-2);
+}
+
+.pad__width:hover { background: var(--blue-50); }
+
+.pad__width.is-on { background: var(--royal); }
+.pad__width.is-on span { background: var(--white); }
+
+/* ------------------------------------------------------------
+   4. MENGINTIP (peek)
+
+   Ditahan, bukan diklik: seluruh lapisan coret lenyap seketika
+   supaya soal di bawahnya terbaca, lalu kembali begitu dilepas.
+
+   Transisinya sengaja SANGAT cepat (90ms) — gerakan ini harus
+   terasa seperti mengangkat kertas, bukan seperti animasi.
+   `pointer-events: none` ikut dipasang supaya tidak ada goresan
+   nyasar mendarat di lapisan yang tidak terlihat.
+   ------------------------------------------------------------ */
+.pad__canvas,
+.pad__bar {
+  opacity: 1;
+  transition: opacity 90ms linear;
+}
+
+.pad[data-peek="true"] .pad__canvas,
+.pad[data-peek="true"] .pad__bar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Tombol mata sendiri ikut hilang bersama bilahnya; pelepasannya
+   ditangkap di `window`, jadi papan tidak akan tersangkut. */
+.pad__peek.is-on,
+.pad__peek:active { background: var(--royal); color: var(--white); }
+
+/* ------------------------------------------------------------
+   Lanskap pendek: bilah alat dirapatkan agar tetap satu baris
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .pad__bar { gap: 6px; padding: 5px var(--sp-2); bottom: var(--sp-2); }
+  .pad__group { gap: 3px; padding-right: 6px; }
+  .pad__btn { width: 30px; height: 30px; }
+  .pad__swatch { width: 22px; height: 22px; }
+  .pad__width { width: 26px; height: 30px; }
+  .pad-fab { width: 42px; height: 42px; bottom: var(--sp-3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad-fab, .pad__canvas, .pad__bar, .pad__swatch { transition: none; }
+}
