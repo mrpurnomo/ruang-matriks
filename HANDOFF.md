@@ -1,7 +1,12 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 15.5.
-> Status: **fase 1–15.5 selesai, seluruh pengujian otomatis hijau (21/21 + 469/469).**
+> Dokumen serah-terima antar sesi. Diperbarui **1 September 2026**, menutup Fase 16.
+> Status: **fase 1–16 selesai, seluruh pengujian otomatis hijau (21/21 + 513/513).**
+>
+> ✅ **FASE 16 SELESAI.** Tiga sub-topik terakhir Bab 3 dibuka: **Invers 2×2**,
+> **Invers 3×3 (Adjoin)**, dan **Penyelesaian Persamaan Matriks** — tiga di antara
+> enam langkahnya memakai ULANG engine yang sudah ada sebagai sub-engine.
+> Rinciannya di **§0000**.
 >
 > ✅ **FASE 15.5 SELESAI.** Poles papan coret dari temuan UAT: garis bersambung
 > saat disapu cepat, **penghapus per-GORESAN** (bukan per-piksel), dan kanvas
@@ -40,20 +45,20 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **31 Agustus 2026**, sesaat setelah Fase 15.5 ditutup:
+Keadaan per **1 September 2026**, sesaat setelah Fase 16 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 15.5 — Poles Papan Coret** (§000A). Selesai, teruji, sudah di-commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **469/469** |
-| Git | **3 commit di depan `origin/main`** (`512d83b` Fase 15, `f7937f2` docs, dan commit Fase 15.5). Semuanya sengaja belum di-push (§1A) |
-| Pekerjaan tertunda | **Tidak ada.** Fase 15.5 tuntas; sedang menunggu tugas berikutnya |
+| Pekerjaan terakhir | **Fase 16 — Invers & Persamaan Matriks** (§0000). Selesai, teruji, sudah di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **513/513** |
+| Git | **1 commit di depan `origin/main`**: hanya Fase 16. Fase 15 s/d 15.5 sudah ada di remote (di-push pengguna sendiri). Fase 16 sengaja belum di-push (§1A) |
+| Pekerjaan tertunda | **Tidak ada.** Fase 16 tuntas; seluruh 22 sub-topik kini punya simulasi sungguhan |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
 1. **Jangan `git push`.** Aplikasi ini dipakai siswa secara langsung dan remote
    tersambung ke hosting. Push selalu butuh izin baru — lihat **§1A**.
-2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase15.css`), karena
+2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase16.css`), karena
    `index.html` memuatnya paling akhir dan yang belakangan menimpa yang duluan.
 3. **Ukur di peramban, jangan menyimpulkan dari kode.** Daftar panjang jebakan
    yang sudah menggigit ada di §6 dan §000 — hampir semuanya tak terlihat dari
@@ -61,6 +66,178 @@ Keadaan per **31 Agustus 2026**, sesaat setelah Fase 15.5 ditutup:
 
 `smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
 menggantung.
+
+---
+
+## 0000. FASE 16 — INVERS & PERSAMAAN MATRIKS (SELESAI)
+
+Tiga sub-topik terakhir Bab 3 dibuka. Dua di antaranya (`invers_2x2`,
+`invers_3x3`) sejak Fase 12 hanya berisi kartu "Segera Hadir"; yang ketiga
+(`persamaan_matriks`) punya engine, tapi engine itu berhenti tepat sebelum
+bagian yang paling penting.
+
+### Prinsipnya: PAKAI ULANG, jangan salin
+
+Tiga dari enam langkah baru tidak menulis mekanik sendiri — mereka memasang
+engine yang sudah matang sebagai **sub-engine**:
+
+| Langkah | Engine yang dipakai ulang |
+|---|---|
+| Invers 3×3 · determinan | `Det3x3SarrusSim` — kelas yang SAMA, bukan salinan |
+| Invers 3×3 · adjoin | `foldTranspose()` — animasi lipat diagonal milik Transpose (Bab 1) |
+| Persamaan · hitung $X$ | `MatrixMultiplySim` — mesin perkalian baris × kolom (Bab 2) |
+
+Menyalin kodenya akan membuat dua mekanik yang WAJIB berperilaku identik; begitu
+salah satunya diperbaiki, siswa menemui dua Sarrus yang berbeda di dua halaman.
+
+> **Pola sub-engine.** Sebuah engine dipasang di dalam engine lain dengan
+> `new Engine(host, config, toasts, onDone)`, `sub.hintHost = <panel milik
+> sendiri>`, lalu `sub.build()`. Yang WAJIB di-override cuma `complete()`:
+>
+> ```js
+> class SarrusStep extends Det3x3SarrusSim {
+>   complete() { if (this.finished) return; this.finished = true; this.onComplete(); }
+> }
+> ```
+>
+> Tanpa override itu, sub-engine memasang banner **"Simulasi selesai — lanjut
+> ke Mini Kuis"** dan menembakkan toast sukses padahal yang selesai baru
+> langkah 1 dari 4. Terukur: dua banner di satu panggung.
+>
+> Pembongkarannya juga wajib: `destroy()` induk memanggil `sub.destroy()`,
+> lalu mengosongkan host DAN panel petunjuk sub-engine.
+
+### 1. Invers 2×2 — yang berubah cuma tahap 3
+
+Tahap 1 (determinan manual) dan 2 (tukar + balik tanda) dipertahankan apa
+adanya. Tahap 3 diganti: chip $\frac{1}{\det}$ tidak lagi dibawa ke **setiap
+sel**, melainkan ke satu **slot di depan kurung**.
+
+Alasannya bukan menghemat ketukan, melainkan bentuk yang benar. Di buku, di
+papan tulis, dan di lembar jawaban TKA, invers ditulis
+$\frac{1}{10}\begin{pmatrix}4 & -1\\-2 & 3\end{pmatrix}$ — satu pecahan di
+depan kurung, bukan empat pecahan terpisah di dalamnya. Perkalian skalar ke
+tiap elemen sudah punya sub-topiknya sendiri di Bab 2; mengulangnya di sini
+menambah delapan ketukan tanpa satu pun konsep baru.
+
+Matriksnya diganti ke $\begin{pmatrix}3&1\\2&4\end{pmatrix}$ ($\det = 10$).
+Determinan **1** akan membuat tahap 3 tidak mengubah apa pun.
+
+### 2. Invers 3×3 — empat langkah
+
+Matriks $A = \begin{pmatrix}1&2&1\\0&1&3\\2&1&1\end{pmatrix}$: $\det = 8$,
+seluruh kofaktornya bilangan bulat kecil. Diverifikasi dengan
+`js/engine/matrix.js`, bukan dikira-kira.
+
+**Berburu kofaktor** adalah satu-satunya mekanik yang benar-benar baru.
+Ketukan pada sel kofaktor menggambar garis coret pada **baris dan kolom** yang
+bersangkutan di matriks $A$, menyisakan minor $2\times2$ yang determinannya
+diisi siswa lewat Mathpad. Tanda papan catur diterapkan **sesudah** itu, dan
+diucapkan terus terang di prompt.
+
+Pola $+/-$ dipasang sebagai **cap air** di sudut sel, bukan sebagai isi. Kalau
+ia teks biasa, sel kosong bertanda "−" terbaca sebagai sel yang sudah berisi
+nilai negatif, dan siswa mengira delapan sel lain sudah terjawab.
+
+> ⚠️ **Enam sel diisi OTOMATIS, dan itu satu-satunya di seluruh aplikasi.**
+> Kontrak "aplikasi tidak pernah menghitung untuk siswa" (§5) di sini diberi
+> pengecualian yang diminta eksplisit oleh pengguna sebagai *anti-fatigue*.
+> Pembenarannya: setelah kofaktor ketiga, sel keempat sampai kesembilan tidak
+> mengajarkan apa pun — mekaniknya identik, yang bertambah hanya kelelahan.
+>
+> Supaya tetap jujur, sel otomatis **ditandai `auto`** di badannya dan
+> dikatakan terus terang di prompt. Jangan hapus penandanya; tanpa itu,
+> pengecualian ini berubah jadi kebohongan. Tiga sel yang wajib manual
+> (`c11`, `c12`, `c23`) sengaja mencakup KEDUA tanda papan catur, sehingga
+> aturan tandanya benar-benar teruji, bukan kebetulan lolos.
+
+### 3. Persamaan matriks — dua pelajaran, dua langkah
+
+Versi lama berhenti setelah $A^{-1}$ mendarat di sisi yang benar: jawabannya
+langsung tercetak lengkap sebagai rumus. Siswa yang paham LETAK-nya tetap tidak
+pernah mengalikan apa pun.
+
+Sekarang langkah 2 memunculkan matriks angkanya dan menjalankan mesin
+perkalian matriks; $X$ dihitung siswa, sel per sel.
+
+> ⚠️ **`PairwiseTapSim` BUKAN mesin perkalian matriks.** Permintaan Fase 16
+> menyebut nama itu, tetapi engine tersebut memasangkan elemen **seletak**
+> ($a_{ij}$ dengan $b_{ij}$) — itu penjumlahan. $A^{-1}B$ menuntut **baris
+> dikali kolom**, dan itu `MatrixMultiplySim`. Keduanya sama-sama "ketuk
+> pasangan" sehingga sangat mudah tertukar; memakai yang salah akan
+> mengajarkan operasi yang keliru dengan sangat meyakinkan.
+
+### Jebakan yang sudah digigit (jangan diulang)
+
+1. **`swapArc()` dan `flipSign()` MENGHAPUS anak elemen sel.** Keduanya menutup
+   animasinya dengan menulis `textContent`, dan `textContent` menyapu seluruh
+   child node — termasuk `<span class="cell__addr">` yang dipasang
+   `renderMatrix({ showAddress: true })`. Yang tersisa cuma teks gabungannya:
+   sel bernilai 4 dengan label `a22` **terbaca "4a22"**. Helper `rewriteCell()`
+   menulis ulang isinya dari `dataset.value` sesudah tiap animasi. Bug ini
+   tidak terlihat dari kode animasinya (ia benar — memang hanya menukar nilai)
+   dan hanya muncul di engine yang memakai alamat sel BERSAMA tukar/balik.
+2. **Nama matriks yang berubah menggeser matriksnya.** Label duduk di atas
+   kurung, jadi lebarnya ikut menentukan lebar `.matrix`. Pergantian
+   `A` → `adj(A)` menggeser matriks **15px** terukur, tepat saat siswa
+   memperhatikan hasil tukar-tanda. `.matrix__name--reserved` memesan
+   lebarnya sejak awal.
+3. **Skalar dan kurung bisa terpisah baris.** Baris panggung boleh membungkus
+   supaya matriks lebar tetap muat di lanskap pendek — dan pembungkusan itu
+   melemparkan matriks ke baris berikutnya, meninggalkan pecahan berdiri
+   sendirian di depan ruang kosong. Terukur pada invers 3×3. Keduanya
+   dibungkus `.inv-scalar-pair` yang `flex-wrap: nowrap`.
+4. **`renderMixed()` hanya mengenali `$…$`, tidak `$$…$$`.** Regexnya
+   `\$([^$]+)\$` melewatkan dolar pertama dan terakhir sebagai teks mentah,
+   sehingga di layar terbaca `$X = A^{-1}B$`. Bug ini sudah ada di
+   `MatrixEquationSim` lama dan ikut terbawa sampai ketahuan di layar. Pakai
+   satu dolar; ukurannya diatur CSS, bukan mode display KaTeX.
+5. **Placeholder toast memakai `{{kunci}}`, bukan `{kunci}`.**
+   `fillTemplate()` (`js/engine/validator.js`) hanya cocok dengan kurung
+   ganda. Kurung tunggal lolos tanpa galat dan tampil mentah di layar sebagai
+   `{baris}`.
+6. **Tombol Mathpad mendengarkan `pointerdown`, bukan `click`.** Pengujian
+   yang memakai `.click()` membuat seluruh penekanan diam-diam tidak berefek —
+   preview tetap "—", dan pengujiannya gagal di tempat yang salah.
+7. **Toast MENUMPUK, dan yang dibuang tinggal ~400ms.**
+   `querySelector('.toast')` karena itu kerap mengembalikan toast
+   SEBELUMNYA. Terukur: penolakan "Salah posisi!" terbaca sebagai "Elemen
+   terpilih." Pengujian harus membaca SEMUA `.toast` lalu menggabungkannya.
+8. **Ekspresi determinan menggeser matriks di sebelahnya.** `.stage` di
+   lanskap adalah baris yang MEMBUNGKUS (`flex-direction: row; flex-wrap:
+   wrap`), jadi seluruh anggotanya berbagi satu jalur dan lebar salah satunya
+   menentukan posisi yang lain. Begitu ekspresi berubah dari "ad − bc = ?"
+   menjadi "12 − 2 = 10", matriksnya bergeser — terukur **8px**.
+   Ini **bukan** bug Fase 16: perilakunya sudah ada sejak `det2x2` memakai
+   ekspresi ini, hanya belum pernah diukur karena tidak ada yang mengukurnya.
+   Lebar tiap sukunya kini dipesan `4ch`; `2.6ch` masih menyisakan 6px —
+   angka itu diukur, bukan ditaksir.
+
+### Registry & data
+
+Kunci baru: `inverse3x3`, `equation_solver`. Nama lama `adjoint_flow` dan
+`matrix_equation` **tetap dikenali** sebagai alias ke engine baru — satu salah
+ketik di JSON akan menampilkan empty-state alih-alih simulasinya.
+`AdjointFlowSim` dan `MatrixEquationSim` dicabut; `ComingSoonSim` tetap
+terdaftar meski tidak ada lagi yang memakainya.
+
+**Mini Kuis `invers_3x3` ditulis ulang jadi PRAKTIS** (permintaan eksplisit):
+soal 1 menghitung kofaktor $c_{23}$ lewat Mathpad, soal 2 merakit $P^{-1}$ dari
+$\det(P)$ dan $\text{Adj}(P)$ yang diketahui. Versi lama hanya menanyakan
+urutan tahap dan satu penalaran — keduanya bisa dijawab tanpa menghitung apa
+pun. `content/03_Determinan_Invers.md` disinkronkan (§5B, §6B, §6C, §7B).
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/modules/belajar/simulations/simDetInv.js` | `Inverse2x2Sim` tahap 3 ditulis ulang; `Inverse3x3Sim` & `EquationSolverSim` baru; `AdjointFlowSim` & `MatrixEquationSim` dicabut; helper `createScalarSlot()`, `createInverseChip()`, `scalarPair()`, `rewriteCell()` |
+| `js/modules/belajar/simulations/index.js` | Registry `inverse3x3` & `equation_solver` + alias lama |
+| `css/phase16.css` | **BARU — DIMUAT PALING AKHIR**: slot skalar, cap air papan catur, panel minor, kerangka langkah, persamaan, lebar tetap label matriks & ekspresi determinan |
+| `data/chapters/03_determinan_invers.json` | Tiga engine diaktifkan; Mini Kuis invers 3×3 ditulis ulang |
+| `content/03_Determinan_Invers.md` | §5B, §6B, §6C, §7B disinkronkan |
+| `index.html` | Memuat `css/phase16.css` |
+| `tests/smoke.py` | Bagian 57 & 58 **ditulis ulang** (dulu menguji "Segera Hadir"); bagian **105** baru |
 
 ---
 
@@ -596,8 +773,8 @@ Sembilan temuan QA manual, semuanya tertutup.
 |---|---|
 | Cabang | `main` (satu-satunya cabang lokal) |
 | Remote | `origin` → `https://github.com/mrpurnomo/ruang-matriks.git` |
-| `origin/main` | `ae9f90e` — Fase 14 (layar muat + `localStorage`). **Inilah versi yang dipakai siswa sekarang** |
-| `main` lokal | **3 commit di depan remote**: `512d83b` (Fase 15 · Papan Coret), `f7937f2` (docs Fase 15), dan commit Fase 15.5 |
+| `origin/main` | `ccfc7d7` — Fase 15.5 (poles papan coret). **Inilah versi yang dipakai siswa sekarang** |
+| `main` lokal | **1 commit di depan remote**: `4706b7a` (Fase 16 · invers & persamaan) |
 | Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh commit**, terverifikasi |
 | Tanda tangan AI | **nol.** `git log --format=%B | grep -i claude` tidak menemukan apa pun |
 
@@ -609,6 +786,13 @@ adalah riwayat hasil tulis-ulang itu — jadi remote dan lokal sudah sinkron
 akarnya, dan **`push` biasa sudah cukup**; tidak perlu `--force` lagi.
 Cabang `backup/pre-rewrite` sudah dihapus setelah isinya diverifikasi
 byte-identik (`git diff` kosong, keenam hash pohon sama).
+
+> ⚠️ **Riwayat push, supaya tidak salah baca lagi.** Selama Fase 15–15.5, dokumen
+> ini mencatat `origin/main` masih di `ae9f90e`. Di antara sesi Fase 15.5 dan
+> Fase 16, **pengguna sendiri** yang mendorong Fase 15, docs-nya, dan Fase 15.5 ke
+> remote. Sesi tidak pernah menjalankan `git push`. Jadi: **periksa `git rev-list
+> --left-right --count origin/main...main` di awal sesi**, jangan percaya angka
+> yang tertulis di dokumen ini — remote bisa bergerak tanpa melibatkan sesi.
 
 **Jangan pernah push tanpa diminta.** Aplikasi ini **dipakai siswa secara
 langsung**, dan remote-nya tersambung ke hosting. Sejak Fase 14 pengguna
@@ -659,7 +843,13 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **469/469 lolos** |
+| `python tests/smoke.py` | **513/513 lolos** |
+
+Fase 16 menulis ULANG bagian 57 & 58 (yang dulu menguji placeholder
+"Segera Hadir") dan menambah bagian 105: alur invers 2×2 & 3×3 lengkap,
+pemakaian ulang Sarrus sebagai sub-engine, berburu kofaktor beserta
+pencoretannya, lipat transpose, perakitan skalar, serta letak invers dan
+perkalian pada persamaan matriks.
 
 Fase 15.5 menambah bagian 104 (18 pengujian): sapuan cepat tanpa celah,
 penghapus per-goresan beserta undo-nya, kanvas padat, dan mekanik Mengintip
@@ -742,8 +932,11 @@ matriks-lab-interaktif/
 │   ├── phase13.css                    Kunci .is-locked, pemusatan banner & toast
 │   ├── phase14.css                    Layar muat bermerek, #app fade-in,
 │   │                                    tombol Ganti Akun
-│   └── phase15.css                    ← DIMUAT TERAKHIR: papan coret (FAB,
-│                                        kanvas, bilah alat, Mengintip)
+│   ├── phase15.css                    Papan coret (FAB,
+│   │                                    kanvas, bilah alat, Mengintip)
+│   └── phase16.css                    ← DIMUAT TERAKHIR: invers & persamaan
+│                                        (slot skalar, cap air kofaktor,
+│                                        panel minor, balok persamaan)
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -780,7 +973,7 @@ matriks-lab-interaktif/
 │       │       ├── simCore.js    471  Kelas dasar Simulation
 │       │       ├── simBasics.js  694  Bab 1
 │       │       ├── simOperations.js 1156  Bab 2
-│       │       ├── simDetInv.js  1101  Bab 3
+│       │       ├── simDetInv.js  1897  Bab 3 (+ invers 3×3 & persamaan, Fase 16)
 │       │       └── simModeling.js 498  Bab 4
 │       └── kuis/
 │           ├── quizEngine.js          Satu soal per layar + navigasi maju-mundur
@@ -788,7 +981,7 @@ matriks-lab-interaktif/
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    └── smoke.py                       469 pengujian Playwright, 104 bagian
+    └── smoke.py                       513 pengujian Playwright, 105 bagian
 ```
 
 ---
@@ -821,19 +1014,22 @@ matriks-lab-interaktif/
 
 `js/modules/belajar/simulations/index.js` memetakan string ke kelas. **Kunci di registry HARUS sama persis dengan nilai `simulation.engine` di `data/chapters/*.json`.** Engine yang tidak terdaftar tidak melempar error — ia menampilkan empty-state dan tetap mengizinkan siswa lanjut ke Mini Kuis.
 
-22 engine terdaftar (Fase 12 menambah `coming_soon`):
+24 engine terdaftar (Fase 16 menambah `inverse3x3` & `equation_solver`):
 
 ```
 identify_element · ordo_builder · label_matrix_types · transpose_morph · equality_link
 elementwise_op · scalar_sweep · combo_op · ordo_check · matrix_multiply · property_cards
-det2x2 · det3x3_sarrus · singular_check · property_calculator · inverse2x2 · adjoint_flow · matrix_equation
+det2x2 · det3x3_sarrus · singular_check · property_calculator
+inverse2x2 · inverse3x3 · equation_solver          (Fase 16)
+adjoint_flow · matrix_equation                     (alias nama lama)
 data_translation · spl_solver · multi_statement
-coming_soon
+coming_soon                                        (tidak dipakai data mana pun)
 ```
 
-> `inverse2x2` dan `adjoint_flow` **masih terdaftar** meski kedua sub-topik
-> invers untuk sementara memakai `coming_soon`. Menghidupkannya kembali cukup
-> dengan menukar nilai `simulation.engine` di `data/chapters/03_*.json`.
+> **Fase 16:** ketiga sub-topik terakhir Bab 3 kini memakai engine sungguhan
+> (`inverse2x2`, `inverse3x3`, `equation_solver`). Nama lama `adjoint_flow`
+> dan `matrix_equation` tetap dikenali sebagai ALIAS ke engine baru.
+> `coming_soon` masih terdaftar tetapi sudah tidak dipakai data mana pun.
 
 ### Menambah sub-topik baru — urutannya
 
@@ -936,6 +1132,18 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 58. **Latar papan coret PADAT, dan latar itu milik CSS — bukan bitmap kanvas.** Mengecatnya ke bitmap membuat setiap piksel ber-alfa penuh, dan seluruh pengujian yang menghitung tinta lewat `getImageData` kehilangan maknanya tanpa pernah gagal. (Fase 15.5, bagian uji 104.)
 
 59. **Elemen yang menyembunyikan dirinya sendiri harus dikecualikan dari `pointer-events: none`-nya sendiri kalau ia masih perlu menerima pelepasan.** Ini pelengkap butir 53, bukan penggantinya: listener di tombol menangani kasus normal, jaring di `window` menangani jari yang lepas di luar tombol. Keduanya wajib ada. (Fase 15.5, bagian uji 104.)
+
+60. **Pakai ulang engine sebagai SUB-ENGINE, jangan disalin.** Satu mekanik = satu kelas. Sub-engine dipasang dengan `hintHost` sendiri dan WAJIB meng-override `complete()` supaya tidak memasang banner "lanjut ke Mini Kuis" di tengah alur; `destroy()` induk wajib membongkarnya. (Fase 16, bagian uji 58 & 105.)
+
+61. **Bentuk akhir invers ditulis sebagai satu pecahan DI DEPAN kurung**, bukan dikalikan masuk ke tiap elemen. Itulah bentuk yang dipakai di papan tulis dan lembar jawaban TKA; perkalian skalar per elemen sudah punya sub-topiknya sendiri di Bab 2. Pecahan dan kurungnya wajib satu unit `nowrap` — pembungkusan baris memisahkan keduanya dan notasinya berhenti berarti. (Fase 16, bagian uji 57 & 58.)
+
+62. **Pengisian otomatis hanya boleh setelah siswa membuktikan metodenya, dan WAJIB ditandai.** Satu-satunya tempat yang memakainya adalah enam sel kofaktor terakhir pada invers 3×3, sesudah tiga sel dikerjakan manual. Penanda `auto` di sel dan kalimat terus terang di prompt adalah SYARAT pengecualian ini — tanpa keduanya, ia melanggar "aplikasi tidak pernah menghitung untuk siswa". (Fase 16, bagian uji 58.)
+
+63. **Animasi yang menulis `textContent` MENGHAPUS anak elemen sel.** `swapArc()` dan `flipSign()` menyapu label alamat, dan selnya terbaca "4a22". Sel yang punya anak elemen wajib ditulis ulang dari `dataset.value` sesudah animasi. (Fase 16, bagian uji 57.)
+
+64. **Label yang berubah di tengah simulasi harus berlebar TETAP.** Nama matriks duduk di atas kurung, jadi `A` → `adj(A)` menggeser matriksnya 15px terukur. (Fase 16, bagian uji 57 & 58.)
+
+65. **`renderMixed()` hanya mengenali `$…$`.** `$$…$$` meninggalkan dolar mentah di layar. Placeholder toast memakai `{{kunci}}`, bukan `{kunci}` — kurung tunggal lolos tanpa galat dan tampil apa adanya. (Fase 16, bagian uji 105.)
 
 ---
 
@@ -1215,7 +1423,10 @@ Footer kini membungkus dua baris di layar ≤560px alih-alih dielipsis, supaya t
 
 ## 11. Utang Teknis yang Diketahui (belum diperintahkan diperbaiki)
 
-**Satu-satunya yang sudah dijadwalkan: simulasi invers 3×3 (Fase 10).**
+**Utang invers 3×3 sudah LUNAS di Fase 16 (§0000).**
+Catatan lama di bawah dipertahankan sebagai riwayat keputusannya.
+
+~~Satu-satunya yang sudah dijadwalkan: simulasi invers 3×3 (Fase 10).~~
 `AdjointFlowSim` kini menampilkan kartu "sedang dibangun". Versi lamanya meminta
 siswa mengisi sembilan kofaktor lewat Mathpad sambil ditunjukkan sub-matriks
 **dan** determinannya sekaligus — praktis menyalin angka, bukan menghitung.
@@ -1237,7 +1448,7 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Tiga commit belum di-push.** `origin/main` masih di `ae9f90e` (Fase 14, versi yang dipakai siswa sekarang); Fase 15, docs-nya, dan Fase 15.5 hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
+6. **Commit Fase 16 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); `4706b7a` (Fase 16) hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
 
 ---
 
@@ -1248,7 +1459,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **469** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 → 469 di fase 11–15.5).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **513** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 → 469 → 513 di fase 11–16).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.

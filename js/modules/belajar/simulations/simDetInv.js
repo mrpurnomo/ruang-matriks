@@ -1,7 +1,7 @@
 /**
  * simDetInv.js — Simulasi Bab 3 (Determinan & Invers)
  * det2x2 · det3x3_sarrus · singular_check · property_calculator ·
- * inverse2x2 · adjoint_flow · matrix_equation
+ * inverse2x2 · inverse3x3 · equation_solver
  */
 
 import {
@@ -9,19 +9,105 @@ import {
   createScalarResult, createFlowArrow, createChecklist,
   createScalarChip, clearHighlights, lockWrongOption,
   makeTappable, setCellsMuted, createStrikeLayer,
+  rowCells, colCells, createColorLegend, createProgressText,
 } from './simCore.js';
 import {
   determinant, sarrusTerms, inverse, adjoint, cofactorMatrix, cofactor,
   minorMatrix, transpose, multiply, formatNumber, toLatex, toFractionText,
   scalarMultiply, identity,
 } from '../../../engine/matrix.js';
+import { MatrixMultiplySim } from './simOperations.js';
 import { renderMixed } from '../../../engine/katexRenderer.js';
 import { icon } from '../../../ui/icons.js';
 import { makeDraggable, registerDropZone } from '../../../interactions/dragDrop.js';
-import { flyMergeLand, highlight, makeFlyChip, flyTo, merge, landOn } from '../../../interactions/flyToAnimation.js';
-import { swapArc, flipSign, sweepScalar, slideCloneColumns, mergeToIdentity } from '../../../interactions/mergeAnimation.js';
+import { flyMergeLand, highlight, makeFlyChip, flyTo, merge, landOn, staggerCells } from '../../../interactions/flyToAnimation.js';
+import { swapArc, flipSign, sweepScalar, slideCloneColumns, mergeToIdentity, foldTranspose } from '../../../interactions/mergeAnimation.js';
 import { attachMathpad } from '../../../ui/mathpad.js';
 import toast from '../../../ui/toast.js';
+
+/* ============================================================
+   Perkakas bersama Fase 16
+
+   Ketiga engine invers berakhir dengan bentuk yang SAMA:
+   sebuah skalar pecahan berdiri di depan kurung matriks. Bentuk
+   itu bukan hiasan — begitulah jawaban invers ditulis di lembar
+   TKA, dan mempertahankannya berarti siswa melihat notasi yang
+   akan ia tulis sendiri nanti.
+   ============================================================ */
+
+/**
+ * Slot skalar yang duduk TEPAT DI DEPAN kurung matriks.
+ *
+ * Ruangnya dipesan sejak awal (`visibility: hidden`, bukan `display:none`)
+ * supaya kemunculannya di tahap terakhir tidak menggeser matriks yang sedang
+ * dilihat siswa — kontrak §5 butir 14.
+ */
+function createScalarSlot() {
+  const slot = el('div', 'inv-scalar');
+  slot.style.visibility = 'hidden';
+  slot.innerHTML = renderMixed('$\\frac{1}{\\det}$');
+
+  slot.reveal = () => { slot.style.visibility = 'visible'; };
+  slot.fill = (det) => {
+    slot.innerHTML = renderMixed(`$\\dfrac{1}{${formatNumber(det)}}$`);
+    slot.classList.add('inv-scalar--placed', 'anim-land');
+    slot.style.visibility = 'visible';
+  };
+  return slot;
+}
+
+/**
+ * Chip pecahan $\frac{1}{\det}$ yang dibawa siswa ke slot di atas.
+ *
+ * `makeDraggable` sekaligus mendaftarkan jalur KETUK (kontrak §5 butir 12),
+ * jadi satu pemanggilan memberi dua cara: seret, atau ketuk chip lalu ketuk
+ * slotnya.
+ */
+function createInverseChip(det) {
+  const chip = createScalarChip(1 / det, null);
+  chip.classList.add('scalar-chip--fraction');
+  chip.innerHTML = renderMixed(`$\\dfrac{1}{${formatNumber(det)}}$`);
+  makeDraggable(chip, { data: { scalar: 1 / det } });
+  return chip;
+}
+
+/**
+ * Ikat slot skalar dan matriksnya jadi SATU unit yang tidak boleh terpisah.
+ *
+ * Baris panggung boleh membungkus (`flex-wrap`) supaya matriks lebar tetap
+ * muat di lanskap pendek — tetapi pembungkusan itu tidak boleh memisahkan
+ * pecahan dari kurung yang ia kalikan, karena begitu terpisah, notasinya
+ * berhenti berarti.
+ */
+function scalarPair(slot, matrixRoot) {
+  const pair = el('div', 'inv-scalar-pair');
+  pair.append(slot, matrixRoot);
+  return pair;
+}
+
+/**
+ * Tulis ulang isi sel dari `dataset.value`, lengkap dengan label alamatnya.
+ *
+ * ⚠️ `swapArc()` dan `flipSign()` menutup animasinya dengan menulis
+ * `textContent` — dan `textContent` MENGHAPUS seluruh anak elemen. Label
+ * alamat (`a11`, `a22`) yang dipasang `renderMatrix({ showAddress: true })`
+ * adalah `<span>` anak, jadi ia ikut lenyap; yang tersisa cuma teks
+ * gabungannya, dan sel yang tadinya "3" dengan label "a11" berubah menjadi
+ * satu teks berbunyi **"4a22"**.
+ *
+ * Bug ini tidak terlihat dari membaca kode animasinya (ia benar: ia memang
+ * hanya menukar nilai) dan tidak pernah muncul di engine lain, karena
+ * hanya invers 2×2 yang memakai alamat sel BERSAMA animasi tukar/balik.
+ * Ia baru terlihat setelah simulasinya dirender dan dibaca dengan mata.
+ */
+function rewriteCell(cell, prefix = 'a') {
+  const i = Number(cell.dataset.row);
+  const j = Number(cell.dataset.col);
+  const marks = [...cell.querySelectorAll('.cell__check')];
+  cell.textContent = formatNumber(Number(cell.dataset.value));
+  cell.appendChild(el('span', 'cell__addr', `${prefix}${i + 1}${j + 1}`));
+  marks.forEach((m) => cell.appendChild(m));
+}
 
 /* ============================================================
    1. det2x2 — tarik garis pada tiap diagonal, warna dibedakan tegas
@@ -713,7 +799,7 @@ export class Inverse2x2Sim extends Simulation {
     this.picked = new Set();
     this.swapPicked = [];
     this.flipped = new Set();
-    this.scaled = new Set();
+    this.assembled = false;   // gerbang perakitan akhir, sekali jalan
 
     this.scaffold({
       brief: this.config.brief,
@@ -728,7 +814,7 @@ export class Inverse2x2Sim extends Simulation {
     this.checklist = createChecklist([
       'Hitung determinan sendiri',
       'Susun adjoin: tukar & balik tanda',
-      'Kalikan $\\frac{1}{\\det}$ ke tiap elemen',
+      'Pasang $\\frac{1}{\\det}$ di depan adjoin',
     ]);
     // Checklist adalah PETUNJUK, bukan kanvas — ia ikut ke panel kendali.
     this.addHint(this.checklist);
@@ -736,6 +822,11 @@ export class Inverse2x2Sim extends Simulation {
     const m = renderMatrix(matrix, { name, showAddress: true });
     this.cells = m.cells;
     this.matrixView = m;
+    this.nameLabel = m.root.querySelector('.matrix__name');
+    // Label berubah 'A' -> 'adj(A)' di tahap 2. Tanpa lebar yang dipesan
+    // sejak awal, matriksnya bergeser 15px tepat saat siswa melihat hasil
+    // tukar-tanda — terukur, dan melanggar kontrak §5 butir 14.
+    if (this.nameLabel) this.nameLabel.classList.add('matrix__name--reserved');
 
     this.strike = createStrikeLayer(m.grid);
     this.track(() => this.strike.destroy());
@@ -746,7 +837,15 @@ export class Inverse2x2Sim extends Simulation {
 
     this.detCard = createScalarResult(`$\\det(${name})$`, null);
 
-    this.stage.appendChild(stageRow(m.root));
+    // Slot skalar berdiri di DEPAN kurung, ruangnya dipesan sejak awal.
+    //
+    // ⚠️ Keduanya dibungkus SATU wadah `nowrap`. Kalau slot dan matriks jadi
+    // dua anak langsung dari baris panggung yang boleh membungkus, panggung
+    // yang sempit akan melemparkan matriksnya ke baris berikutnya — dan
+    // skalarnya berdiri sendirian di depan ruang kosong, bukan di depan
+    // kurung. Terukur persis begitu pada invers 3×3 sebelum diperbaiki.
+    this.scalarSlot = createScalarSlot();
+    this.stage.appendChild(stageRow(scalarPair(this.scalarSlot, m.root)));
     this.stage.appendChild(this.expr);
     this.stage.appendChild(stageRow(this.detCard));
 
@@ -925,6 +1024,10 @@ export class Inverse2x2Sim extends Simulation {
     // ke posisi semula — tampak seolah tombol tukarnya tidak berfungsi.
     await swapArc(first.cell, second.cell);
 
+    // …tetapi ia menulis lewat `textContent`, jadi label alamatnya tersapu
+    // dan ikut jadi teks. Lihat catatan di `rewriteCell()`.
+    [first.cell, second.cell].forEach((c) => rewriteCell(c));
+
     [first.cell, second.cell].forEach((c) => c.classList.remove('cell--picked'));
 
     this.phase = 2;
@@ -949,9 +1052,11 @@ export class Inverse2x2Sim extends Simulation {
     this.flipped.add(key);
     this.setBusy(true);
 
-    // flipSign() juga menulis textContent dan dataset.value-nya sendiri.
+    // flipSign() juga menulis textContent dan dataset.value-nya sendiri —
+    // dan karenanya ikut menyapu label alamat, sama seperti swapArc().
     const flippedValue = -Number(cell.dataset.value);
     await flipSign(cell, formatNumber(flippedValue));
+    rewriteCell(cell);
     cell.classList.add('cell--done');
 
     this.setBusy(false);
@@ -968,84 +1073,86 @@ export class Inverse2x2Sim extends Simulation {
     this.startScalarStep();
   }
 
-  /* ---------------- TAHAP 3: skalar 1/det ke SETIAP elemen ---------------- */
+  /* ============================================================
+     TAHAP 3: PERAKITAN AKHIR — skalar berdiri DI DEPAN kurung
+
+     Versi sebelumnya meminta siswa membawa chip $\frac{1}{\det}$ ke
+     setiap elemen satu per satu sampai keempat sel berubah jadi
+     pecahan. Itu benar secara aritmetika, tetapi menghasilkan bentuk
+     yang TIDAK dipakai siapa pun: di buku, di papan tulis, dan di
+     lembar jawaban TKA, invers ditulis sebagai satu pecahan di depan
+     kurung — $\frac{1}{10}\begin{pmatrix}4 & -1\\-2 & 3\end{pmatrix}$,
+     bukan empat pecahan terpisah di dalam kurung.
+
+     Perkalian skalar ke tiap elemen sudah punya sub-topiknya sendiri
+     di Bab 2; mengulangnya di sini menambah delapan ketukan tanpa
+     menambah satu pun konsep baru. Yang tersisa untuk siswa adalah
+     keputusan yang justru sering keliru: skalar itu ditaruh di MANA.
+     ============================================================ */
 
   startScalarStep() {
+    // Matriksnya sudah bukan A lagi — ia adjoinnya. Namanya ikut berubah,
+    // supaya siswa membaca bentuk yang benar, bukan label yang tertinggal.
+    if (this.nameLabel) this.nameLabel.textContent = `adj(${this.config.name})`;
+
     this.setPrompt(
-      `Tahap 3 — bawa chip $\\frac{1}{${formatNumber(this.det)}}$ ke **setiap elemen, satu per satu**. Seret, atau ketuk chipnya lalu ketuk selnya.`,
-      `Tahap 3 dari 3 · 0/4 elemen`
+      `Tahap 3 — bawa chip $\\frac{1}{${formatNumber(this.det)}}$ ke **slot di depan kurung**. Seret, atau ketuk chipnya lalu ketuk slotnya.`,
+      'Tahap 3 dari 3'
     );
 
-    const chip = createScalarChip(1 / this.det, `1/${formatNumber(this.det)}`);
-    chip.classList.add('scalar-chip--fraction');
-    makeDraggable(chip, { data: { scalar: 1 / this.det } });
+    const chip = createInverseChip(this.det);
     this.scalarChip = chip;
 
     this.scalarHost.innerHTML = '';
     this.scalarHost.appendChild(chip);
 
-    // Setiap sel jadi drop-zone TERSENDIRI. Satu drop-zone untuk seluruh
-    // matriks akan mengubah langkah ini jadi satu sapuan — persis yang
-    // ingin dihindari: siswa harus menyentuh keempat elemen.
-    this.cells.forEach((cell, key) => {
+    // Slot tujuan baru MENYALA sekarang — ruangnya memang sudah dipesan
+    // sejak awal, jadi memunculkannya tidak menggeser apa pun.
+    this.scalarSlot.reveal();
+    this.scalarSlot.classList.add('inv-scalar--open');
+    this.track(registerDropZone(this.scalarSlot, {
+      padding: 10,
+      onDrop: () => this.placeScalar(),
+    }));
+
+    // Sel matriks TIDAK jadi drop-zone: menjatuhkan skalar ke dalam sel
+    // adalah kesalahan yang harus dijelaskan, bukan jalan pintas yang
+    // diam-diam diterima.
+    this.cells.forEach((cell) => {
       this.track(registerDropZone(cell, {
-        padding: 8,
-        onDrop: () => this.applyScalar(cell, key),
+        padding: 6,
+        onDrop: (data, sourceEl) => this.reject(sourceEl || cell, 'scalarInCell'),
       }));
-      cell.classList.add('cell--invite');
     });
   }
 
-  async applyScalar(cell, key) {
-    if (this.busy) return;
-    if (this.scaled.has(key)) {
-      this.reject(cell, 'wrongTarget');
-      return;
-    }
+  async placeScalar() {
+    if (this.busy || this.assembled) return;
+    if (!this.claim('assemble')) return;   // kebal ketukan beruntun
 
+    this.assembled = true;
     this.setBusy(true);
-    this.scaled.add(key);
-    cell.classList.remove('cell--invite');
 
-    const [i, j] = key.split(',').map(Number);
-    const value = Number(cell.dataset.value) / this.det;
+    const chipClone = makeFlyChip(this.scalarChip, { text: null });
+    chipClone.innerHTML = this.scalarChip.innerHTML;
+    await landOn(chipClone, this.scalarSlot, { text: null });
 
-    const chipClone = makeFlyChip(this.scalarChip, { text: this.scalarChip.textContent });
-    await landOn(chipClone, cell, { text: null });
+    this.scalarSlot.fill(this.det);
+    this.scalarSlot.classList.remove('inv-scalar--open');
 
-    cell.classList.add('cell--resolving');
-    await this.wait(420);
-
-    cell.innerHTML = '';
-    cell.textContent = toFractionText(value);
-    cell.dataset.value = String(value);
-    cell.classList.remove('cell--resolving');
-    cell.classList.add('cell--done', 'cell--fraction', 'anim-land');
-    cell.appendChild(el('span', 'cell__addr', `a${i + 1}${j + 1}`));
-    cell.appendChild(el('span', 'cell__check', icon('check', { size: 11 })));
+    this.scalarChip.dataset.dragDisabled = 'true';
+    this.scalarChip.classList.add('is-spent');
 
     this.setBusy(false);
-
-    if (this.scaled.size < 4) {
-      this.setPrompt(
-        `Bagus. Lanjut ke elemen berikutnya — setiap elemen harus dikalikan $\\frac{1}{${formatNumber(this.det)}}$.`,
-        `Tahap 3 dari 3 · ${this.scaled.size}/4 elemen`
-      );
-      return;
-    }
-
     this.finishInverse();
   }
 
   finishInverse() {
-    this.scalarChip.dataset.dragDisabled = 'true';
-    this.scalarChip.classList.add('is-spent');
-
     this.checklist.advance(2);
 
-    const result = inverse(this.config.matrix);
+    const adj = adjoint(this.config.matrix);
     this.setPrompt(
-      `$${this.config.name}^{-1} = ${toLatex(result, { fraction: true })}$ — coba buktikan $${this.config.name} \\times ${this.config.name}^{-1} = I$.`,
+      `$${this.config.name}^{-1} = \\dfrac{1}{${formatNumber(this.det)}}${toLatex(adj)}$ — bentuk inilah yang kamu tulis di lembar jawaban.`,
       'Selesai'
     );
     this.complete();
@@ -1053,68 +1160,591 @@ export class Inverse2x2Sim extends Simulation {
 }
 
 /* ============================================================
-   6. adjoint_flow — invers 3×3: SENGAJA DITANGGUHKAN (Fase 9)
+   6. inverse3x3 — invers 3×3 dengan Metode Adjoin (Fase 16)
+
+   Empat langkah, dan tiga di antaranya MEMAKAI ULANG mesin yang
+   sudah matang:
+
+     1. Determinan  → `Det3x3SarrusSim` apa adanya, dipasang sebagai
+                      sub-engine. Bukan disalin — kelasnya yang sama.
+     2. Kofaktor    → mekanik baru (satu-satunya yang memang baru).
+     3. Adjoin      → `foldTranspose()`, animasi lipat diagonal yang
+                      sama dengan sub-topik Transpose di Bab 1.
+     4. Perakitan   → slot skalar yang sama dengan invers 2×2.
+
+   Menyalin kode Sarrus ke sini akan membuat dua salinan mekanik yang
+   HARUS berperilaku identik — dan begitu salah satunya diperbaiki,
+   siswa akan menemui dua Sarrus yang berbeda di dua halaman.
    ============================================================ */
 
 /**
- * Penampung sementara untuk invers 3×3.
+ * Sarrus sebagai SUB-LANGKAH.
  *
- * Versi sebelumnya meminta siswa mengisi sembilan kofaktor lewat Mathpad
- * sambil ditunjukkan sub-matriks DAN determinannya sekaligus — praktis
- * menyalin angka, bukan menghitung. Mekanik penggantinya (minor → kofaktor →
- * adjoin → skalar, seluruhnya dikerjakan siswa) dibangun di Fase 9.
- *
- * Sampai saat itu, sub-topiknya tetap terbuka: materi dan Mini Kuis-nya utuh,
- * dan `onComplete()` dipanggil agar siswa tidak terjebak di layar buntu.
- * Menampilkan simulasi setengah jadi lebih merugikan daripada mengatakan
- * terus terang bahwa bagian ini sedang dikerjakan.
+ * Satu-satunya yang diubah: `complete()`. Versi aslinya memasang banner
+ * "Simulasi selesai — lanjut ke Mini Kuis" dan menembakkan toast sukses.
+ * Di sini keduanya berbohong — yang selesai baru langkah pertama dari
+ * empat, dan Mini Kuis masih jauh.
  */
-export class AdjointFlowSim extends Simulation {
-  build() {
-    const { matrix, name = 'A' } = this.config;
-
-    // Tetap memakai kerangka .sim/.stage yang standar, supaya struktur DOM
-    // sub-topik ini tidak menyimpang dari yang lain hanya karena isinya beda.
-    this.scaffold({
-      brief: this.config.brief,
-      promptText: 'Bagian ini sedang dibangun — silakan lanjut ke Mini Kuis.',
-      promptStep: 'Menunggu Fase 9',
-    });
-
-    const card = el('div', 'wip-card anim-rise');
-
-    const mark = el('div', 'wip-card__mark', icon('clock', { size: 28 }));
-    card.appendChild(mark);
-
-    card.appendChild(el('div', 'wip-card__title', 'Simulasi sedang dibangun'));
-    card.appendChild(el('p', 'wip-card__text', renderMixed(
-      `Simulasi langkah-demi-langkah untuk **invers matriks $3\\times3$** sedang disiapkan. ` +
-      `Materi dan Mini Kuis di sub-topik ini tetap bisa kamu kerjakan seperti biasa.`
-    )));
-
-    // Matriks soalnya tetap ditampilkan supaya halaman ini tidak terasa kosong
-    // dan siswa tahu kasus mana yang nanti akan dikerjakan.
-    const m = renderMatrix(matrix, { name, showOrdo: true });
-    card.appendChild(stageRow(m.root));
-
-    card.appendChild(el('p', 'wip-card__hint', renderMixed(
-      `Untuk sekarang, latih dulu **invers $2\\times2$** — polanya sama, hanya ukurannya berbeda.`
-    )));
-
-    this.stage.appendChild(card);
-
-    // Sub-topik tidak boleh terkunci gara-gara simulasinya belum ada.
-    // `finished` disetel agar complete() tidak memasang banner "selesai"
-    // yang menyesatkan — tidak ada yang dikerjakan di sini.
+class SarrusStep extends Det3x3SarrusSim {
+  complete() {
+    if (this.finished) return;
     this.finished = true;
     this.onComplete();
   }
 }
 
+/**
+ * Perkalian matriks sebagai SUB-LANGKAH — alasan yang sama seperti
+ * `SarrusStep`.
+ */
+class MultiplyStep extends MatrixMultiplySim {
+  complete() {
+    if (this.finished) return;
+    this.finished = true;
+    this.onComplete();
+  }
+}
+
+export class Inverse3x3Sim extends Simulation {
+  build() {
+    const { matrix, name = 'A' } = this.config;
+
+    this.matrix = matrix;
+    this.name = name;
+
+    /**
+     * Kunci jawaban kofaktor. Ia HANYA dipakai untuk menilai jawaban siswa
+     * dan untuk enam sel yang diisi otomatis di akhir — tidak pernah untuk
+     * tiga sel yang wajib dikerjakan sendiri.
+     */
+    this.cof = cofactorMatrix(matrix);
+    this.adj = transpose(this.cof);
+
+    /**
+     * Tiga sel yang WAJIB dikerjakan sendiri.
+     *
+     * Sembilan kofaktor berarti sembilan kali determinan 2×2 — dan setelah
+     * yang ketiga, siswa tidak lagi belajar apa pun, ia hanya lelah. Tiga
+     * sel sengaja dipilih agar mencakup KEDUA tanda papan catur: `c11`
+     * bertanda plus, `c12` dan `c23` bertanda minus, sehingga aturan tanda
+     * benar-benar teruji, bukan kebetulan lolos.
+     */
+    this.manualKeys = (this.config.manualCells || [[0, 0], [0, 1], [1, 2]])
+      .map(([i, j]) => `${i},${j}`);
+    this.doneKeys = new Set();
+    this.activeKey = null;
+
+    this.scaffold({
+      brief: this.config.brief,
+      promptText: 'Langkah 1 — hitung $\\det(A)$ dulu dengan Metode Sarrus. Kalau nol, prosesnya berhenti di situ.',
+      promptStep: 'Langkah 1 dari 4',
+    });
+
+    this.checklist = createChecklist([
+      'Hitung $\\det(A)$ (Sarrus)',
+      'Buru tiga kofaktor sendiri',
+      'Transpose kofaktor $\\to$ Adjoin',
+      'Pasang $\\frac{1}{\\det}$ di depan Adjoin',
+    ]);
+    this.addHint(this.checklist);
+
+    /** Panel petunjuk MILIK sub-engine, terpisah dari prompt langkah kami. */
+    this.subHint = el('div', 'inv3-subhint');
+    this.addHint(this.subHint);
+
+    this.stepHost = el('div', 'inv3-host');
+    this.stage.appendChild(this.stepHost);
+
+    this.startDetStep();
+  }
+
+  /** Bongkar sub-engine langkah sebelumnya sampai bersih. */
+  teardownStep() {
+    if (this.sub) {
+      this.sub.destroy();
+      this.sub = null;
+    }
+    this.stepHost.innerHTML = '';
+    this.subHint.innerHTML = '';
+  }
+
+  /* ---------------- LANGKAH 1: determinan lewat Sarrus ---------------- */
+
+  startDetStep() {
+    const host = el('div');
+    this.stepHost.appendChild(host);
+
+    const sub = new SarrusStep(host, {
+      matrix: this.matrix,
+      name: this.name,
+    }, this.toasts, () => this.onDetDone(sub));
+
+    sub.hintHost = this.subHint;
+    this.sub = sub;
+    sub.build();
+  }
+
+  onDetDone(sub) {
+    // Determinannya diambil dari hasil kerja SISWA di panggung Sarrus,
+    // bukan dihitung ulang lewat engine. Kalau keduanya berbeda, yang
+    // salah adalah kodenya — dan lebih baik itu terlihat.
+    const down = sub.collected.down.reduce((a, b) => a + b, 0);
+    const up = sub.collected.up.reduce((a, b) => a + b, 0);
+    this.det = down - up;
+
+    this.checklist.advance(0);
+
+    if (Math.abs(this.det) < 1e-10) {
+      // Jalan buntu yang JUJUR. Adjoinnya masih bisa dihitung, tetapi untuk
+      // mencari invers ia sia-sia — dan itu justru pelajarannya.
+      toast.error(this.msg('singular') || 'Determinannya nol — matriks ini singular, jadi inversnya tidak ada.');
+      this.setPrompt(
+        '$\\det(A) = 0$ — matriks ini **singular**. Adjoinnya masih bisa disusun, tapi $\\frac{1}{0}$ tidak terdefinisi, jadi $A^{-1}$ tidak ada. Prosesnya berhenti di sini.',
+        'Selesai'
+      );
+      this.later(() => this.complete(), 500);
+      return;
+    }
+
+    this.later(() => {
+      this.teardownStep();
+      this.startCofactorStep();
+    }, 700);
+  }
+
+  /* ---------------- LANGKAH 2: berburu kofaktor ---------------- */
+
+  startCofactorStep() {
+    this.setPrompt(
+      `Langkah 2 — ketuk sel kofaktor yang **berdenyut**. Hanya **tiga** yang kamu hitung sendiri; sisanya menyusul otomatis setelah kamu menguasai polanya.`,
+      `Langkah 2 dari 4 · 0/3 kofaktor`
+    );
+
+    this.addHint(createColorLegend([
+      { tone: 'blue', label: 'Biru = baris & kolom yang **dicoret**' },
+      { tone: 'amber', label: 'Kuning = sel kofaktor yang sedang dikerjakan' },
+    ]));
+
+    const a = renderMatrix(this.matrix, { name: this.name, showAddress: true });
+    this.aCells = a.cells;
+    this.aView = a;
+
+    this.aStrike = createStrikeLayer(a.grid);
+    this.track(() => this.aStrike.destroy());
+
+    // Matriks kofaktor: kosong, dengan pola papan catur sebagai CAP AIR.
+    const c = renderMatrix(this.cof, { name: 'C (kofaktor)', empty: true });
+    this.cofCells = c.cells;
+    this.cofView = c;
+    c.grid.classList.add('cof-grid');
+    // Label menyusut 'C (kofaktor)' -> 'adj(A)' di langkah 3; lebarnya
+    // dipesan supaya matriksnya tidak melompat saat itu terjadi.
+    const cofName = c.root.querySelector('.matrix__name');
+    if (cofName) cofName.classList.add('matrix__name--reserved');
+
+    this.cofCells.forEach((cell, key) => {
+      const [i, j] = key.split(',').map(Number);
+      const plus = (i + j) % 2 === 0;
+      cell.classList.add('cof-cell', plus ? 'cof-cell--plus' : 'cof-cell--minus');
+      // Tandanya cap air, bukan isi: ia mengingatkan pola $(-1)^{i+j}$ tanpa
+      // pernah bisa disalahartikan sebagai nilai kofaktornya.
+      cell.appendChild(el('span', 'cof-cell__sign', plus ? '+' : '−'));
+    });
+
+    // Slot skalar dibuat SEKARANG, bukan di langkah 4: ruangnya ikut
+    // terpesan sejak awal, dan ia dijamin selalu bersebelahan dengan kurung.
+    this.scalarSlot = createScalarSlot();
+
+    this.stepHost.appendChild(equationRow(
+      a.root, createFlowArrow('arrow-right'), scalarPair(this.scalarSlot, c.root)
+    ));
+
+    // Panel minor + isian. Tingginya dipesan sejak awal supaya munculnya
+    // sub-matriks tidak mendorong matriks di atasnya (kontrak §5 butir 14).
+    this.minorHost = this.reserveSlot(132);
+    this.minorHost.classList.add('minor-panel-host');
+    this.stepHost.appendChild(this.minorHost);
+
+    this.progress = createProgressText(3, 'kofaktor');
+    this.addHint(this.progress);
+
+    this.manualKeys.forEach((key) => {
+      const cell = this.cofCells.get(key);
+      if (!cell) return;
+      cell.classList.add('cell--invite');
+      this.track(makeTappable(cell, () => this.pickCofactor(key), `Kofaktor ${this.labelFor(key)}`));
+    });
+
+    // Sel yang TIDAK diburu manual tetap bisa diketuk — supaya penolakannya
+    // bisa dijelaskan, bukan sekadar tidak terjadi apa-apa (kontrak §5 butir 3).
+    this.cofCells.forEach((cell, key) => {
+      if (this.manualKeys.includes(key)) return;
+      this.track(makeTappable(cell, () => {
+        this.reject(cell, 'notHunted', { list: this.manualKeys.map((k) => this.labelFor(k)).join(', ') });
+      }, `Kofaktor ${this.labelFor(key)} — diisi otomatis nanti`));
+    });
+  }
+
+  labelFor(key) {
+    const [i, j] = key.split(',').map(Number);
+    return `c${i + 1}${j + 1}`;
+  }
+
+  /** Ketukan pada salah satu dari tiga sel yang diburu manual. */
+  pickCofactor(key) {
+    if (this.busy) return;
+    if (this.doneKeys.has(key)) return;
+
+    // Berpindah sel di tengah pengerjaan diperbolehkan — yang tidak boleh
+    // adalah DUA panel minor hidup bersamaan.
+    if (this.activeKey === key) {
+      this.closeMinorPanel();
+      return;
+    }
+
+    this.activeKey = key;
+    const [i, j] = key.split(',').map(Number);
+
+    clearHighlights(this.cofCells);
+    this.cofCells.get(key).classList.add('cell--target');
+
+    this.showMinorFor(i, j);
+  }
+
+  /**
+   * Coret baris ke-i dan kolom ke-j pada matriks A, lalu sodorkan minornya.
+   *
+   * Coretannya digambar DI ATAS matriks aslinya, bukan hanya menampilkan
+   * sub-matriks yang sudah jadi. Yang sering keliru dipahami siswa bukan
+   * "bagaimana menghitung determinan 2×2", melainkan "sub-matriks yang mana"
+   * — dan itu hanya terlihat kalau pencoretannya sendiri yang diperagakan.
+   */
+  showMinorFor(i, j) {
+    this.aStrike.clear();
+    clearHighlights(this.aCells);
+
+    const cols = this.matrix[0].length;
+    const rows = this.matrix.length;
+    const row = rowCells(this.aCells, i, cols);
+    const col = colCells(this.aCells, j, rows);
+
+    row.forEach((c) => c.classList.add('cell--muted'));
+    col.forEach((c) => c.classList.add('cell--muted'));
+
+    this.aStrike.draw(row, 'blue');
+    this.aStrike.draw(col, 'blue');
+
+    const minor = minorMatrix(this.matrix, i, j);
+    const plus = (i + j) % 2 === 0;
+    const label = this.labelFor(`${i},${j}`);
+
+    const panel = el('div', 'minor-panel anim-rise');
+
+    const head = el('div', 'minor-panel__head');
+    head.innerHTML = renderMixed(
+      `Sisa setelah baris ${i + 1} dan kolom ${j + 1} dicoret — hitung determinannya:`
+    );
+    panel.appendChild(head);
+
+    const body = el('div', 'minor-panel__body');
+    const mv = renderMatrix(minor, { name: null });
+    mv.root.classList.add('matrix--mini');
+    body.appendChild(mv.root);
+
+    const ask = el('div', 'minor-panel__ask');
+    ask.appendChild(el('span', 'minor-panel__label', renderMixed('$\\det = $')));
+
+    const input = document.createElement('input');
+    input.className = 'numfield';
+    input.placeholder = '?';
+    input.setAttribute('aria-label', `Determinan minor untuk ${label}`);
+    attachMathpad(input, {
+      onCommit: (value) => this.judgeMinor(i, j, value, input),
+    });
+    ask.appendChild(input);
+    body.appendChild(ask);
+
+    panel.appendChild(body);
+
+    const foot = el('div', 'minor-panel__foot');
+    foot.innerHTML = renderMixed(
+      `Tandanya nanti **${plus ? 'positif' : 'negatif'}** — ikuti cap air $${plus ? '+' : '-'}$ pada sel $${label}$.`
+    );
+    panel.appendChild(foot);
+
+    this.minorHost.innerHTML = '';
+    this.minorHost.appendChild(panel);
+    this.minorInput = input;
+
+    this.setPrompt(
+      `Baris ${i + 1} dan kolom ${j + 1} dicoret. Hitung determinan sisa $2\\times2$-nya, lalu isikan lewat papan angka.`,
+      `Langkah 2 dari 4 · ${this.doneKeys.size}/3 kofaktor`
+    );
+  }
+
+  closeMinorPanel() {
+    this.activeKey = null;
+    this.minorInput = null;
+    this.minorHost.clear();
+    this.aStrike.clear();
+    clearHighlights(this.aCells);
+    this.aCells.forEach((c) => c.classList.remove('cell--muted'));
+    clearHighlights(this.cofCells);
+  }
+
+  async judgeMinor(i, j, value, input) {
+    const key = `${i},${j}`;
+    if (this.busy || this.doneKeys.has(key)) return;
+
+    const minorDet = determinant(minorMatrix(this.matrix, i, j));
+
+    if (Math.abs(Number(value) - minorDet) > 1e-9) {
+      input.classList.add('numfield--no');
+      this.later(() => input.classList.remove('numfield--no'), 600);
+      // Isian DIKOSONGKAN setelah jawaban keliru — kalau tidak, ketukan
+      // berikutnya menyambung angka lama ("9" lalu "5" jadi "95").
+      input.value = '';
+      this.reject(input, 'wrongMinor', { baris: i + 1, kolom: j + 1 });
+      return;
+    }
+
+    if (!this.claim(`cof-${key}`)) return;
+
+    this.setBusy(true);
+    input.classList.add('numfield--ok');
+    input.dataset.locked = 'true';
+    input.style.pointerEvents = 'none';
+
+    const plus = (i + j) % 2 === 0;
+    const cofValue = plus ? minorDet : -minorDet;
+
+    // Tanda papan catur diterapkan di depan mata, bukan diam-diam.
+    this.setPrompt(
+      plus
+        ? `Minornya $${formatNumber(minorDet)}$, dan sel ini bertanda **+**, jadi kofaktornya tetap $${formatNumber(cofValue)}$.`
+        : `Minornya $${formatNumber(minorDet)}$, tapi sel ini bertanda **−**, jadi kofaktornya menjadi $${formatNumber(cofValue)}$.`,
+      `Langkah 2 dari 4 · ${this.doneKeys.size + 1}/3 kofaktor`
+    );
+
+    await this.wait(620);
+
+    const cell = this.cofCells.get(key);
+    cell.classList.remove('cell--invite', 'cell--target');
+    cell.classList.add('cell--resolving');
+    await this.wait(280);
+
+    this.writeCofactor(cell, cofValue);
+    cell.classList.remove('cell--resolving');
+    cell.classList.add('cell--done', 'anim-land');
+
+    this.doneKeys.add(key);
+    this.progress.set(this.doneKeys.size);
+    this.closeMinorPanel();
+    this.setBusy(false);
+
+    if (this.doneKeys.size >= this.manualKeys.length) {
+      this.later(() => this.autoFillRest(), 520);
+    }
+  }
+
+  /** Tulis nilai kofaktor tanpa menghapus cap air tandanya. */
+  writeCofactor(cell, value) {
+    const sign = cell.querySelector('.cof-cell__sign');
+    cell.textContent = formatNumber(value);
+    cell.dataset.value = String(value);
+    if (sign) cell.appendChild(sign);
+  }
+
+  /**
+   * Enam sel sisanya diisi otomatis.
+   *
+   * ⚠️ Ini SATU-SATUNYA tempat di seluruh aplikasi yang mengisi jawaban
+   * untuk siswa, dan itu keputusan sadar: setelah tiga kofaktor, sel
+   * keempat sampai kesembilan tidak lagi mengajarkan apa pun — mekaniknya
+   * sudah persis sama, yang bertambah hanya kelelahan. Supaya tetap jujur,
+   * sel-sel ini DITANDAI sebagai terisi otomatis dan dikatakan terus terang
+   * di prompt; siswa tidak boleh mengira ia yang mengerjakannya.
+   */
+  async autoFillRest() {
+    this.setBusy(true);
+    this.checklist.advance(1);
+
+    const rest = [];
+    const restKeys = [];
+    const values = [];
+    this.cofCells.forEach((cell, key) => {
+      if (this.doneKeys.has(key)) return;
+      const [i, j] = key.split(',').map(Number);
+      rest.push(cell);
+      restKeys.push(key);
+      values.push(formatNumber(this.cof[i][j]));
+    });
+
+    this.setPrompt(
+      `Polanya sudah kamu kuasai. Enam sel sisanya **diisi otomatis** dengan cara yang persis sama — perhatikan tandanya berselang-seling.`,
+      'Langkah 2 dari 4 · otomatis'
+    );
+
+    rest.forEach((cell) => cell.classList.add('cof-cell--auto'));
+
+    // `staggerCells` menulis textContent, jadi cap air tandanya ikut
+    // tersapu — ia dipasang ulang sesudahnya.
+    await staggerCells(rest, values, { delay: 90 });
+
+    rest.forEach((cell, index) => {
+      const [i, j] = restKeys[index].split(',').map(Number);
+      const plus = (i + j) % 2 === 0;
+      cell.dataset.value = values[index];
+      cell.appendChild(el('span', 'cof-cell__sign', plus ? '+' : '−'));
+      cell.appendChild(el('span', 'cof-cell__auto', 'auto'));
+    });
+
+    /**
+     * Sel kofaktor dikunci begitu matriksnya lengkap.
+     *
+     * Kalau tidak, mengetuk sel mana pun sesudah ini masih memunculkan
+     * penolakan "sel itu akan diisi otomatis nanti" — kalimat yang sudah
+     * tidak benar lagi, karena semuanya SUDAH terisi. Umpan balik yang
+     * ketinggalan zaman lebih membingungkan daripada tidak ada umpan balik.
+     */
+    this.lockChoices(this.cofView.root);
+
+    this.setBusy(false);
+    this.later(() => this.startTransposeStep(), 500);
+  }
+
+  /* ---------------- LANGKAH 3: transpose → adjoin ---------------- */
+
+  startTransposeStep() {
+    this.setPrompt(
+      'Langkah 3 — Adjoin adalah **transpose** matriks kofaktor. Tekan tombolnya dan perhatikan segitiga atas & bawah bertukar tempat.',
+      'Langkah 3 dari 4'
+    );
+
+    // Matriks A sudah selesai tugasnya; ia diredupkan supaya perhatian
+    // pindah sepenuhnya ke matriks kofaktor yang akan dilipat.
+    this.aView.root.classList.add('is-retired');
+
+    const btn = el('button', 'btn btn--primary btn--pulse');
+    btn.type = 'button';
+    btn.innerHTML = `${icon('swap', { size: 17 })}<span>Ubah ke Adjoin</span>`;
+    btn.addEventListener('click', () => this.runFold(btn));
+    this.foldBtn = btn;
+
+    this.minorHost.innerHTML = '';
+    this.minorHost.appendChild(stageRow(btn));
+  }
+
+  async runFold(btn) {
+    if (this.busy) return;
+    if (!this.claim('fold')) return;
+
+    this.setBusy(true);
+    btn.disabled = true;
+    btn.classList.remove('btn--pulse');
+
+    await foldTranspose(this.cofCells, this.cof);
+
+    /**
+     * `foldTranspose` hanya MENERBANGKAN selnya; ia tidak menukar isinya.
+     * Sel $(i,j)$ mendarat di slot $(j,i)$ sambil membawa nilai
+     * `cof[i][j]`, jadi begitu animasinya selesai tiap slot $(k,l)$ harus
+     * berisi `adj[k][l]` — lalu transformnya dinolkan. Urutannya penting:
+     * menulis nilai lebih dulu, baru melepas transform, membuat pertukaran
+     * posisinya tidak pernah terlihat "membatal".
+     */
+    this.cofCells.forEach((cell, key) => {
+      const [i, j] = key.split(',').map(Number);
+      const sign = cell.querySelector('.cof-cell__sign');
+      const auto = cell.querySelector('.cof-cell__auto');
+      cell.textContent = formatNumber(this.adj[i][j]);
+      cell.dataset.value = String(this.adj[i][j]);
+      // Cap air tanda TIDAK ikut ditranspose — ia milik posisi kofaktor,
+      // dan setelah jadi adjoin ia sudah tidak berlaku lagi.
+      if (sign) sign.remove();
+      if (auto) auto.remove();
+      cell.style.transform = '';
+      if (window.gsap) window.gsap.set(cell, { x: 0, y: 0 });
+      cell.classList.add('anim-flash-success');
+      this.later(() => cell.classList.remove('anim-flash-success'), 620);
+    });
+
+    const nameEl = this.cofView.root.querySelector('.matrix__name');
+    if (nameEl) nameEl.textContent = `adj(${this.name})`;
+    this.cofView.grid.classList.remove('cof-grid');
+
+    this.checklist.advance(2);
+    this.setBusy(false);
+    this.later(() => this.startAssembleStep(), 420);
+  }
+
+  /* ---------------- LANGKAH 4: perakitan akhir ---------------- */
+
+  startAssembleStep() {
+    this.setPrompt(
+      `Langkah 4 — bawa chip $\\frac{1}{${formatNumber(this.det)}}$ ke **slot di depan kurung Adjoin**. Seret, atau ketuk chipnya lalu ketuk slotnya.`,
+      'Langkah 4 dari 4'
+    );
+
+    // Slotnya sudah berdiri di depan kurung sejak langkah 2; sekarang ia
+    // tinggal dinyalakan.
+    this.scalarSlot.reveal();
+    this.scalarSlot.classList.add('inv-scalar--open');
+
+    this.track(registerDropZone(this.scalarSlot, {
+      padding: 10,
+      onDrop: () => this.placeScalar(),
+    }));
+
+    const chip = createInverseChip(this.det);
+    this.scalarChip = chip;
+
+    this.minorHost.innerHTML = '';
+    this.minorHost.appendChild(stageRow(chip));
+  }
+
+  async placeScalar() {
+    if (this.busy || this.assembled) return;
+    if (!this.claim('assemble')) return;
+
+    this.assembled = true;
+    this.setBusy(true);
+
+    const chipClone = makeFlyChip(this.scalarChip, { text: null });
+    chipClone.innerHTML = this.scalarChip.innerHTML;
+    await landOn(chipClone, this.scalarSlot, { text: null });
+
+    this.scalarSlot.fill(this.det);
+    this.scalarSlot.classList.remove('inv-scalar--open');
+    this.scalarChip.dataset.dragDisabled = 'true';
+    this.scalarChip.classList.add('is-spent');
+
+    this.checklist.advance(3);
+    this.setBusy(false);
+
+    this.setPrompt(
+      `$${this.name}^{-1} = \\dfrac{1}{${formatNumber(this.det)}}${toLatex(this.adj)}$ — inilah bentuk akhir yang kamu tulis di lembar jawaban.`,
+      'Selesai'
+    );
+    this.complete();
+  }
+
+  destroy() {
+    this.teardownStep();
+    super.destroy();
+  }
+}
+
 /* ============================================================
-   7. matrix_equation — pertemukan invers
+   7. equation_solver — persamaan matriks, dua langkah (Fase 16)
+
+   Langkah 1 menguji LETAK invers; langkah 2 menagih hitungannya.
+   Keduanya dua pelajaran yang berbeda, dan versi lama hanya
+   mengajarkan yang pertama: begitu $A^{-1}$ mendarat di sisi yang
+   benar, jawabannya langsung tercetak lengkap sebagai rumus. Siswa
+   yang paham LETAK-nya tetap tidak pernah mengalikan apa pun.
    ============================================================ */
-export class MatrixEquationSim extends Simulation {
+export class EquationSolverSim extends Simulation {
   build() {
     const { form, matrixA, matrixB, nameA = 'A', nameB = 'B' } = this.config;
     this.isLeftForm = form === 'AX=B';
@@ -1122,13 +1752,34 @@ export class MatrixEquationSim extends Simulation {
     this.scaffold({
       brief: this.config.brief,
       promptText: `Bentuk soal: $${form.replace('=', ' = ')}$. Seret chip $${nameA}^{-1}$ ke sisi yang tepat pada **kedua ruas**.`,
-      promptStep: 'Langkah 1',
+      promptStep: 'Langkah 1 dari 2',
     });
 
-    this.eqHost = el('div', 'equation');
-    this.eqHost.style.cssText += 'width:100%;gap:var(--sp-3)';
+    this.checklist = createChecklist([
+      'Taruh $A^{-1}$ di sisi yang benar',
+      'Hitung hasil perkaliannya',
+    ]);
+    this.addHint(this.checklist);
 
-    // Slot kiri & kanan pada masing-masing ruas.
+    this.subHint = el('div', 'inv3-subhint');
+    this.addHint(this.subHint);
+
+    this.logicHost = el('div', 'eqsolve-logic');
+    this.stage.appendChild(this.logicHost);
+
+    this.execHost = el('div', 'eqsolve-exec');
+    this.stage.appendChild(this.execHost);
+
+    this.buildLogicStep();
+  }
+
+  /* ---------------- LANGKAH 1: letak invers ---------------- */
+
+  buildLogicStep() {
+    const { nameA = 'A', nameB = 'B' } = this.config;
+
+    this.eqHost = el('div', 'equation equation--solve');
+
     this.slotLeftA = el('div', 'equation__slot', '?');
     this.blockA = el('div', 'equation__block', nameA);
     this.blockX = el('div', 'equation__block', 'X');
@@ -1150,24 +1801,23 @@ export class MatrixEquationSim extends Simulation {
     rhs.append(this.slotLeftB, this.blockB, this.slotRightB);
 
     this.eqHost.append(lhs, el('div', 'matrix__name', '='), rhs);
-    this.stage.appendChild(this.eqHost);
+    this.logicHost.appendChild(this.eqHost);
 
-    const chip = el('div', 'symbol-chip');
+    const chip = el('div', 'symbol-chip symbol-chip--inv');
     chip.innerHTML = renderMixed(`$${nameA}^{-1}$`);
-    chip.style.minWidth = '72px';
     makeDraggable(chip, { data: { inv: true } });
     this.chip = chip;
 
-    this.stage.appendChild(stageRow(chip, el('span', 'text-sm text-muted', 'Seret ke slot yang tepat')));
-    this.resultHost = el('div', 'stage__row');
-    this.stage.appendChild(this.resultHost);
+    this.logicHost.appendChild(stageRow(
+      chip, el('span', 'text-sm text-muted', 'Seret ke slot yang tepat — atau ketuk chip lalu ketuk slotnya')
+    ));
 
     // Empat slot: hanya satu SISI yang benar, dan harus di kedua ruas.
     [
-      { node: this.slotLeftA, side: 'left', ruas: 'lhs' },
-      { node: this.slotRightA, side: 'right', ruas: 'lhs' },
-      { node: this.slotLeftB, side: 'left', ruas: 'rhs' },
-      { node: this.slotRightB, side: 'right', ruas: 'rhs' },
+      { node: this.slotLeftA, side: 'left' },
+      { node: this.slotRightA, side: 'right' },
+      { node: this.slotLeftB, side: 'left' },
+      { node: this.slotRightB, side: 'right' },
     ].forEach(({ node, side }) => {
       this.track(registerDropZone(node, {
         padding: 8,
@@ -1179,53 +1829,145 @@ export class MatrixEquationSim extends Simulation {
   }
 
   handleDrop(side, node, sourceEl) {
+    if (this.busy) return;
+
     const correctSide = this.isLeftForm ? 'left' : 'right';
 
     if (side !== correctSide) {
-      this.reject(sourceEl, 'wrongSide');
+      // Chip memantul kembali DAN alasannya dijelaskan. Pantulan sendirian
+      // hanya memberi tahu "salah", bukan "kenapa" (kontrak §5 butir 3).
+      this.reject(sourceEl || this.chip, 'wrongSide');
       return;
     }
 
+    const ruas = (node === this.slotLeftA || node === this.slotRightA) ? 'lhs' : 'rhs';
+    if (this.placed.has(ruas)) return;
+
     node.innerHTML = renderMixed(`$${this.config.nameA}^{-1}$`);
-    node.style.borderStyle = 'solid';
-    node.style.borderColor = 'var(--success)';
-    node.classList.add('anim-flash-success');
-    this.placed.add(node === this.slotLeftA || node === this.slotRightA ? 'lhs' : 'rhs');
+    node.classList.add('equation__slot--filled', 'anim-flash-success');
+    this.placed.add(ruas);
 
     if (this.placed.size < 2) {
       toast.warn(this.msg('oneSideOnly'));
-      this.setPrompt('Bagus — sekarang lakukan hal yang sama pada ruas satunya agar persamaan tetap seimbang.', 'Langkah 2');
+      this.setPrompt(
+        'Bagus — sekarang lakukan hal yang sama pada ruas satunya agar persamaan tetap seimbang.',
+        'Langkah 1 dari 2'
+      );
       return;
     }
 
+    if (!this.claim('merge')) return;
+
     this.chip.dataset.dragDisabled = 'true';
-    this.chip.style.opacity = '.4';
+    this.chip.classList.add('is-spent');
     this.runMerge();
   }
 
   async runMerge() {
-    this.setPrompt('$A^{-1}A$ melebur menjadi $I$, lalu lenyap karena $I$ tidak mengubah apa pun.', 'Melebur…');
+    this.setBusy(true);
+    this.setPrompt('$A^{-1}A$ melebur menjadi $I$, lalu lenyap — karena $I$ tidak mengubah apa pun.', 'Melebur…');
 
     const invBlock = this.isLeftForm ? this.slotLeftA : this.slotRightA;
     await mergeToIdentity(this.blockA, invBlock);
 
-    this.showSolution();
+    /**
+     * Slot yang TIDAK terpakai disembunyikan setelah peleburan.
+     *
+     * Kalau dibiarkan, persamaannya terbaca `X ? = A⁻¹ B ?` — dua tanda
+     * tanya yang tidak lagi menunggu apa pun, tapi masih terlihat seperti
+     * isian yang belum dikerjakan. `visibility: hidden`, bukan `remove()`:
+     * ruangnya tetap dipesan supaya baris persamaan tidak mengempis tepat
+     * saat siswa membaca hasilnya (kontrak §5 butir 14).
+     */
+    const sisa = this.isLeftForm
+      ? [this.slotRightA, this.slotRightB]
+      : [this.slotLeftA, this.slotLeftB];
+    sisa.forEach((slot) => { slot.style.visibility = 'hidden'; });
+
+    const { nameA = 'A', nameB = 'B' } = this.config;
+    const solved = el('div', 'eqsolve-solved anim-rise');
+    // ⚠️ SATU tanda dolar, bukan dua. `renderMixed()` hanya mengenali
+    // `$…$`; regexnya (`\$([^$]+)\$`) tidak pernah cocok dengan `$$…$$`,
+    // sehingga dolar pertama dan terakhir tertinggal sebagai teks mentah di
+    // layar. Ukurannya diatur CSS, bukan oleh mode display KaTeX.
+    solved.innerHTML = renderMixed(
+      this.isLeftForm ? `$X = ${nameA}^{-1}${nameB}$` : `$X = ${nameB}${nameA}^{-1}$`
+    );
+    this.logicHost.appendChild(solved);
+
+    this.checklist.advance(0);
+    this.setBusy(false);
+    this.later(() => this.startExecStep(), 700);
   }
 
-  showSolution() {
-    const { matrixA, matrixB, nameA, nameB } = this.config;
+  /* ---------------- LANGKAH 2: hitung hasilnya ---------------- */
+
+  /**
+   * ⚠️ Yang dipakai di sini adalah mesin PERKALIAN MATRIKS
+   * (`MatrixMultiplySim`), bukan `PairwiseTapSim`.
+   *
+   * Keduanya mudah tertukar karena sama-sama "ketuk pasangan", tetapi
+   * matematikanya berbeda: `PairwiseTapSim` memasangkan elemen SELETAK
+   * ($a_{ij}$ dengan $b_{ij}$) — itu penjumlahan. $A^{-1}B$ menuntut
+   * BARIS dikali KOLOM. Memakai mesin pasangan seletak di sini akan
+   * mengajarkan operasi yang salah dengan sangat meyakinkan.
+   */
+  startExecStep() {
+    const { matrixA, matrixB, nameA = 'A', nameB = 'B' } = this.config;
+
     const inv = inverse(matrixA);
-    const X = this.isLeftForm ? multiply(inv, matrixB) : multiply(matrixB, inv);
+    const first = this.isLeftForm ? inv : matrixB;
+    const second = this.isLeftForm ? matrixB : inv;
+    const firstName = this.isLeftForm ? `${nameA}⁻¹` : nameB;
+    const secondName = this.isLeftForm ? nameB : `${nameA}⁻¹`;
 
-    const expr = this.isLeftForm
-      ? `X = ${nameA}^{-1}${nameB} = ${toLatex(inv, { fraction: true })} ${toLatex(matrixB)} = ${toLatex(X)}`
-      : `X = ${nameB}${nameA}^{-1} = ${toLatex(matrixB)} ${toLatex(inv, { fraction: true })} = ${toLatex(X)}`;
+    this.setPrompt(
+      `Langkah 2 — sekarang hitung hasilnya sendiri. Ingat: **baris dikali kolom**, bukan elemen seletak.`,
+      'Langkah 2 dari 2'
+    );
 
-    const box = el('div', 'explain anim-rise');
-    box.innerHTML = `<div class="explain__title">Penyelesaian</div>${renderMixed(`$$${expr}$$`)}`;
-    this.resultHost.appendChild(box);
+    // Panggung langkah 1 diredupkan, tidak dihapus: siswa masih perlu
+    // melihat bentuk yang baru ia turunkan sambil mengerjakannya.
+    this.logicHost.classList.add('is-retired');
 
-    this.setPrompt('$X$ berhasil berdiri sendiri dan nilainya ditemukan.', 'Selesai');
+    const host = el('div');
+    this.execHost.appendChild(host);
+
+    const sub = new MultiplyStep(host, {
+      cases: [{
+        id: 'solve',
+        label: 'Hitung X',
+        nameA: firstName,
+        nameB: secondName,
+        matrixA: first,
+        matrixB: second,
+      }],
+    }, this.config.multiplyToasts || this.toasts, () => this.onProductDone());
+
+    sub.hintHost = this.subHint;
+    this.sub = sub;
+    sub.build();
+  }
+
+  onProductDone() {
+    this.checklist.advance(1);
+
+    const X = this.isLeftForm
+      ? multiply(inverse(this.config.matrixA), this.config.matrixB)
+      : multiply(this.config.matrixB, inverse(this.config.matrixA));
+
+    this.setPrompt(
+      `$X = ${toLatex(X)}$ — dan itu kamu hitung sendiri, bukan dibacakan rumus.`,
+      'Selesai'
+    );
     this.complete();
+  }
+
+  destroy() {
+    if (this.sub) {
+      this.sub.destroy();
+      this.sub = null;
+    }
+    super.destroy();
   }
 }

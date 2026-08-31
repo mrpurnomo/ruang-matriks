@@ -460,6 +460,341 @@ PAPAN_RUTE_BARU = """() => new Promise(resolve => {
         });
     }, 500);
 })"""
+# ============================================================
+# Skrip peramban untuk bagian regresi Fase 16 (57, 58, 105).
+# ============================================================
+
+# Perkakas bersama: ketukan, pembacaan kotak, dan penekan tombol Mathpad.
+#
+# ⚠️ Tombol Mathpad mendengarkan `pointerdown`, BUKAN `click`. Memakai
+# `.click()` membuat seluruh penekanan diam-diam tidak berefek — preview-nya
+# tetap "—" dan pengujiannya gagal di tempat yang salah.
+F16_ALAT = """
+    const tap = (n) => n.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const kotak = (el) => { const r = el.getBoundingClientRect();
+        return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]; };
+    const padGrid = () => document.querySelector('.mathpad .mathpad__grid');
+    const padKey = (l) => [...padGrid().querySelectorAll('button')]
+        .find(b => b.getAttribute('aria-label') === l);
+    const padPress = (l) => padKey(l).dispatchEvent(new PointerEvent('pointerdown',
+        { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
+    const bukaPad = (input) => input.dispatchEvent(new PointerEvent('pointerdown',
+        { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    /**
+     * Baca SELURUH toast yang sedang hidup, bukan yang pertama saja.
+     *
+     * Toast menumpuk, dan yang dibuang masih tinggal ~400ms selama
+     * animasi keluarnya — jadi `querySelector('.toast')` kerap
+     * mengembalikan toast SEBELUMNYA. Terukur: penolakan
+     * \"Salah posisi!\" terbaca sebagai \"Elemen terpilih.\"
+     */
+    const toastTeks = () => [...document.querySelectorAll('.toast')]
+        .map(t => t.textContent.replace(/\\s+/g, ' ').trim()).join(' | ');
+"""
+
+# --- Invers 2x2: alur penuh tiga tahap ---
+INV2_ALUR = """async () => {
+    """ + F16_ALAT + """
+    const out = { geser: [] };
+    const sel = () => [...document.querySelectorAll('.sim .matrix__grid .cell')];
+    const at = (i, j) => sel().find(c => c.dataset.row == i && c.dataset.col == j);
+    const kurung = () => document.querySelector('.sim .matrix__bracket');
+
+    out.slotAdaSejakAwal = !!document.querySelector('.inv-scalar');
+    out.slotTersembunyi = getComputedStyle(document.querySelector('.inv-scalar')).visibility;
+    out.geser.push(kotak(kurung()));
+
+    // Tahap 1 — determinan dikerjakan siswa, dua diagonal.
+    tap(at(0,0)); tap(at(1,1)); await tunggu(2600);
+    tap(at(0,1)); tap(at(1,0)); await tunggu(2600);
+    out.det = document.querySelector('.scalar-result__value')?.textContent;
+    out.geser.push(kotak(kurung()));
+
+    // Tahap 2a — tukar diagonal utama.
+    tap(at(0,0)); tap(at(1,1)); await tunggu(1600);
+    out.geser.push(kotak(kurung()));
+    out.setelahTukar = sel().map(c => c.dataset.value);
+
+    // Tahap 2b — balik tanda diagonal sekunder.
+    tap(at(0,1)); await tunggu(1200);
+    tap(at(1,0)); await tunggu(1600);
+    out.geser.push(kotak(kurung()));
+
+    out.adjoin = sel().map(c => c.dataset.value);
+    // Label alamat harus SELAMAT dari swapArc()/flipSign() yang menulis
+    // textContent — kalau tidak, selnya terbaca "4a22".
+    out.teksSel = sel().map(c => c.firstChild ? c.firstChild.textContent : '');
+    out.alamatSel = sel().map(c => c.querySelector('.cell__addr')?.textContent);
+    out.namaMatriks = document.querySelector('.sim .matrix__name')?.textContent;
+
+    // Tahap 3 — skalar dibawa ke slot DI DEPAN kurung, lewat ketuk-ketuk.
+    const chip = document.querySelector('.scalar-chip--fraction');
+    const slot = document.querySelector('.inv-scalar');
+    out.chipAda = !!chip;
+    tap(chip); await tunggu(300);
+    out.tapArmed = document.body.classList.contains('is-tap-armed');
+    tap(slot); await tunggu(2200);
+
+    out.geser.push(kotak(kurung()));
+    out.slotTerpasang = slot.classList.contains('inv-scalar--placed');
+    out.slotIsi = slot.textContent.trim();
+    // INTI kontraknya: sel TIDAK ikut dikalikan pecahan.
+    out.selSetelahSkalar = sel().map(c => c.dataset.value);
+
+    const sr = slot.getBoundingClientRect();
+    const br = kurung().getBoundingClientRect();
+    out.satuBaris = Math.abs((sr.top + sr.height / 2) - (br.top + br.height / 2)) <= 4;
+    out.skalarDiDepanKurung = sr.right <= br.left + 1;
+
+    out.banner = document.querySelectorAll('.sim__done-overlay').length;
+    out.lanjutAktif = !([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled;
+    return out;
+}"""
+
+# --- Invers 3x3, langkah 1: Sarrus dipakai ULANG sebagai sub-engine ---
+INV3_SARRUS = """async () => {
+    """ + F16_ALAT + """
+    const out = {};
+    out.checklist = [...document.querySelectorAll('.checklist__item')]
+        .map(n => n.textContent.trim().slice(0, 18));
+    out.sarrusAda = !!document.querySelector('.matrix__grid--sarrus');
+    out.selSarrus = document.querySelectorAll('.matrix__grid--sarrus .cell').length;
+    // Dua prompt hidup berdampingan: milik langkah, dan milik sub-engine.
+    out.promptGanda = document.querySelectorAll('.sim__prompt').length;
+
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Salin Dua Kolom')).click();
+    await tunggu(1900);
+
+    const sc = (i, j) => [...document.querySelectorAll('.matrix__grid--sarrus .cell')]
+        .find(c => c.dataset.row == i && c.dataset.display == j);
+    for (const k of [0, 1, 2]) {
+        [[0,k],[1,k+1],[2,k+2]].forEach(([i,j]) => tap(sc(i,j)));
+        await tunggu(2700);
+    }
+    for (const k of [0, 1, 2]) {
+        [[2,k],[1,k+1],[0,k+2]].forEach(([i,j]) => tap(sc(i,j)));
+        await tunggu(2700);
+    }
+    await tunggu(1800);
+
+    const sim = window.__matriksLab.state.activeView.simulation;
+    out.det = sim?.det;
+    out.sarrusDibongkar = !document.querySelector('.matrix__grid--sarrus');
+    out.promptTunggal = document.querySelectorAll('.sim__prompt').length;
+    out.checklistSetelah = [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state);
+    out.cofGrid = !!document.querySelector('.cof-grid');
+    out.selKofaktor = document.querySelectorAll('.cof-cell').length;
+    out.capAir = [...document.querySelectorAll('.cof-cell__sign')].map(s => s.textContent).join('');
+    out.diburu = [...document.querySelectorAll('.cof-cell.cell--invite')]
+        .map(c => c.dataset.row + ',' + c.dataset.col);
+    out.pasanganSkalar = !!document.querySelector('.inv-scalar-pair');
+    out.slotTersembunyi = getComputedStyle(document.querySelector('.inv-scalar')).visibility;
+    return out;
+}"""
+
+# --- Invers 3x3, langkah 2: berburu kofaktor ---
+INV3_KOFAKTOR = """async () => {
+    """ + F16_ALAT + """
+    const out = {};
+    const cof = (i, j) => [...document.querySelectorAll('.cof-cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == j);
+
+    // Sel yang TIDAK diburu manual harus menolak dengan penjelasan.
+    tap(cof(2, 2)); await tunggu(1400);
+    out.tolakSelOtomatis = {
+        toast: toastTeks(),
+        panelTidakTerbuka: !document.querySelector('.minor-panel'),
+    };
+
+    // c11: coret baris 1 & kolom 1, minor = det[[1,3],[1,1]] = -2, tanda +.
+    tap(cof(0, 0)); await tunggu(800);
+    out.panelMinor = !!document.querySelector('.minor-panel');
+    out.garisCoret = document.querySelectorAll('.strike-line').length;
+    out.selRedup = document.querySelectorAll('.inv3-host .cell--muted').length;
+    out.minor11 = [...document.querySelectorAll('.matrix--mini .cell')].map(c => c.dataset.value);
+
+    const inp = document.querySelector('.minor-panel .numfield');
+    out.isianReadOnly = inp.readOnly;
+    out.isianInputmode = inp.getAttribute('inputmode');
+
+    // Jawaban SALAH lebih dulu: harus ditolak, isian dikosongkan.
+    bukaPad(inp); await tunggu(700);
+    padPress('2'); padPress('Konfirmasi jawaban');
+    await tunggu(900);
+    const inp2 = document.querySelector('.minor-panel .numfield');
+    out.salah = {
+        toast: toastTeks(),
+        isianDikosongkan: inp2.value === '',
+        belumTerisi: cof(0, 0).dataset.value === '',
+    };
+
+    // Sekarang benar.
+    bukaPad(inp2); await tunggu(700);
+    padPress('2'); padPress('Ganti tanda positif atau negatif'); padPress('Konfirmasi jawaban');
+    await tunggu(2800);
+    out.c11 = cof(0, 0).dataset.value;
+    out.coretDibersihkan = document.querySelectorAll('.strike-line').length;
+    out.progres1 = document.querySelector('.sim-progress')?.textContent.replace(/\\s+/g, ' ').trim();
+
+    // c12 (minor -6, tanda −) dan c23 (minor -3, tanda −).
+    for (const [i, j, d] of [[0, 1, '6'], [1, 2, '3']]) {
+        tap(cof(i, j)); await tunggu(800);
+        const f = document.querySelector('.minor-panel .numfield');
+        bukaPad(f); await tunggu(700);
+        padPress(d); padPress('Ganti tanda positif atau negatif'); padPress('Konfirmasi jawaban');
+        await tunggu(2800);
+    }
+    await tunggu(3200);
+
+    out.kofaktorPenuh = [...document.querySelectorAll('.cof-cell')].map(c => c.dataset.value);
+    out.ditandaiAuto = document.querySelectorAll('.cof-cell__auto').length;
+    out.selAuto = document.querySelectorAll('.cof-cell--auto').length;
+    out.checklist = [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state);
+    await tunggu(1200);
+    out.tombolAdjoin = !!([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Ubah ke Adjoin')));
+    return out;
+}"""
+
+# --- Invers 3x3, langkah 3 & 4: transpose lipat + perakitan ---
+INV3_AKHIR = """async () => {
+    """ + F16_ALAT + """
+    const out = {};
+    const pasangan = () => document.querySelector('.inv-scalar-pair');
+    out.sebelumLipat = kotak(pasangan());
+
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Ubah ke Adjoin')).click();
+    await tunggu(3400);
+
+    const cells = [...document.querySelectorAll('.cof-cell')];
+    out.adjoin = cells.map(c => c.dataset.value);
+    // `foldTranspose` menerbangkan sel dengan transform; setelah nilainya
+    // ditulis ulang, transformnya WAJIB kembali identitas — kalau tidak,
+    // selnya berhenti di posisi yang salah.
+    out.transformIdentitas = [...new Set(cells.map(c => getComputedStyle(c).transform))];
+    out.capAirDibuang = document.querySelectorAll('.cof-cell__sign').length;
+    out.tandaAutoDibuang = document.querySelectorAll('.cof-cell__auto').length;
+    out.namaAdjoin = [...document.querySelectorAll('.inv3-host .matrix__name')].map(n => n.textContent);
+    out.setelahLipat = kotak(pasangan());
+
+    await tunggu(900);
+    const chip = document.querySelector('.scalar-chip--fraction');
+    const slot = document.querySelector('.inv-scalar');
+    tap(chip); await tunggu(300);
+    tap(slot); await tunggu(2400);
+
+    out.setelahRakit = kotak(pasangan());
+    out.slotTerpasang = slot.classList.contains('inv-scalar--placed');
+    out.adjoinTidakDikali = [...document.querySelectorAll('.cof-cell')].map(c => c.dataset.value);
+
+    const sr = slot.getBoundingClientRect();
+    const br = pasangan().querySelector('.matrix__bracket').getBoundingClientRect();
+    out.satuBaris = Math.abs((sr.top + sr.height / 2) - (br.top + br.height / 2)) <= 4;
+    out.skalarDiDepanKurung = sr.right <= br.left + 1;
+
+    out.checklist = [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state);
+    out.banner = document.querySelectorAll('.sim__done-overlay').length;
+    out.lanjutAktif = !([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled;
+    return out;
+}"""
+
+# --- Persamaan matriks, langkah 1: letak invers ---
+EQ_LETAK = """async () => {
+    """ + F16_ALAT + """
+    const out = {};
+    const chip = () => document.querySelector('.symbol-chip--inv');
+    const slots = () => [...document.querySelectorAll('.equation__slot')];
+    const baris = () => document.querySelector('.equation--solve');
+
+    out.blok = [...document.querySelectorAll('.equation__block')].map(b => b.textContent);
+    out.jumlahSlot = slots().length;
+    out.sebelum = kotak(baris());
+
+    // SISI SALAH: slot kanan pada ruas kiri -> A X A^-1, tidak akan pernah bertemu.
+    tap(chip()); await tunggu(300);
+    tap(slots()[1]); await tunggu(1800);
+    out.salah = {
+        toast: toastTeks(),
+        tidakAdaYangTerisi: document.querySelectorAll('.equation__slot--filled').length,
+    };
+
+    // Sisi kiri, ruas kiri saja: harus diingatkan bahwa kedua ruas wajib.
+    tap(chip()); await tunggu(300);
+    tap(slots()[0]); await tunggu(1100);
+    out.satuRuas = {
+        terisi: document.querySelectorAll('.equation__slot--filled').length,
+        toast: toastTeks(),
+    };
+
+    // Ruas kanan -> melebur jadi I.
+    tap(chip()); await tunggu(300);
+    tap(slots()[2]); await tunggu(4000);
+
+    out.sesudah = kotak(baris());
+    out.solved = (document.querySelector('.eqsolve-solved')?.textContent || '').trim();
+    out.dolarMentah = (document.querySelector('.eqsolve-solved')?.textContent || '').includes('$');
+    out.slotSisaTersembunyi = slots().map(s => getComputedStyle(s).visibility);
+    out.chipHabis = chip().classList.contains('is-spent');
+    out.checklist = [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state);
+    return out;
+}"""
+
+# --- Persamaan matriks, langkah 2: perkalian matriks sungguhan ---
+EQ_HITUNG = """async () => {
+    """ + F16_ALAT + """
+    const out = {};
+    const exec = () => document.querySelector('.eqsolve-exec');
+    const mats = () => [...exec().querySelectorAll('.matrix')];
+    const cellAt = (k, i, j) => [...mats()[k].querySelectorAll('.cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == j);
+    const target = () => exec().querySelector('.cell--target') || exec().querySelector('.cell--active');
+
+    out.logicRedup = document.querySelector('.eqsolve-logic').classList.contains('is-retired');
+    out.namaMatriks = [...exec().querySelectorAll('.matrix__name')].map(n => n.textContent);
+    out.invers = [...mats()[0].querySelectorAll('.cell')].map(c => c.dataset.value);
+    out.selHasil = exec().querySelectorAll('.cell--invite').length;
+
+    // c11 = (1x5) + (-1x3) = 2 ; c21 = (-1x5) + (2x3) = 1
+    const rencana = [
+        [0, 0, [[0, 0, 0], [0, 1, 1]]],
+        [1, 0, [[1, 0, 0], [1, 1, 1]]],
+    ];
+    for (const [ci, cj, pasangan] of rencana) {
+        tap(cellAt(2, ci, cj)); await tunggu(1000);
+        // Baris disorot dari matriks kiri, kolom dari matriks kanan.
+        if (ci === 0 && cj === 0) {
+            out.barisTersorot = exec().querySelectorAll('.cell--row-hl').length;
+            out.kolomTersorot = exec().querySelectorAll('.cell--col-hl').length;
+        }
+        for (const [ai, aj, bi] of pasangan) {
+            tap(cellAt(0, ai, aj)); await tunggu(320);
+            tap(target()); await tunggu(1600);
+            tap(cellAt(1, bi, 0)); await tunggu(320);
+            tap(target()); await tunggu(1600);
+        }
+        if (ci === 0 && cj === 0) {
+            out.ekspresi = exec().querySelector('.workstrip')
+                ?.textContent.replace(/\\s+/g, ' ').trim();
+        }
+        const btn = exec().querySelector('.workstrip__confirm');
+        if (btn && !btn.hidden) { btn.click(); await tunggu(2600); }
+    }
+    await tunggu(1600);
+
+    out.X = [cellAt(2, 0, 0)?.firstChild?.textContent, cellAt(2, 1, 0)?.firstChild?.textContent];
+    out.checklist = [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state);
+    // Sub-engine TIDAK boleh memasang bannernya sendiri: hanya satu banner.
+    out.banner = document.querySelectorAll('.sim__done-overlay').length;
+    out.lanjutAktif = !([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled;
+    return out;
+}"""
+
 
 # ============================================================
 # Skrip peramban untuk bagian regresi Fase 14 (98-100).
@@ -2628,34 +2963,124 @@ def run(page, errors):
     record("Determinan 6x5-2x4 = 22", det["result"] == "22", json.dumps(det))
     record("Simulasi determinan selesai", det["done"] is True, json.dumps(det))
 
-    print("\n57. Invers 2x2 ditangguhkan dengan jujur")
-    # Fase 12: engine invers 2x2 DICABUT dan diganti placeholder. Panggung
-    # kosong tidak bisa dibedakan dari aplikasi yang rusak, jadi ia harus
-    # mengatakan apa adanya — dan tidak boleh ikut mengunci Mini Kuis.
+    print("\n57. Fase 16 - Invers 2x2: tiga tahap, skalar berdiri di depan kurung")
+    # Bagian ini dulu menguji panel "Segera Hadir". Placeholder itu dicabut di
+    # Fase 16 dan diganti engine sungguhan, jadi yang diuji sekarang alurnya.
     open_fresh(page, "#/belajar/03_determinan_invers/invers_2x2")
     b = page.query_selector("button:has-text('Mulai Simulasi')")
     if b:
         b.click()
-        page.wait_for_timeout(800)
-    soon2 = page.evaluate(PANEL_SEGERA_HADIR)
-    record("Panel 'Segera Hadir' tampil di invers 2x2", soon2["panel"] is True, json.dumps(soon2)[:200])
-    record("Judulnya berbunyi 'Segera Hadir'", soon2["title"] == "Segera Hadir", json.dumps(soon2)[:200])
-    record("Struktur .stage tetap standar", soon2["stage"] is True, json.dumps(soon2)[:200])
-    record("Mini Kuis invers 2x2 tetap terbuka", soon2["nextEnabled"] is True, json.dumps(soon2)[:200])
-    record("Tidak ada isian yang menyesatkan di invers 2x2",
-           soon2["numfields"] == 0, json.dumps(soon2)[:200])
+        page.wait_for_timeout(900)
+    inv2 = page.evaluate(INV2_ALUR)
+    d2 = json.dumps(inv2)[:300]
 
-    print("\n58. Invers 3x3 ditangguhkan dengan jujur")
+    record("Ruang skalar dipesan sejak awal, belum tampil",
+           inv2["slotAdaSejakAwal"] is True and inv2["slotTersembunyi"] == "hidden", d2)
+    record("Determinan dihitung siswa sendiri: 3x4 - 1x2 = 10",
+           inv2["det"] == "10", d2)
+    record("Ketukan diagonal utama MENUKAR posisi a dan d",
+           inv2["setelahTukar"] == ["4", "1", "2", "3"], d2)
+    record("Ketukan diagonal sekunder MEMBALIK tanda b dan c",
+           inv2["adjoin"] == ["4", "-1", "-2", "3"], d2)
+    # swapArc()/flipSign() menulis lewat `textContent`, yang MENGHAPUS anak
+    # elemen. Tanpa penulisan ulang, label alamat ikut jadi teks dan selnya
+    # terbaca "4a22" — tidak terlihat dari kode, hanya dari layar.
+    record("Isi sel tetap bersih, alamatnya tidak ikut jadi teks",
+           inv2["teksSel"] == ["4", "-1", "-2", "3"], d2)
+    record("Label alamat selamat dari animasi tukar & balik tanda",
+           inv2["alamatSel"] == ["a11", "a12", "a21", "a22"], d2)
+    record("Nama matriks berubah jadi adj(A) setelah adjoin terbentuk",
+           inv2["namaMatriks"] == "adj(A)", d2)
+    record("Jalur ketuk-ketuk tersedia untuk chip skalar",
+           inv2["chipAda"] is True and inv2["tapArmed"] is True, d2)
+    record("Skalar mendarat di slot, bukan di dalam sel",
+           inv2["slotTerpasang"] is True, d2)
+    # INTI permintaan Fase 16: pecahannya TIDAK dikalikan masuk ke sel.
+    record("Pecahan TIDAK dikalikan ke tiap elemen",
+           inv2["selSetelahSkalar"] == ["4", "-1", "-2", "3"], d2)
+    record("Skalar berdiri sebaris dan tepat di depan kurung",
+           inv2["satuBaris"] is True and inv2["skalarDiDepanKurung"] is True, d2)
+    # Label 'A' -> 'adj(A)' sempat menggeser matriks 15px sebelum lebarnya
+    # dipesan. Keempat tahap harus mengukur kotak yang sama persis.
+    record("Nol pergeseran matriks di keempat tahap",
+           len(set(map(tuple, inv2["geser"]))) == 1, json.dumps(inv2["geser"]))
+    record("Simulasi invers 2x2 selesai dan membuka Mini Kuis",
+           inv2["banner"] == 1 and inv2["lanjutAktif"] is True, d2)
+
+    print("\n58. Fase 16 - Invers 3x3: Sarrus dipakai ulang sebagai sub-engine")
     open_fresh(page, "#/belajar/03_determinan_invers/invers_3x3")
     b = page.query_selector("button:has-text('Mulai Simulasi')")
     if b:
         b.click()
-        page.wait_for_timeout(800)
-    wip = page.evaluate(PANEL_SEGERA_HADIR)
-    record("Panel 'Segera Hadir' tampil di invers 3x3", wip["panel"] is True, json.dumps(wip)[:200])
-    record("Struktur .stage tetap standar", wip["stage"] is True, json.dumps(wip)[:200])
-    record("Siswa tetap bisa lanjut ke Mini Kuis", wip["nextEnabled"] is True, json.dumps(wip)[:200])
-    record("Tidak ada isian kofaktor yang menyesatkan", wip["numfields"] == 0, json.dumps(wip)[:200])
+        page.wait_for_timeout(900)
+    inv3a = page.evaluate(INV3_SARRUS)
+    d3a = json.dumps(inv3a)[:300]
+
+    record("Langkah 1 memakai panggung Sarrus yang sama (3x5 sel)",
+           inv3a["sarrusAda"] is True and inv3a["selSarrus"] == 15, d3a)
+    record("Sub-engine punya panel petunjuknya sendiri",
+           inv3a["promptGanda"] == 2, d3a)
+    record("Determinan diambil dari kerja siswa: 13 - 5 = 8",
+           inv3a["det"] == 8, d3a)
+    record("Sarrus dibongkar tuntas saat pindah ke langkah 2",
+           inv3a["sarrusDibongkar"] is True and inv3a["promptTunggal"] == 1, d3a)
+    record("Matriks kofaktor 3x3 muncul dengan cap air papan catur",
+           inv3a["selKofaktor"] == 9 and inv3a["capAir"] == "+−+−+−+−+", d3a)
+    record("Hanya tiga sel yang diburu manual: c11, c12, c23",
+           inv3a["diburu"] == ["0,0", "0,1", "1,2"], d3a)
+    record("Slot skalar sudah menempel di kurung sejak langkah 2",
+           inv3a["pasanganSkalar"] is True and inv3a["slotTersembunyi"] == "hidden", d3a)
+
+    inv3b = page.evaluate(INV3_KOFAKTOR)
+    d3b = json.dumps(inv3b)[:340]
+    record("Sel yang diisi otomatis menolak ketukan DENGAN penjelasan",
+           len(inv3b["tolakSelOtomatis"]["toast"]) > 20
+           and inv3b["tolakSelOtomatis"]["panelTidakTerbuka"] is True, d3b)
+    record("Ketukan sel kofaktor mencoret baris DAN kolom matriks A",
+           inv3b["garisCoret"] == 2 and inv3b["selRedup"] == 5, d3b)
+    record("Minor yang tersisa benar: det[[1,3],[1,1]]",
+           inv3b["minor11"] == ["1", "3", "1", "1"], d3b)
+    record("Isian minor lewat Mathpad, keyboard OS tidak pernah muncul",
+           inv3b["isianReadOnly"] is True and inv3b["isianInputmode"] == "none", d3b)
+    record("Jawaban minor yang salah ditolak dan isiannya dikosongkan",
+           inv3b["salah"]["isianDikosongkan"] is True
+           and inv3b["salah"]["belumTerisi"] is True, d3b)
+    record("Tanda papan catur diterapkan sesudah minor: c11 = -2",
+           inv3b["c11"] == "-2", d3b)
+    record("Garis coret dibersihkan setelah sel terisi",
+           inv3b["coretDibersihkan"] == 0, d3b)
+    record("Matriks kofaktor lengkap dan benar",
+           inv3b["kofaktorPenuh"] == ["-2", "6", "-2", "-1", "-1", "3", "5", "-3", "1"], d3b)
+    # Enam sel memang diisi otomatis (anti-lelah), tetapi WAJIB ditandai:
+    # siswa tidak boleh mengira ia yang mengerjakannya.
+    record("Enam sel sisanya diisi otomatis dan DITANDAI 'auto'",
+           inv3b["ditandaiAuto"] == 6 and inv3b["selAuto"] == 6, d3b)
+    record("Tombol 'Ubah ke Adjoin' muncul setelah kofaktor lengkap",
+           inv3b["tombolAdjoin"] is True, d3b)
+
+    inv3c = page.evaluate(INV3_AKHIR)
+    d3c = json.dumps(inv3c)[:340]
+    record("Lipat diagonal menghasilkan Adjoin yang benar",
+           inv3c["adjoin"] == ["-2", "-1", "5", "6", "-1", "-3", "-2", "3", "1"], d3c)
+    # `foldTranspose` menerbangkan sel dengan transform. Setelah nilainya
+    # ditulis ulang, transformnya harus kembali identitas.
+    record("Sel kembali ke kisinya setelah animasi lipat",
+           inv3c["transformIdentitas"] == ["matrix(1, 0, 0, 1, 0, 0)"], d3c)
+    record("Cap air tanda dibuang setelah jadi Adjoin",
+           inv3c["capAirDibuang"] == 0 and inv3c["tandaAutoDibuang"] == 0, d3c)
+    record("Label berubah jadi adj(A)",
+           "adj(A)" in inv3c["namaAdjoin"], d3c)
+    record("Skalar 1/8 berdiri sebaris tepat di depan kurung Adjoin",
+           inv3c["satuBaris"] is True and inv3c["skalarDiDepanKurung"] is True, d3c)
+    record("Adjoin TIDAK dikalikan pecahan ke tiap elemen",
+           inv3c["adjoinTidakDikali"] == inv3c["adjoin"], d3c)
+    record("Nol pergeseran pasangan skalar+matriks di ketiga langkah",
+           len({tuple(inv3c["sebelumLipat"]), tuple(inv3c["setelahLipat"]),
+                tuple(inv3c["setelahRakit"])}) == 1,
+           json.dumps([inv3c["sebelumLipat"], inv3c["setelahLipat"], inv3c["setelahRakit"]]))
+    record("Empat langkah tuntas dan Mini Kuis terbuka",
+           inv3c["checklist"] == ["done", "done", "done", "done"]
+           and inv3c["banner"] == 1 and inv3c["lanjutAktif"] is True, d3c)
 
     print("\n59. Layar 'Sub-topik selesai' besar & terpusat")
     # Diuji pada layar penutup SUNGGUHAN: Mini Kuis dikerjakan sampai tuntas,
@@ -4364,6 +4789,59 @@ def run(page, errors):
            intip55["lepasPointerleave"] is False, json.dumps(intip55)[:300])
     record("pointercancel pada tombol mata juga mengakhiri mengintip",
            intip55["lepasPointercancel"] is False, json.dumps(intip55)[:300])
+
+    # ==========================================================
+    # FASE 16 — PERSAMAAN MATRIKS
+    # ==========================================================
+
+    print("\n105. Fase 16 - Persamaan matriks: letak invers lalu hitung sendiri")
+    open_fresh(page, "#/belajar/03_determinan_invers/persamaan_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(900)
+
+    eq1 = page.evaluate(EQ_LETAK)
+    e1 = json.dumps(eq1)[:340]
+    record("Persamaan tampil sebagai balok A, X, dan B",
+           eq1["blok"] == ["A", "X", "B"] and eq1["jumlahSlot"] == 4, e1)
+    # Sisi yang salah HARUS memantul dan menjelaskan sebabnya — indikator
+    # merah sendirian tidak pernah cukup (kontrak §5 butir 3).
+    record("Sisi yang salah ditolak, tidak ada slot yang terisi",
+           eq1["salah"]["tidakAdaYangTerisi"] == 0, e1)
+    record("Penolakannya menjelaskan MENGAPA, menyebut sisi KIRI",
+           "sisi KIRI" in eq1["salah"]["toast"], e1)
+    record("Mengisi satu ruas saja diingatkan, belum melebur",
+           eq1["satuRuas"]["terisi"] == 1, e1)
+    record("Kedua ruas terisi -> melebur jadi I dan menyisakan X",
+           "X" in eq1["solved"] and eq1["chipHabis"] is True, e1)
+    # `renderMixed()` hanya mengenali `$…$`; `$$…$$` meninggalkan dolar mentah.
+    record("Bentuk penyelesaian dirender KaTeX, tanpa dolar mentah",
+           eq1["dolarMentah"] is False, e1)
+    record("Slot yang tidak terpakai disembunyikan, bukan dibiarkan '?'",
+           eq1["slotSisaTersembunyi"].count("hidden") == 2, e1)
+    record("Baris persamaan tidak berubah lebar setelah melebur",
+           eq1["sebelum"][0] == eq1["sesudah"][0]
+           and eq1["sebelum"][2] == eq1["sesudah"][2], e1)
+
+    eq2 = page.evaluate(EQ_HITUNG)
+    e2 = json.dumps(eq2)[:340]
+    record("Langkah 1 diredupkan, bukan dihapus, saat langkah 2 dimulai",
+           eq2["logicRedup"] is True, e2)
+    record("Matriks A-invers benar: [[1,-1],[-1,2]]",
+           eq2["invers"] == ["1", "-1", "-1", "2"], e2)
+    # Yang dipakai WAJIB mesin perkalian matriks (baris x kolom), bukan
+    # mesin pasangan seletak milik penjumlahan.
+    record("Mesin yang dipakai baris x kolom, bukan pasangan seletak",
+           eq2["barisTersorot"] == 2 and eq2["kolomTersorot"] == 2, e2)
+    record("Suku terbentuk dari baris kiri dan kolom kanan",
+           "(1×5)" in eq2["ekspresi"] and "(-1×3)" in eq2["ekspresi"], e2)
+    record("X dihitung siswa sendiri dan hasilnya benar: [2, 1]",
+           eq2["X"] == ["2", "1"], e2)
+    record("Sub-engine tidak memasang banner keduanya",
+           eq2["banner"] == 1, e2)
+    record("Dua langkah tuntas dan Mini Kuis terbuka",
+           eq2["checklist"] == ["done", "done"] and eq2["lanjutAktif"] is True, e2)
 
 
 def main():

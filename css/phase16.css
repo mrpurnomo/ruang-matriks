@@ -1,0 +1,282 @@
+/* ============================================================
+   phase16.css — Fase 16: Invers & Persamaan Matriks
+   DIMUAT PALING AKHIR, sesudah phase15.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. SKALAR DI DEPAN KURUNG
+
+   Bentuk akhir invers — di buku, di papan tulis, dan di lembar
+   jawaban TKA — selalu satu pecahan berdiri di depan kurung:
+   $\frac{1}{10}\begin{pmatrix}...\end{pmatrix}$. Slot ini yang
+   menampungnya, dan ruangnya dipesan sejak awal supaya ia tidak
+   pernah menggeser matriks saat muncul.
+   ------------------------------------------------------------ */
+.inv-scalar {
+  display: grid;
+  place-items: center;
+  min-width: 62px;
+  min-height: 62px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 2px dashed var(--border-soft);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 1.05rem;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+
+/* Slot yang sedang menunggu jatuhan: berdenyut supaya tujuannya
+   tidak perlu ditebak. */
+.inv-scalar--open {
+  border-color: var(--royal);
+  background: var(--blue-50);
+  animation: hlPulseBlueFill 1.6s ease-in-out infinite;
+}
+
+.inv-scalar--placed {
+  border-style: solid;
+  border-color: var(--success);
+  background: var(--bg-surface);
+  color: var(--ink);
+  animation: none;
+}
+
+/* Sudah terisi = bukan lagi kotak, melainkan bagian dari rumus. */
+.inv-scalar--placed { border-color: transparent; background: transparent; }
+
+.scalar-chip--fraction .katex { font-size: 1em; }
+
+.scalar-chip.is-spent {
+  opacity: .38;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------
+   2. MATRIKS KOFAKTOR — CAP AIR PAPAN CATUR
+
+   Pola $+/-$ ditulis sebagai CAP AIR di latar sel, bukan sebagai
+   isi. Kalau ia ditulis sebagai teks biasa, sel kosong bertanda
+   "−" akan terbaca sebagai sel yang sudah berisi nilai negatif —
+   dan siswa mengira delapan sel lain sudah terjawab.
+   ------------------------------------------------------------ */
+.cof-cell { position: relative; }
+
+.cof-cell__sign {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: .72rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  /* Sangat pucat: ia pengingat pola, bukan angka yang dibaca. */
+  opacity: .34;
+}
+
+.cof-cell--plus .cof-cell__sign { color: var(--royal); }
+.cof-cell--minus .cof-cell__sign { color: var(--magenta); }
+
+/* Sel yang diisi otomatis DITANDAI. Siswa tidak boleh mengira ia
+   yang mengerjakannya — lihat catatan di autoFillRest(). */
+.cof-cell__auto {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  opacity: .55;
+  pointer-events: none;
+}
+
+.cof-cell--auto { background: var(--bg-elevated); }
+
+/* Sel kofaktor yang sedang dikerjakan. */
+.cell--target {
+  border-color: var(--yellow) !important;
+  animation: hlPulseAmberFill 1.4s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------
+   3. PANEL MINOR
+
+   Sub-matriks 2×2 hasil pencoretan, beserta isian Mathpad-nya.
+   ------------------------------------------------------------ */
+.minor-panel-host {
+  display: grid;
+  place-items: center;
+}
+
+.minor-panel {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: center;
+  padding: var(--sp-3);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  box-shadow: var(--sh-1);
+  max-width: 100%;
+}
+
+.minor-panel__head,
+.minor-panel__foot {
+  font-size: .85rem;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.minor-panel__body {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.minor-panel__ask {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.minor-panel__label { font-size: 1rem; }
+
+/* Matriks minor sengaja lebih kecil daripada matriks induknya —
+   ia turunan, bukan soal baru. */
+.matrix--mini .cell {
+  width: clamp(38px, 4vw, 52px);
+  height: clamp(38px, 4vw, 52px);
+  font-size: .95rem;
+}
+
+/* ------------------------------------------------------------
+   4. INVERS 3×3 — kerangka langkah
+   ------------------------------------------------------------ */
+.inv3-host {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+  width: 100%;
+}
+
+/* Panel petunjuk milik sub-engine. Ia kosong sampai sub-engine
+   pertama dipasang, jadi tidak boleh menyisakan celah. */
+.inv3-subhint:empty { display: none; }
+
+/* Matriks yang sudah selesai tugasnya diredupkan, TIDAK dihapus:
+   siswa masih perlu melihat dari mana angkanya berasal. */
+.is-retired {
+  opacity: .45;
+  filter: saturate(.6);
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+/* ------------------------------------------------------------
+   5. PERSAMAAN MATRIKS
+   ------------------------------------------------------------ */
+.equation--solve {
+  width: 100%;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.equation__slot--filled {
+  border-style: solid;
+  border-color: var(--success);
+  color: var(--ink);
+}
+
+.symbol-chip--inv { min-width: 72px; }
+
+.symbol-chip.is-spent {
+  opacity: .38;
+  pointer-events: none;
+}
+
+.eqsolve-logic,
+.eqsolve-exec {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+  width: 100%;
+}
+
+.eqsolve-solved {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--blue-50);
+  border: 1px solid var(--brand-primary-line);
+}
+
+/* ------------------------------------------------------------
+   Lanskap pendek: panel minor dirapatkan agar tetap muat
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .minor-panel { padding: var(--sp-2); gap: 4px; }
+  .minor-panel__head, .minor-panel__foot { font-size: .78rem; }
+  .matrix--mini .cell { width: 34px; height: 34px; font-size: .85rem; }
+  .inv-scalar { min-width: 52px; min-height: 52px; padding: 4px var(--sp-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-scalar--open, .cell--target { animation: none; }
+}
+
+/* ------------------------------------------------------------
+   6. LABEL MATRIKS BERLEBAR TETAP
+
+   Nama matriks berubah di tengah simulasi: 'A' menjadi 'adj(A)',
+   'C (kofaktor)' menjadi 'adj(A)'. Karena label duduk DI ATAS
+   kurung, lebarnya ikut menentukan lebar `.matrix` — jadi setiap
+   pergantian teks menggeser matriksnya secara mendatar. Terukur
+   15px pada invers 2x2, tepat di detik siswa memperhatikan hasil
+   tukar-tanda. Lebarnya karena itu dipesan sejak awal, selebar
+   label terpanjang yang mungkin muncul.
+   ------------------------------------------------------------ */
+.matrix__name--reserved {
+  display: inline-block;
+  min-width: 12ch;
+  text-align: center;
+}
+
+/* Pecahan dan kurung yang ia kalikan TIDAK BOLEH terpisah baris.
+   `nowrap` di sini yang menjaganya; baris panggung di luarnya tetap
+   boleh membungkus seperti biasa. */
+.inv-scalar-pair {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: nowrap;
+}
+
+/* ------------------------------------------------------------
+   7. EKSPRESI DETERMINAN BERLEBAR TETAP
+
+   `.stage` di lanskap adalah baris yang MEMBUNGKUS
+   (`flex-direction: row; flex-wrap: wrap`), jadi seluruh barisnya
+   berbagi satu jalur dan lebar salah satu anggota menentukan
+   posisi anggota lain. Begitu ekspresi determinan berubah dari
+   "ad - bc = ?" menjadi "12 - 2 = 10", lebarnya bertambah dan
+   matriks di sebelahnya bergeser — terukur 8px, tepat saat siswa
+   memperhatikan hasil hitungannya sendiri.
+
+   Ini bukan bug Fase 16: perilakunya sudah ada sejak ekspresi ini
+   dipakai `det2x2`, hanya belum pernah diukur. Lebar tiap suku
+   dipesan supaya angka yang masuk tidak mendorong apa pun.
+   ------------------------------------------------------------ */
+.det-expr__term,
+.det-expr__result {
+  display: inline-block;
+  /* 4ch: cukup untuk "ad"/"bc" maupun angka tiga digit bertanda.
+     Diukur, bukan ditaksir — 2.6ch masih menyisakan geser 6px. */
+  min-width: 4ch;
+  text-align: center;
+}

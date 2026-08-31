@@ -144,12 +144,11 @@ Cara mengingat pola perubahan matriksnya: **"tukar posisi diagonal utama, balik 
 
 ### B. Kegiatan Interaktif / Simulasi Terpandu
 
-Simulasi ini berjalan dalam 4 tahap berurutan, masing-masing dengan mekanisme drag berbeda:
+Simulasi ini berjalan dalam **3 tahap berurutan**, seluruhnya lewat ketuk-ketuk (bukan drag) karena elemen matriks terlalu kecil untuk diseret dengan presisi di layar sentuh. Matriks yang dipakai: $A = \begin{pmatrix} 3 & 1 \\ 2 & 4 \end{pmatrix}$.
 
-1. **Swap diagonal utama:** kamu men-drag elemen $a$ dan $d$ **saling bertukar posisi** sekaligus — animasi menampilkan dua lintasan melengkung yang saling menyilang (seperti dua pesawat yang saling menyalip di udara), keduanya mendarat di posisi seberangnya secara bersamaan.
-2. **Balik tanda diagonal sekunder:** elemen $b$ dan $c$ masing-masing kamu drag ke sebuah **"gerbang tanda"** (ikon ⊖) di sisi matriks — begitu melewati gerbang, chip berputar $180°$ pada porosnya (efek *flip* kartu) dan muncul di sisi lain dengan tanda terbalik (mis. $3$ menjadi $-3$).
-3. **Hitung determinan:** sistem menampilkan versi ringkas simulasi determinan dari sub-topik 1 menggunakan nilai **matriks asli** (bukan matriks hasil swap), menghasilkan nilai $\det(A)$ dan otomatis membentuk pecahan $\frac{1}{\det(A)}$ sebagai chip skalar baru berwarna amber.
-4. **Sapukan skalar pecahan:** sama seperti perkalian skalar biasa (Bab 2), kamu men-drag chip pecahan $\frac{1}{\det(A)}$ menyapu seluruh matriks hasil swap-and-flip, memicu animasi staggered yang mengubah setiap elemen menjadi pecahan akhirnya. Hasil akhir inilah $A^{-1}$.
+1. **Hitung determinan sendiri:** kamu mengetuk kedua elemen diagonal utama (biru), lalu kedua elemen diagonal sekunder (oranye) — mekanik yang sama persis dengan sub-topik 1. Hasilnya $\det(A) = 12 - 2 = 10$, dan angka itulah yang dipakai tahap 3. Kalau hasilnya nol, prosesnya berhenti di situ dengan penjelasan: matriks singular tidak punya invers.
+2. **Susun adjoin:** ketuk kedua elemen **diagonal utama** untuk **menukar posisinya** (animasi dua lintasan melengkung yang saling menyilang), lalu ketuk kedua elemen **diagonal sekunder** untuk **membalik tandanya** (chip berputar $180°$ pada porosnya, efek *flip* kartu). Label matriksnya berubah menjadi $\text{adj}(A)$ begitu keduanya selesai.
+3. **Pasang skalar di depan kurung:** chip pecahan $\frac{1}{10}$ muncul, dan kamu membawanya ke sebuah slot **tepat di depan kurung** matriks adjoin. Skalarnya **tidak** dikalikan masuk ke tiap sel — hasil akhirnya berbentuk $A^{-1} = \frac{1}{10}\begin{pmatrix} 4 & -1 \\ -2 & 3 \end{pmatrix}$, persis bentuk yang ditulis di papan tulis dan di lembar jawaban TKA. Perkalian skalar ke tiap elemen sudah punya sub-topiknya sendiri di Bab 2; mengulangnya di sini hanya menambah ketukan tanpa menambah konsep.
 
 ### C. Mini Kuis
 
@@ -177,17 +176,22 @@ Perhatikan bagaimana bab ini "menagih" semua yang sudah kamu pelajari sebelumnya
 
 ### B. Kegiatan Interaktif / Simulasi Terpandu
 
-Karena kompleksitasnya, simulasi ini disajikan sebagai **alur 4 kartu besar** yang harus diselesaikan berurutan (mirip papan Kanban), bukan drag elemen individual seperti invers $2\times2$:
+Simulasi ini berjalan dalam **4 langkah berurutan** pada matriks $A = \begin{pmatrix} 1 & 2 & 1 \\ 0 & 1 & 3 \\ 2 & 1 & 1 \end{pmatrix}$. Tiga dari empat langkahnya memakai ulang mesin simulasi yang sudah kamu kenal — memang itu maksudnya: bab ini menagih semua yang sudah dipelajari.
 
-1. **Kartu "Determinan"**: menjalankan simulasi Metode Sarrus (sub-topik 2) pada matriks yang diberikan, hasilnya disematkan otomatis untuk dipakai kartu terakhir.
-2. **Kartu "Kofaktor"**: matriks $3\times3$ ditampilkan dengan 9 sel yang bisa diklik satu per satu. Mengklik satu sel memicu overlay yang menyoroti (mem-fade sisa matriks) **baris dan kolom yang harus dicoret** untuk sel tersebut, menyisakan sub-matriks $2\times2$ yang harus kamu hitung determinannya (drag elemen diagonal seperti sub-topik 1) untuk mengisi nilai kofaktor di sel itu — diulang untuk kesembilan sel, dengan tanda $+/-$ pola papan catur otomatis ditampilkan sebagai latar sel.
-3. **Kartu "Transpose"**: matriks kofaktor yang baru saja selesai otomatis masuk ke simulasi transpose "lipat diagonal" (identik dengan Bab 1 sub-topik 4), menghasilkan Adjoin.
-4. **Kartu "Sapukan Skalar"**: chip pecahan $\frac{1}{\det(A)}$ (dari Kartu 1) disapukan ke seluruh Adjoin (animasi staggered seperti perkalian skalar), menghasilkan $A^{-1}$ final.
+1. **Langkah "Determinan"**: simulasi Metode Sarrus (sub-topik 2) muncul apa adanya di sini. Kamu menyalin dua kolom, lalu mengetuk keenam diagonalnya seperti biasa. Hasilnya $\det(A) = 13 - 5 = 8$, dan angka itulah yang dipakai langkah terakhir. Kalau hasilnya nol, prosesnya berhenti dengan penjelasan.
+2. **Langkah "Kofaktor"**: matriks kofaktor kosong ditampilkan di samping $A$, dengan pola papan catur $+/-$ sebagai **cap air** yang sangat pucat di sudut tiap sel — pengingat pola $(-1)^{i+j}$, bukan nilai yang bisa disalahartikan sebagai jawaban.
+   Kamu **menghitung sendiri tiga kofaktor**: $c_{11}$, $c_{12}$, dan $c_{23}$. Mengetuk salah satunya menggambar **garis coret** pada baris dan kolom yang bersangkutan di matriks $A$, menyisakan sub-matriks $2\times2$ yang determinannya kamu isi lewat papan angka. Tandanya baru diterapkan sesudah itu, dan diucapkan terus terang di layar (mis. *"minornya $-3$, tapi sel ini bertanda −, jadi kofaktornya menjadi $3$"*).
+   Ketiga sel itu sengaja dipilih agar mencakup **kedua** tanda papan catur: $c_{11}$ positif, $c_{12}$ dan $c_{23}$ negatif — jadi aturan tandanya benar-benar teruji, bukan kebetulan lolos.
+   Enam sel sisanya kemudian **diisi otomatis** dengan animasi berurutan cepat, dan sel-sel itu **ditandai `auto`** supaya jelas mana yang kerjamu dan mana yang bukan. Alasannya jujur: setelah kofaktor ketiga, sel keempat sampai kesembilan tidak lagi mengajarkan apa pun — mekaniknya sudah persis sama, yang bertambah hanya kelelahan.
+3. **Langkah "Transpose"**: tombol **"Ubah ke Adjoin"** menjalankan animasi **lipat diagonal** (fungsi yang sama dengan sub-topik Transpose di Bab 1) — segitiga atas dan bawah bertukar tempat, dan label matriksnya berubah menjadi $\text{adj}(A)$.
+4. **Langkah "Perakitan"**: chip $\frac{1}{8}$ kamu bawa ke slot **di depan kurung** Adjoin, menghasilkan $A^{-1} = \frac{1}{8}\begin{pmatrix} -2 & -1 & 5 \\ 6 & -1 & -3 \\ -2 & 3 & 1 \end{pmatrix}$ — bentuk yang sama dengan invers $2\times2$, hanya ukurannya berbeda.
 
 ### C. Mini Kuis
 
-1. Sebutkan urutan 4 tahap Metode Adjoin untuk mencari invers matriks $3\times3$ (tanpa perlu menghitung angka).
-2. Diketahui matriks $A$ berordo $3\times3$ memiliki $\det(A) = 0$. Apakah proses mencari Adjoin$(A)$ masih ada gunanya jika tujuan akhirnya adalah mencari $A^{-1}$? Jelaskan.
+1. Diberikan matriks $A = \begin{pmatrix} 1 & 2 & 1 \\ 0 & 1 & 3 \\ 2 & 1 & 1 \end{pmatrix}$. Tentukan **kofaktor baris ke-2 kolom ke-3**, yaitu $c_{23}$.
+   *(Coret baris 2 dan kolom 3, hitung determinan minor $2\times2$ yang tersisa, lalu terapkan tanda $(-1)^{2+3}$.)*
+2. Jika diketahui $\det(P) = 4$ dan $\text{Adj}(P) = \begin{pmatrix} 4 & 0 & -8 \\ -2 & 4 & 2 \\ 2 & 0 & -2 \end{pmatrix}$, tuliskan bentuk akhir $P^{-1}$.
+   *(Perhatikan: Adjoin dipakai apa adanya — ia sudah hasil transpose matriks kofaktor, jadi tidak perlu ditranspose lagi.)*
 
 ---
 
@@ -206,10 +210,17 @@ Kenapa posisinya harus konsisten di kedua ruas? Karena mengalikan kedua ruas per
 
 Persamaan matriks ditampilkan sebagai balok-balok simbol yang bisa di-drag, misalnya $\boxed{A} \boxed{X} = \boxed{B}$. Di samping, tersedia chip $\boxed{A^{-1}}$ yang siap di-drag.
 
-1. Kamu men-drag chip $A^{-1}$ ke **kedua ruas persamaan sekaligus** (satu gerakan drag yang menempel di kedua sisi tanda "="), pada posisi (kiri/kanan) yang kamu pilih sendiri.
-2. Sistem memeriksa: jika posisi yang kamu pilih benar (sesuai bentuk $AX=B$ atau $XA=B$ pada soal), animasi menunjukkan $A^{-1}$ dan $A$ yang saling bersebelahan **melebur menjadi $I$** lalu **menghilang** (fade out) dari persamaan, karena $I$ dikalikan matriks lain tidak mengubah apa pun (sifat identitas dari Bab 2) — meninggalkan $X$ berdiri sendiri di satu ruas.
-3. Jika posisi salah (mis. $A^{-1}$ diletakkan di kanan padahal bentuknya $AX=B$), chip $A^{-1}$ dan $A$ **tidak bertemu** (posisinya terpisah oleh $X$), sistem menampilkan animasi "gagal bertemu" (chip memantul kembali), dan sebuah **Toast** menjelaskan sebabnya secara eksplisit, misalnya *"Belum bertemu — karena bentuknya $AX=B$, $A^{-1}$ harus dikalikan dari sisi kiri (depan) pada kedua ruas agar bisa bertemu langsung dengan $A$."*
-4. Setelah $X$ berdiri sendiri, sisi lain persamaan (mis. $A^{-1}B$) dihitung memakai simulasi perkalian matriks penuh (Bab 2 sub-topik 4), menghasilkan matriks $X$ akhir.
+Simulasi ini punya **dua langkah**, dan keduanya mengajarkan hal yang berbeda: yang pertama menguji **letak** invers, yang kedua menagih **hitungannya**.
+
+**Langkah 1 — letak invers.** Persamaan ditampilkan sebagai balok simbol $\boxed{A}\,\boxed{X} = \boxed{B}$ dengan slot kosong di kiri dan kanan tiap ruas. Chip $\boxed{A^{-1}}$ bisa kamu seret — atau ketuk chipnya lalu ketuk slotnya, karena setiap seretan di aplikasi ini selalu punya pasangan ketuk-ketuk.
+
+1. Jika kamu menaruhnya di sisi **yang salah** (mis. di kanan $A$ padahal bentuknya $AX=B$, sehingga susunannya menjadi $A\,X\,A^{-1}$), chip **memantul kembali** dan sebuah **Toast** menjelaskan sebabnya: *"Salah posisi! Karena bentuknya $AX = B$, $A^{-1}$ harus ditaruh di sisi kiri pada kedua ruas agar bertemu dengan $A$."* Pantulan tanpa penjelasan hanya memberi tahu "salah", bukan "kenapa".
+2. Jika kamu menaruhnya di sisi **kiri**, persamaan menjadi $A^{-1}A\,X = A^{-1}B$. Kedua ruas harus dikalikan — persamaan harus tetap seimbang, jadi menaruh di satu ruas saja belum cukup dan sistem mengingatkannya.
+3. Begitu keduanya terisi, $A^{-1}$ dan $A$ yang kini bersebelahan **melebur menjadi $I$** lalu **menghilang** (karena $I$ tidak mengubah apa pun — sifat identitas dari Bab 2), menyisakan $X = A^{-1}B$.
+
+**Langkah 2 — hitung sendiri.** Matriks angka sungguhannya muncul, dan simulasi **perkalian matriks** dari Bab 2 dipakai apa adanya: pilih sel hasil, bawa pasangan elemen **baris × kolom**, lalu tekan tombol hitung. Bentuk $X = A^{-1}B$ tidak pernah dicetak lengkap sebagai rumus jadi — kamu yang mengalikannya.
+
+> **Catatan mekanik.** Yang dipakai di langkah 2 adalah mesin **perkalian matriks**, bukan mesin pasangan seletak yang dipakai penjumlahan. Keduanya sama-sama "ketuk pasangan" sehingga mudah tertukar, tetapi matematikanya berbeda: pasangan seletak memasangkan $a_{ij}$ dengan $b_{ij}$ (itu penjumlahan), sedangkan $A^{-1}B$ menuntut baris dikali kolom.
 
 ### C. Mini Kuis
 

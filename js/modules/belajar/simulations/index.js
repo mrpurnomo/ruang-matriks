@@ -16,7 +16,7 @@ import {
 
 import {
   Det2x2Sim, Det3x3SarrusSim, SingularCheckSim, PropertyCalculatorSim,
-  Inverse2x2Sim, AdjointFlowSim, MatrixEquationSim,
+  Inverse2x2Sim, Inverse3x3Sim, EquationSolverSim,
 } from './simDetInv.js';
 
 import {
@@ -45,8 +45,14 @@ export const SIMULATION_REGISTRY = {
   singular_check: SingularCheckSim,
   property_calculator: PropertyCalculatorSim,
   inverse2x2: Inverse2x2Sim,
-  adjoint_flow: AdjointFlowSim,
-  matrix_equation: MatrixEquationSim,
+  inverse3x3: Inverse3x3Sim,
+  equation_solver: EquationSolverSim,
+
+  // Nama lama tetap dikenali. `adjoint_flow` dan `matrix_equation` sempat
+  // dipakai di JSON sebelum Fase 16; membiarkannya menganggur berarti satu
+  // salah ketik di data akan menampilkan empty-state alih-alih simulasinya.
+  adjoint_flow: Inverse3x3Sim,
+  matrix_equation: EquationSolverSim,
 
   data_translation: DataTranslationSim,
   spl_solver: SplSolverSim,
