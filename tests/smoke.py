@@ -216,7 +216,9 @@ PAPAN_INTIP = """() => new Promise(resolve => {
         eye.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true,
             cancelable: true, pointerId: 9, isPrimary: true, button: 0 }));
 
-        // Transisinya 90ms; 250ms sudah pasti tuntas.
+        // Transisinya dinaikkan jadi 200ms di Fase 15.5 (lihat phase15.css §4),
+        // jadi jedanya ikut naik 250 -> 400ms. Dengan 250ms sisa marginnya
+        // tinggal 50ms — cukup untuk lolos, tidak cukup untuk bisa dipercaya.
         setTimeout(() => {
             out.saatDitahan = vis();
             const ink = window.__padInk();
@@ -225,8 +227,9 @@ PAPAN_INTIP = """() => new Promise(resolve => {
                 out.gambarDiabaikan = window.__padInk() === ink
                                    && pad.state.strokes === out.strokesAwal;
 
-                // Dilepas di `window`: saat mengintip, tombolnya sendiri
-                // `pointer-events: none`, jadi pointerup di atasnya tak sampai.
+                // Dilepas di `window`: jaring pengaman untuk jari yang digeser
+                // ke luar panggung. Pelepasan di TOMBOLNYA sendiri diuji
+                // terpisah di bagian 104.
                 window.dispatchEvent(new PointerEvent('pointerup',
                     { bubbles: true, pointerId: 9, isPrimary: true }));
                 setTimeout(() => {
@@ -237,11 +240,206 @@ PAPAN_INTIP = """() => new Promise(resolve => {
                         out.gambarHidupLagi = window.__padInk() > ink2
                             && pad.state.strokes === out.strokesAwal + 1;
                         resolve(out);
+                    }, 400);
+                }, 400);
+            }, 400);
+        }, 400);
+    }, 250);
+})"""
+
+
+# ============================================================
+# Skrip peramban untuk bagian regresi Fase 15.5 (104).
+# ============================================================
+
+# Perkakas bersama bagian 104: pointer sintetis yang bisa MEMBAWA titik
+# gabungan, sesuatu yang tidak dimiliki `__padDraw`.
+PAPAN55_ALAT = """
+    const cv = window.__padCv, ctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const btn = (l) => document.querySelector('[aria-label="' + l + '"]');
+    const pe = (x, y, t) => { const r = cv.getBoundingClientRect();
+        return new PointerEvent(t, { bubbles: true, cancelable: true,
+            clientX: r.left + x, clientY: r.top + y, pointerId: 1,
+            pointerType: 'pen', isPrimary: true, button: 0, buttons: 1 }); };
+    const garis = (y, x0, x1) => {
+        cv.dispatchEvent(pe(x0, y, 'pointerdown'));
+        for (let x = x0 + 20; x <= x1; x += 20) cv.dispatchEvent(pe(x, y, 'pointermove'));
+        cv.dispatchEvent(pe(x1, y, 'pointerup')); };
+    const tegak = (x, y0, y1) => {
+        cv.dispatchEvent(pe(x, y0, 'pointerdown'));
+        for (let y = y0 + 20; y <= y1; y += 20) cv.dispatchEvent(pe(x, y, 'pointermove'));
+        cv.dispatchEvent(pe(x, y1, 'pointerup')); };
+    const ketuk = (x, y) => { cv.dispatchEvent(pe(x, y, 'pointerdown'));
+                              cv.dispatchEvent(pe(x, y, 'pointerup')); };
+    const tintaBaris = (y, x0, lebar) => {
+        const d = ctx.getImageData(Math.round(x0 * dpr), Math.round(y * dpr),
+                                   Math.round(lebar * dpr), 1).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n; };
+"""
+
+# --- Bagian 1: sapuan cepat harus menghasilkan garis UTUH ---
+#
+# Kuncinya `getCoalescedEvents()` yang ditimpa supaya SATU peristiwa gerak
+# membawa enam titik sekaligus — persis yang dilakukan peramban saat jari
+# disapu cepat, dan persis yang TIDAK bisa ditiru peristiwa sintetis biasa
+# (untuk peristiwa buatan, fungsi itu selalu mengembalikan array kosong).
+# Tanpa penimpaan ini, pengujiannya akan lolos pada kode yang rusak sekalipun.
+PAPAN55_SAPU = """() => new Promise(resolve => {
+    """ + PAPAN55_ALAT + """
+    btn('Hapus semua').click();
+    btn('Pena').click();
+
+    const r = cv.getBoundingClientRect();
+    const Y = Math.round(r.height * 0.18);
+    const x0 = Math.round(r.width * 0.08);
+    const xe = Math.round(r.width * 0.55);
+    const langkah = Math.round((xe - x0) / 6);
+    const xs = [1, 2, 3, 4, 5, 6].map(i => x0 + i * langkah);
+
+    const gerak = pe(xs[xs.length - 1], Y, 'pointermove');
+    const gabungan = xs.map(x => pe(x, Y, 'pointermove'));
+    Object.defineProperty(gerak, 'getCoalescedEvents', { value: () => gabungan });
+
+    cv.dispatchEvent(pe(x0, Y, 'pointerdown'));
+    cv.dispatchEvent(gerak);
+    cv.dispatchEvent(pe(xs[xs.length - 1], Y, 'pointerup'));
+
+    setTimeout(() => {
+        const px0 = Math.round(x0 * dpr), px1 = Math.round(xs[xs.length - 1] * dpr);
+        const baris = ctx.getImageData(px0, Math.round(Y * dpr), px1 - px0, 1).data;
+        let celah = 0, celahMaks = 0, bertinta = 0;
+        for (let i = 3; i < baris.length; i += 4) {
+            if (baris[i] > 0) { bertinta++; celah = 0; }
+            else { celah++; if (celah > celahMaks) celahMaks = celah; }
+        }
+        resolve({ strokes: window.__padS.state.strokes,
+                  titikDibawa: xs.length + 1,
+                  lebarPindai: px1 - px0,
+                  bertinta: bertinta,
+                  celahPx: Math.round(celahMaks / dpr) });
+    }, 200);
+})"""
+
+# --- Bagian 2: penghapus GORESAN, bukan penghapus piksel ---
+PAPAN55_HAPUS = """() => new Promise(resolve => {
+    """ + PAPAN55_ALAT + """
+    const pad = window.__padS, out = {};
+
+    btn('Hapus semua').click();
+    btn('Pena').click();
+    garis(140, 80, 400);
+    garis(260, 80, 400);
+
+    setTimeout(() => {
+        out.awal = { strokes: pad.state.strokes,
+                     barisA: tintaBaris(140, 70, 350),
+                     barisB: tintaBaris(260, 70, 350) };
+
+        btn('Penghapus').click();
+        ketuk(240, 400);                     // jauh dari kedua goresan
+        setTimeout(() => {
+            out.ketukKosong = { strokes: pad.state.strokes,
+                                barisA: tintaBaris(140, 70, 350) };
+
+            ketuk(240, 140);                 // TEPAT di atas goresan A
+            setTimeout(() => {
+                out.ketukDiGoresan = { strokes: pad.state.strokes,
+                                       barisA: tintaBaris(140, 70, 350),
+                                       barisB: tintaBaris(260, 70, 350) };
+
+                btn('Urungkan').click();
+                setTimeout(() => {
+                    out.setelahUndo = { strokes: pad.state.strokes,
+                                        barisA: tintaBaris(140, 70, 350) };
+
+                    // Satu sapuan mendatar memotong TIGA garis tegak.
+                    btn('Hapus semua').click();
+                    btn('Pena').click();
+                    tegak(120, 90, 300); tegak(200, 90, 300); tegak(280, 90, 300);
+                    setTimeout(() => {
+                        out.sebelumSapu = pad.state.strokes;
+                        btn('Penghapus').click();
+                        cv.dispatchEvent(pe(80, 200, 'pointerdown'));
+                        for (let x = 100; x <= 320; x += 10)
+                            cv.dispatchEvent(pe(x, 200, 'pointermove'));
+                        cv.dispatchEvent(pe(320, 200, 'pointerup'));
+                        setTimeout(() => {
+                            out.setelahSapu = pad.state.strokes;
+                            // SATU sapuan = SATU langkah undo, walau tiga
+                            // goresan yang terbawa.
+                            btn('Urungkan').click();
+                            setTimeout(() => {
+                                out.setelahSatuUndo = pad.state.strokes;
+                                out.penghapusTidakMenambahGoresan =
+                                    pad.state.strokes === out.sebelumSapu;
+                                resolve(out);
+                            }, 250);
+                        }, 250);
                     }, 250);
                 }, 250);
             }, 250);
         }, 250);
     }, 250);
+})"""
+
+# --- Bagian 3: kanvas PADAT & transisi mengintip ---
+PAPAN55_PADAT = """() => {
+    const cv = window.__padCv, cs = getComputedStyle(cv);
+    return {
+        latar: cs.backgroundColor,
+        adaPetak: cs.backgroundImage !== 'none',
+        durasi: cs.transitionDuration,
+        easing: cs.transitionTimingFunction,
+        opacity: cs.opacity,
+    };
+}"""
+
+PAPAN55_INTIP = """() => new Promise(resolve => {
+    const pad = window.__padS, cv = window.__padCv;
+    const eye = document.querySelector('.pad__peek');
+    const out = {};
+    const ppe = (t) => new PointerEvent(t, { bubbles: true, cancelable: true,
+        pointerId: 9, isPrimary: true, button: 0 });
+
+    eye.dispatchEvent(ppe('pointerdown'));
+
+    // Diintip di TENGAH transisi: kalau nilainya langsung 0, berarti ia
+    // berpindah seketika dan bukan memudar.
+    setTimeout(() => {
+        out.diTengahTransisi = parseFloat(getComputedStyle(cv).opacity);
+        setTimeout(() => {
+            out.saatDitahan = { peeking: pad.state.peeking,
+                                opacity: getComputedStyle(cv).opacity,
+                                // Tombolnya WAJIB tetap bisa menerima pointer,
+                                // kalau tidak `pointerup` di atasnya hilang.
+                                tombolPe: getComputedStyle(eye).pointerEvents };
+
+            eye.dispatchEvent(ppe('pointerup'));      // dilepas DI TOMBOLNYA
+            setTimeout(() => {
+                out.lepasDiTombol = { peeking: pad.state.peeking,
+                                      opacity: getComputedStyle(cv).opacity };
+
+                eye.dispatchEvent(ppe('pointerdown'));
+                setTimeout(() => {
+                    eye.dispatchEvent(new PointerEvent('pointerleave',
+                        { bubbles: false, pointerId: 9 }));
+                    setTimeout(() => {
+                        out.lepasPointerleave = pad.state.peeking;
+
+                        eye.dispatchEvent(ppe('pointerdown'));
+                        setTimeout(() => {
+                            eye.dispatchEvent(ppe('pointercancel'));
+                            setTimeout(() => {
+                                out.lepasPointercancel = pad.state.peeking;
+                                resolve(out);
+                            }, 400);
+                        }, 250);
+                    }, 400);
+                }, 250);
+            }, 400);
+        }, 350);
+    }, 90);
 })"""
 
 PAPAN_SIAP_RESIZE = """() => {
@@ -4099,6 +4297,73 @@ def run(page, errors):
            rute["strokes"] == 0 and rute["ink"] == 0, json.dumps(rute))
     record("Tidak ada papan/tombol yang menumpuk antar-rute",
            rute["instances"] == 1 and rute["fabs"] == 1, json.dumps(rute))
+
+    # ==========================================================
+    # FASE 15.5 — POLES PAPAN CORET
+    # (melanjutkan papan yang baru dibuka di rute transpose)
+    # ==========================================================
+
+    print("\n104. Fase 15.5 - Garis bersambung, penghapus goresan, kanvas padat")
+
+    sapu = page.evaluate(PAPAN55_SAPU)
+    # Satu peristiwa gerak membawa 7 titik. Algoritma lama hanya menggambar
+    # ruas TERAKHIR, menyisakan celah ratusan piksel — terukur 288px saat
+    # dibandingkan langsung. Yang benar tidak menyisakan celah sama sekali.
+    record("Sapuan cepat (titik gabungan) menghasilkan garis tanpa celah",
+           sapu["celahPx"] <= 2, json.dumps(sapu)[:260])
+    record("Seluruh lintasan sapuan cepat tergambar, bukan ruas terakhirnya saja",
+           sapu["bertinta"] >= sapu["lebarPindai"] - 4, json.dumps(sapu)[:260])
+    record("Sapuan cepat tetap tercatat sebagai SATU goresan",
+           sapu["strokes"] == 1, json.dumps(sapu)[:260])
+
+    hapus = page.evaluate(PAPAN55_HAPUS)
+    record("Penghapus di ruang kosong tidak membuang goresan apa pun",
+           hapus["ketukKosong"]["strokes"] == 2
+           and hapus["ketukKosong"]["barisA"] == hapus["awal"]["barisA"],
+           json.dumps(hapus)[:300])
+    record("Satu ketukan penghapus membuang SATU goresan utuh",
+           hapus["ketukDiGoresan"]["strokes"] == 1
+           and hapus["ketukDiGoresan"]["barisA"] == 0,
+           json.dumps(hapus)[:300])
+    record("Goresan lain tidak ikut terhapus",
+           hapus["ketukDiGoresan"]["barisB"] == hapus["awal"]["barisB"],
+           json.dumps(hapus)[:300])
+    record("Urungkan mengembalikan goresan yang dihapus, utuh",
+           hapus["setelahUndo"]["strokes"] == 2
+           and hapus["setelahUndo"]["barisA"] == hapus["awal"]["barisA"],
+           json.dumps(hapus)[:300])
+    record("Satu sapuan penghapus bisa membuang beberapa goresan sekaligus",
+           hapus["sebelumSapu"] == 3 and hapus["setelahSapu"] == 0,
+           json.dumps(hapus)[:300])
+    record("Sapuan penghapus itu satu langkah undo, bukan tiga",
+           hapus["setelahSatuUndo"] == 3, json.dumps(hapus)[:300])
+    record("Penghapus tidak meninggalkan goresan bayangan di tumpukan",
+           hapus["penghapusTidakMenambahGoresan"] is True, json.dumps(hapus)[:300])
+
+    padat = page.evaluate(PAPAN55_PADAT)
+    # `rgb(...)` tanpa alfa = benar-benar padat. `rgba(...)` apa pun berarti
+    # soal di bawahnya masih menembus, dan itulah yang dikeluhkan UAT.
+    record("Kanvas papan coret berlatar PADAT, bukan tembus pandang",
+           padat["latar"] == "rgb(255, 255, 255)", json.dumps(padat)[:260])
+    record("Latar kanvas memakai pola titik kertas berpetak",
+           padat["adaPetak"] is True, json.dumps(padat)[:260])
+    record("Transisi mengintip 0.2s ease-in-out",
+           padat["durasi"].startswith("0.2s") and "ease-in-out" in padat["easing"],
+           json.dumps(padat)[:260])
+
+    intip55 = page.evaluate(PAPAN55_INTIP)
+    record("Mengintip MEMUDAR, bukan berpindah seketika",
+           0.05 < intip55["diTengahTransisi"] < 0.95, json.dumps(intip55)[:300])
+    record("Tombol mata tetap menerima pointer selama mengintip",
+           intip55["saatDitahan"]["peeking"] is True
+           and intip55["saatDitahan"]["tombolPe"] == "auto", json.dumps(intip55)[:300])
+    record("Melepas DI TOMBOL mata mengakhiri mengintip",
+           intip55["lepasDiTombol"]["peeking"] is False
+           and intip55["lepasDiTombol"]["opacity"] == "1", json.dumps(intip55)[:300])
+    record("pointerleave pada tombol mata juga mengakhiri mengintip",
+           intip55["lepasPointerleave"] is False, json.dumps(intip55)[:300])
+    record("pointercancel pada tombol mata juga mengakhiri mengintip",
+           intip55["lepasPointercancel"] is False, json.dumps(intip55)[:300])
 
 
 def main():

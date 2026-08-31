@@ -66,22 +66,49 @@
 
 .pad[hidden] { display: none; }
 
+/* Latar PADAT (Fase 15.5).
+ *
+ * Sebelumnya lapisan ini setengah tembus (`rgba(255,255,255,.72)`) supaya
+ * matriks di bawahnya tetap terbaca. Di lapangan, justru itu masalahnya:
+ * coretan hitung-hitungan menumpuk tepat di atas matriks 3×3 yang juga
+ * penuh angka, dan mata siswa harus memisahkan dua lapisan angka sekaligus.
+ * Kertas asli tidak pernah tembus pandang.
+ *
+ * Titik-titiknya (kertas berpetak halus) memberi patokan menulis lurus tanpa
+ * ikut terbaca sebagai isi. Nilai alfanya sangat rendah — ia harus terasa,
+ * bukan terlihat.
+ *
+ * ⚠️ Latar ini WAJIB tetap di CSS, jangan dicat ke dalam bitmap kanvas:
+ * `getImageData` dipakai pengujian untuk menghitung piksel TINTA, dan
+ * mengecat latarnya ke bitmap akan membuat seluruh piksel ber-alfa penuh
+ * sehingga "papan kosong" tidak bisa lagi dibedakan dari papan penuh.
+ * Ia juga harus tetap satu elemen dengan kanvas supaya "Mengintip" cukup
+ * memudarkan satu lapisan. */
 .pad__canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  /* Latar tipis: cukup untuk menandai "ini lapisan coret", masih
-     tembus supaya matriks di bawahnya tetap terbaca sambil
-     menghitung. */
-  background: rgba(255, 255, 255, .72);
+  background-color: #ffffff;
+  background-image: radial-gradient(circle,
+    rgba(10, 27, 69, .10) 1px, transparent 1.25px);
+  background-size: 22px 22px;
+  background-position: -1px -1px;
   cursor: crosshair;
   /* Wajib: tanpa ini, menggeser jari di kanvas akan menggulir
      panggung, bukan menggambar. */
   touch-action: none;
 }
 
-.pad[data-tool="eraser"] .pad__canvas { cursor: cell; }
+/* Penghapus goresan: kursornya sebuah LINGKARAN seukuran jangkauan
+   nyatanya (ERASER_REACH = 12px → diameter 24px). Kursor `cell`
+   yang lama tidak memberi tahu apa pun tentang seberapa jauh alat
+   ini menjangkau, padahal di penghapus per-goresan justru itulah
+   yang perlu diketahui siswa: menyenggol sedikit saja sudah cukup
+   membuang satu simbol utuh. */
+.pad[data-tool="eraser"] .pad__canvas {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="11.5" fill="rgba(255,255,255,0.55)" stroke="%230A1B45" stroke-width="1.5"/></svg>') 13 13, cell;
+}
 
 /* ------------------------------------------------------------
    3. BILAH ALAT MENGAMBANG (gaya Samsung Notes)
@@ -210,18 +237,24 @@
 /* ------------------------------------------------------------
    4. MENGINTIP (peek)
 
-   Ditahan, bukan diklik: seluruh lapisan coret lenyap seketika
-   supaya soal di bawahnya terbaca, lalu kembali begitu dilepas.
+   Ditahan, bukan diklik: seluruh lapisan coret memudar sampai
+   tembus pandang supaya soal di bawahnya terbaca, lalu kembali
+   begitu dilepas.
 
-   Transisinya sengaja SANGAT cepat (90ms) — gerakan ini harus
-   terasa seperti mengangkat kertas, bukan seperti animasi.
+   Durasinya dinaikkan 90ms → 200ms di Fase 15.5. Sejak latarnya
+   PADAT, yang berpindah bukan lagi selapis coretan tipis
+   melainkan seluruh bidang putih: pergantian 90ms pada bidang
+   sebesar panggung terbaca sebagai KEDIP, bukan sebagai kertas
+   yang diangkat. `ease-in-out` membuat awal & akhirnya melunak,
+   jadi matanya sempat menyesuaikan.
+
    `pointer-events: none` ikut dipasang supaya tidak ada goresan
    nyasar mendarat di lapisan yang tidak terlihat.
    ------------------------------------------------------------ */
 .pad__canvas,
 .pad__bar {
   opacity: 1;
-  transition: opacity 90ms linear;
+  transition: opacity .2s ease-in-out;
 }
 
 .pad[data-peek="true"] .pad__canvas,
@@ -230,8 +263,16 @@
   pointer-events: none;
 }
 
-/* Tombol mata sendiri ikut hilang bersama bilahnya; pelepasannya
-   ditangkap di `window`, jadi papan tidak akan tersangkut. */
+/* ⚠️ Tombol mata DIKECUALIKAN dari `pointer-events: none` bilahnya.
+   Ia memudar bersama bilah, tetapi harus tetap bisa menerima
+   pointer — kalau tidak, `pointerup` yang dilepas TEPAT DI ATASNYA
+   tidak akan pernah sampai ke tombol yang menyembunyikan dirinya
+   sendiri, dan papan tersangkut tembus pandang selamanya. Inilah
+   yang membuat listener di tombolnya benar-benar bekerja; jaring
+   pengaman di `window` tetap dipertahankan untuk kasus jari yang
+   digeser ke luar panggung. */
+.pad[data-peek="true"] .pad__peek { pointer-events: auto; }
+
 .pad__peek.is-on,
 .pad__peek:active { background: var(--royal); color: var(--white); }
 

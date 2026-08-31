@@ -1,7 +1,11 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 15.
-> Status: **fase 1–15 selesai, seluruh pengujian otomatis hijau (21/21 + 451/451).**
+> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 15.5.
+> Status: **fase 1–15.5 selesai, seluruh pengujian otomatis hijau (21/21 + 469/469).**
+>
+> ✅ **FASE 15.5 SELESAI.** Poles papan coret dari temuan UAT: garis bersambung
+> saat disapu cepat, **penghapus per-GORESAN** (bukan per-piksel), dan kanvas
+> **PADAT** dengan mekanik Mengintip yang memudar halus. Rinciannya di **§000A**.
 >
 > ✅ **FASE 15 SELESAI.** Papan Coret: kanvas gambar di atas panggung dengan
 > bilah alat mengambang dan mekanik **"Mengintip"** (tahan untuk melihat soal
@@ -36,14 +40,14 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **31 Agustus 2026**, sesaat setelah Fase 15 ditutup:
+Keadaan per **31 Agustus 2026**, sesaat setelah Fase 15.5 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 15 — Papan Coret** (§000). Selesai, teruji, sudah di-commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **451/451** |
-| Git | `main` = `512d83b`, **1 commit di depan `origin/main`**. Fase 15 sengaja belum di-push (§1A) |
-| Pekerjaan tertunda | **Tidak ada.** Fase 15 tuntas; sedang menunggu tugas berikutnya |
+| Pekerjaan terakhir | **Fase 15.5 — Poles Papan Coret** (§000A). Selesai, teruji, sudah di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **469/469** |
+| Git | **3 commit di depan `origin/main`** (`512d83b` Fase 15, `f7937f2` docs, dan commit Fase 15.5). Semuanya sengaja belum di-push (§1A) |
+| Pekerjaan tertunda | **Tidak ada.** Fase 15.5 tuntas; sedang menunggu tugas berikutnya |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
@@ -57,6 +61,135 @@ Keadaan per **31 Agustus 2026**, sesaat setelah Fase 15 ditutup:
 
 `smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
 menggantung.
+
+---
+
+## 000A. FASE 15.5 — POLES PAPAN CORET (SELESAI)
+
+Tiga temuan UAT ditutup. Semuanya hanya menyentuh `js/ui/scratchpad.js` dan
+`css/phase15.css`; tidak ada berkas fase lain yang diubah.
+
+### 1. Garis putus-putus saat disapu cepat — akarnya BUKAN yang terlihat
+
+Gejalanya "titik-titik yang tidak tersambung", dan tebakan pertama yang wajar
+adalah "kodenya cuma memplot titik, bukan menggambar garis". **Itu keliru** —
+kodenya memang sudah `moveTo`/`lineTo`/`stroke` sejak Fase 15.
+
+Akar masalahnya satu baris:
+
+```js
+const from = tailOnly ? Math.max(0, pts.length - 2) : 0;   // ← lama
+```
+
+Setiap gerak hanya menggambar ruas **terakhir**. Selama satu peristiwa membawa
+satu titik, itu kebetulan benar. Tapi `getCoalescedEvents()` menyerahkan 5–10
+titik sekaligus dalam SATU peristiwa saat jari disapu cepat: semuanya masuk ke
+`points`, dan yang tergambar cuma ruas paling akhir. Sisanya dilewati — itulah
+celah kosongnya.
+
+Perbaikannya penanda `drawn` pada goresan hidup: ia mengingat sampai titik ke
+berapa kanvas sudah menyusul, jadi tiap ruas digambar tepat sekali dan selalu
+bersambung ke titik sebelumnya.
+
+**Terukur langsung, dua algoritma berdampingan pada masukan yang sama**
+(7 titik, rentang 350px): algoritma lama menyisakan celah **288px** dan hanya
+62 piksel bertinta; yang baru **0px celah**, 438 dari 438 piksel bertinta.
+
+> ⚠️ **Pengujian sintetis biasa TIDAK bisa menangkap bug ini.** Untuk
+> `PointerEvent` buatan, `getCoalescedEvents()` selalu mengembalikan array
+> kosong, jadi kode lama pun akan tampak benar. Bagian 104 menimpa fungsi itu
+> lewat `Object.defineProperty` supaya satu peristiwa benar-benar membawa
+> enam titik. Tanpa penimpaan itu, pengujiannya akan lolos pada kode yang rusak.
+
+### 2. Penghapus GORESAN, bukan penghapus piksel
+
+Penghapus lama mengecat `destination-out` — melubangi lapisan. Ia meninggalkan
+puing separuh angka, dan justru membuat papan lebih kotor.
+
+Sekarang penghapus tidak menggambar apa pun. Ia menghitung jarak lintasan
+pointer ke tiap ruas goresan tersimpan, dan goresan yang tersentuh dibuang
+**utuh** dari `strokes` lalu papan digambar ulang. Inilah keuntungan keempat
+dari keputusan vektor Fase 15: bagi bitmap, "angka 7" hanyalah kumpulan piksel
+tanpa identitas.
+
+- Jangkauan `ERASER_REACH = 12px`, ditambah `width / 2` goresannya.
+- Jaraknya **ruas-ke-ruas**, bukan titik-ke-titik. Dua garis panjang yang
+  menyilang seperti huruf X punya keempat ujung yang berjauhan padahal jelas
+  bersentuhan; `segSegDist()` karena itu memeriksa perpotongan lebih dulu.
+- Sapuan diperiksa per ruas antara dua sampel pointer, jadi sapuan cepat tidak
+  "melompati" coretan tipis.
+
+> ⚠️ **Konsekuensi arsitektural: riwayat berpindah dari GORESAN ke TINDAKAN.**
+> Dulu `strokes` merangkap tumpukan undo, dan itu cukup selama satu langkah =
+> satu goresan. Satu sapuan penghapus bisa membuang tiga goresan sekaligus, dan
+> undo harus mengembalikan ketiganya ke POSISI tumpuk semula. Karena itu ada
+> `history` berisi `{type:'draw'|'erase'}`; `strokes` tinggal daftar-gambar.
+> Batas 20 dan penanda `committed` yang hanya-naik ikut pindah ke `history` —
+> logikanya sama persis, satuannya yang berubah.
+>
+> Pembalikan `erase` mengembalikan goresan dengan urutan **terbalik dari urutan
+> pembuangan**. Itu bukan detail gaya: hanya urutan terbalik yang merupakan
+> kebalikan persis dari serangkaian `splice`, dan hanya itu yang memulihkan
+> posisi tumpuknya.
+
+Terukur: tiga garis tegak disapu sekali → 3 goresan hilang, **satu** ketukan
+Urungkan mengembalikan ketiganya (tinta pulih ke angka yang identik, 4812).
+
+### 3. Kanvas PADAT & Mengintip yang memudar
+
+Latar lama `rgba(255,255,255,.72)` dibuat supaya matriks tetap terbaca sambil
+menghitung. Di lapangan justru itu masalahnya: coretan hitungan menumpuk tepat
+di atas matriks 3×3 yang juga penuh angka, dan mata siswa harus memisahkan dua
+lapisan angka sekaligus. Kertas asli tidak pernah tembus pandang.
+
+Sekarang `#ffffff` padat + pola titik kertas berpetak (`radial-gradient`,
+alfa .10, jarak 22px).
+
+> ⚠️ **Latar itu WAJIB tetap di CSS, jangan pernah dicat ke bitmap kanvas.**
+> Pengujian menghitung piksel TINTA lewat `getImageData`. Mengecat latarnya ke
+> bitmap membuat SELURUH piksel ber-alfa penuh, dan "papan kosong" tidak bisa
+> lagi dibedakan dari papan penuh — separuh bagian 102 langsung kehilangan
+> maknanya tanpa gagal sekalipun.
+
+Transisi Mengintip dinaikkan **90ms → 200ms `ease-in-out`**. Alasannya berubah
+bersama latarnya: yang berpindah bukan lagi selapis coretan tipis melainkan
+seluruh bidang putih sebesar panggung, dan 90ms pada bidang sebesar itu terbaca
+sebagai KEDIP, bukan sebagai kertas yang diangkat.
+
+**Pelepasan kini didengarkan di DUA tempat, dan keduanya perlu:**
+
+| Tempat | Guna |
+|---|---|
+| `peekBtn` — `pointerup`/`pointercancel`/`pointerleave` | Perilaku tombol-tahan yang wajar, sesuai permintaan UAT |
+| `window` — `pointerup`/`pointercancel`/`blur` | Jaring pengaman: jari yang digeser ke luar panggung, jendela yang kehilangan fokus |
+
+> ⚠️ Listener di tombolnya **tidak akan pernah menyala** kalau tombol itu ikut
+> `pointer-events: none` bersama bilahnya — jebakan yang sudah dicatat di §000.
+> Yang membuatnya bekerja adalah satu baris CSS:
+> `.pad[data-peek="true"] .pad__peek { pointer-events: auto; }`
+> Tombolnya tetap memudar, tapi tetap bisa menerima pointer. Jaring `window`
+> **tetap dipertahankan**: satu papan yang macet tembus pandang di tengah
+> ujian jauh lebih mahal daripada dua listener.
+
+Terukur: opacity di 90ms = **0,64** (benar-benar memudar, bukan berpindah
+seketika); saat ditahan kanvas & bilah **0**, sementara `pointer-events` tombol
+mata tetap **`auto`**.
+
+### Catatan pedagogis yang perlu diketahui sesi berikutnya
+
+Kanvas padat memindahkan biaya: siswa tidak lagi bisa melihat soal dan
+coretannya **bersamaan**. Mengintip berubah dari kemewahan menjadi jalur
+wajib. Itu keputusan sadar pengguna (UAT menyebut lapisan tembus sebagai
+beban kognitif), tetapi kalau nanti ada keluhan "harus bolak-balik menahan
+mata", akar masalahnya ada di sini — bukan di mekanik Mengintipnya.
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/ui/scratchpad.js` | `drawTail()` berpenanda `drawn`; penghapus goresan + geometri ruas; riwayat tindakan; listener peek di tombol |
+| `css/phase15.css` | Latar padat + petak; transisi 200ms `ease-in-out`; `pointer-events:auto` untuk tombol mata; kursor lingkaran penghapus |
+| `tests/smoke.py` | Bagian **104** baru (18 pengujian); jeda `PAPAN_INTIP` 250 → 400ms mengikuti transisi yang lebih panjang |
 
 ---
 
@@ -98,6 +231,11 @@ mengembalikannya.
 > mengintip, tombol itu sendiri ikut `pointer-events: none`, jadi `pointerup`
 > di atasnya tidak akan pernah sampai — dan papan akan tersangkut tembus
 > pandang selamanya. `blur` jendela juga ikut melepas.
+>
+> **Diperbarui di Fase 15.5:** listener DI TOMBOLNYA ditambahkan (permintaan
+> UAT), dan supaya benar-benar menyala, tombolnya dikecualikan dari
+> `pointer-events: none` bilahnya lewat satu baris CSS. Jaring `window` tetap
+> ada. Lihat **§000A butir 3** — jangan cabut salah satunya.
 
 ### Jebakan yang sudah digigit (jangan diulang)
 
@@ -458,9 +596,9 @@ Sembilan temuan QA manual, semuanya tertutup.
 |---|---|
 | Cabang | `main` (satu-satunya cabang lokal) |
 | Remote | `origin` → `https://github.com/mrpurnomo/ruang-matriks.git` |
-| `origin/main` | `ae9f90e` — Fase 14 (layar muat + `localStorage`) |
-| `main` lokal | `512d83b` — Fase 15 (Papan Coret), **1 commit di depan remote** |
-| Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh 8 commit**, terverifikasi |
+| `origin/main` | `ae9f90e` — Fase 14 (layar muat + `localStorage`). **Inilah versi yang dipakai siswa sekarang** |
+| `main` lokal | **3 commit di depan remote**: `512d83b` (Fase 15 · Papan Coret), `f7937f2` (docs Fase 15), dan commit Fase 15.5 |
+| Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh commit**, terverifikasi |
 | Tanda tangan AI | **nol.** `git log --format=%B | grep -i claude` tidak menemukan apa pun |
 
 ### Yang WAJIB diketahui sebelum menyentuh git di sini
@@ -521,7 +659,12 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **451/451 lolos** |
+| `python tests/smoke.py` | **469/469 lolos** |
+
+Fase 15.5 menambah bagian 104 (18 pengujian): sapuan cepat tanpa celah,
+penghapus per-goresan beserta undo-nya, kanvas padat, dan mekanik Mengintip
+yang memudar (termasuk pelepasan di tombol, `pointerleave`, dan
+`pointercancel`).
 
 Fase 9 menambah bagian 63–69; Fase 10 menambah bagian 70–76: identitas aplikasi,
 sapaan masuk & hak cipta, penempatan header, arsitektur Sidebar & Stage (diukur di
@@ -622,8 +765,8 @@ matriks-lab-interaktif/
 │   │                                     pembersihan gerak lintas-layar
 │   │
 │   ├── ui/
-│   │   ├── scratchpad.js              ← FASE 15: papan coret (kanvas vektor,
-│   │   │                                bilah alat, mekanik Mengintip)
+│   │   ├── scratchpad.js              ← FASE 15/15.5: papan coret (vektor, penghapus
+│   │   │                                goresan, bilah alat, Mengintip)
 │   │   ├── mathpad.js            490  SATU-SATUNYA jalur input angka
 │   │   ├── toast.js              136  Toast singleton
 │   │   ├── modal.js              165  Pengganti confirm()/prompt()
@@ -645,7 +788,7 @@ matriks-lab-interaktif/
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    └── smoke.py                       216 pengujian Playwright, 60 bagian
+    └── smoke.py                       469 pengujian Playwright, 104 bagian
 ```
 
 ---
@@ -785,6 +928,14 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 54. **Jangan memusatkan elemen absolut dengan `left: 50%` saja.** Itu memangkas lebar yang TERSEDIA jadi separuh dan memicu pembungkusan palsu. Pakai `left:0; right:0; margin-inline:auto`. (Fase 13 butir 46 & Fase 15, bagian uji 101.)
 
 55. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
+
+56. **Menggambar bebas WAJIB menyambung ke titik yang belum tergambar, bukan ke titik terakhir.** Satu peristiwa gerak bisa membawa banyak titik (`getCoalescedEvents`); menggambar hanya ruas terakhir menyisakan celah yang hanya muncul saat disapu cepat. Goresan hidup menyimpan penanda "sudah tergambar sampai titik ke berapa". (Fase 15.5, bagian uji 104.)
+
+57. **Penghapus papan coret bekerja per-GORESAN, bukan per-piksel.** Yang ingin dibuang siswa selalu satu simbol utuh; penghapus piksel menyisakan puing separuh angka. Konsekuensinya riwayat undo menyimpan TINDAKAN, bukan goresan — satu sapuan yang membuang tiga goresan tetap satu langkah undo, dan pengembaliannya harus terbalik dari urutan pembuangan. (Fase 15.5, bagian uji 104.)
+
+58. **Latar papan coret PADAT, dan latar itu milik CSS — bukan bitmap kanvas.** Mengecatnya ke bitmap membuat setiap piksel ber-alfa penuh, dan seluruh pengujian yang menghitung tinta lewat `getImageData` kehilangan maknanya tanpa pernah gagal. (Fase 15.5, bagian uji 104.)
+
+59. **Elemen yang menyembunyikan dirinya sendiri harus dikecualikan dari `pointer-events: none`-nya sendiri kalau ia masih perlu menerima pelepasan.** Ini pelengkap butir 53, bukan penggantinya: listener di tombol menangani kasus normal, jaring di `window` menangani jari yang lepas di luar tombol. Keduanya wajib ada. (Fase 15.5, bagian uji 104.)
 
 ---
 
@@ -1086,7 +1237,7 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Commit Fase 15 belum di-push.** `origin/main` masih di `ae9f90e` (Fase 14, versi yang dipakai siswa sekarang); `512d83b` (Papan Coret) hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
+6. **Tiga commit belum di-push.** `origin/main` masih di `ae9f90e` (Fase 14, versi yang dipakai siswa sekarang); Fase 15, docs-nya, dan Fase 15.5 hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
 
 ---
 
@@ -1097,7 +1248,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **451** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 di fase 11–15).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **469** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 → 469 di fase 11–15.5).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.
