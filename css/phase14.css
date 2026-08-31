@@ -1,0 +1,171 @@
+/* ============================================================
+   phase14.css — Fase 14: Layar Muat & Sesi Lintas-Tab
+   DIMUAT PALING AKHIR, sesudah phase13.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. LAYAR MUAT
+
+   Bentuknya matriks 2x2 di dalam kurung siku — tanda pengenal
+   aplikasi ini, sama dengan favicon dan logo header. Selama
+   menunggu, yang dilihat siswa adalah MEREKNYA, bukan roda
+   berputar yang bisa milik aplikasi mana pun.
+
+   Warna denyutnya bergilir menempuh tiga warna merek:
+   royal → cyan → yellow → royal.
+   ------------------------------------------------------------ */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;                 /* di bawah pengunci orientasi (9999) */
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--sp-5);
+  background: var(--paper);
+  transition: opacity 420ms var(--ease-out), visibility 420ms var(--ease-out);
+}
+
+/* Ditandai JavaScript begitu aplikasinya benar-benar siap. */
+.boot[data-done="true"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.boot__stage {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(10px, 1.6vw, 18px);
+  height: clamp(76px, 9vw, 104px);
+}
+
+/* Kurung siku matriks digambar dari border, bukan karakter teks:
+   tebalnya konsisten di semua font dan tidak ikut berubah kalau
+   siswa memperbesar ukuran huruf sistem. */
+.boot__bracket {
+  width: clamp(12px, 1.4vw, 18px);
+  border-top: 3px solid var(--royal);
+  border-bottom: 3px solid var(--royal);
+  opacity: .85;
+}
+
+.boot__bracket--left  { border-left: 3px solid var(--royal); border-radius: 6px 0 0 6px; }
+.boot__bracket--right { border-right: 3px solid var(--royal); border-radius: 0 6px 6px 0; }
+
+.boot__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: clamp(7px, 1vw, 11px);
+}
+
+.boot__cell {
+  width: clamp(24px, 3.1vw, 36px);
+  height: clamp(24px, 3.1vw, 36px);
+  border-radius: clamp(6px, .8vw, 10px);
+  background: var(--blue-100);
+  animation: bootPulse 1.8s var(--ease-out) infinite;
+}
+
+/* Urutannya mengular: kiri-atas → kanan-atas → kanan-bawah →
+   kiri-bawah. Denyut serentak akan terbaca sebagai "berkedip",
+   sedangkan urutan melingkar terbaca sebagai "sedang bekerja". */
+.boot__cell:nth-child(1) { animation-delay: 0ms; }
+.boot__cell:nth-child(2) { animation-delay: 150ms; }
+.boot__cell:nth-child(4) { animation-delay: 300ms; }
+.boot__cell:nth-child(3) { animation-delay: 450ms; }
+
+@keyframes bootPulse {
+  0%, 100% { background: var(--blue-100); transform: scale(1); }
+  18%      { background: var(--royal);  transform: scale(1.12); }
+  40%      { background: var(--cyan);   transform: scale(1.06); }
+  60%      { background: var(--yellow); transform: scale(1.02); }
+  80%      { background: var(--blue-100); transform: scale(1); }
+}
+
+.boot__text {
+  margin: 0;
+  font-family: var(--display, var(--font-ui));
+  font-weight: 800;
+  font-size: clamp(var(--fs-sm), 1.5vw, var(--fs-lg));
+  letter-spacing: .01em;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------
+   2. #app MUNCUL UTUH, TIDAK SETENGAH JADI
+
+   Tanpa ini, header dan footer sudah tergambar sementara isinya
+   masih kosong — kerangka aplikasi berkedip lebih dulu, lalu
+   kontennya menyusul. `data-app-ready` dipasang `init()` HANYA
+   setelah manifes termuat dan rute pertama selesai dirender.
+   ------------------------------------------------------------ */
+#app {
+  opacity: 0;
+  transition: opacity 420ms var(--ease-out);
+}
+
+html[data-app-ready="true"] #app { opacity: 1; }
+
+/* Tombol layar penuh hidup di luar #app, jadi ia disembunyikan
+   terpisah — kalau tidak, ia melayang sendirian di atas layar muat. */
+.fs-btn {
+  opacity: 0;
+  transition: opacity 420ms var(--ease-out);
+}
+
+html[data-app-ready="true"] .fs-btn { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot__cell { animation: none; background: var(--royal); opacity: .55; }
+  .boot__cell:nth-child(1) { opacity: 1; }
+  .boot, #app, .fs-btn { transition-duration: 1ms; }
+}
+
+/* ------------------------------------------------------------
+   3. TOMBOL "GANTI AKUN"
+
+   Identitas kini tinggal di localStorage supaya siswa tidak
+   dipaksa masuk ulang setiap membuka tab baru. Konsekuensinya:
+   di perangkat kelas yang dipakai bergantian, nama siswa pertama
+   akan menempel selamanya — jadi HARUS ada jalan keluarnya, dan
+   jalan itu harus terlihat tanpa dicari.
+
+   Ia diletakkan tepat di sebelah sapaan nama, karena di situlah
+   siswa menyadari "ini bukan saya".
+   ------------------------------------------------------------ */
+.menu__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.btn--switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;              /* padat, tapi masih nyaman disentuh */
+  padding: 6px var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+
+.btn--switch svg { width: 14px; height: 14px; }
+
+.btn--switch:hover,
+.btn--switch:focus-visible {
+  color: var(--royal);
+  border-color: var(--brand-primary-line);
+  background: var(--blue-50);
+}

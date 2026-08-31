@@ -1,7 +1,11 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 13.5.
-> Status: **fase 1–13.5 selesai, seluruh pengujian otomatis hijau (21/21 + 409/409).**
+> Dokumen serah-terima antar sesi. Diperbarui **31 Agustus 2026**, menutup Fase 14.
+> Status: **fase 1–14 selesai, seluruh pengujian otomatis hijau (21/21 + 425/425).**
+>
+> ✅ **FASE 14 SELESAI.** Layar muat bermerek (matriks 2×2 berdenyut warna
+> royal → cyan → yellow), `#app` baru tampil setelah semuanya siap, identitas
+> pindah ke `localStorage`, dan ada tombol **"Ganti Akun"**. Rinciannya di **§00**.
 >
 > ✅ **FASE 13.5 SELESAI.** `ComboOpSim` kini engine **HIBRIDA**: tahap 1
 > memakai mekanik `scalar_sweep` (chip skalar diseret/diketuk), tahap 2
@@ -19,6 +23,37 @@
 > kemajuan multi-kasus, ketuk-ketuk, penjaga masuk, denyut, dan skala.
 >
 > **Fase 10** menetapkan arsitektur **Sidebar & Stage** — tidak berubah sejak itu.
+
+---
+
+## 00. FASE 14 — LAYAR MUAT & SESI LINTAS-TAB (SELESAI)
+
+### Layar muat
+
+Markupnya **statis di `index.html`**, bukan dibuat JavaScript: di jaringan
+sekolah yang lambat, modul ES bisa perlu beberapa detik untuk tiba, dan
+sepanjang itu layar tidak boleh kosong-putih.
+
+Bentuknya **matriks 2×2 di dalam kurung siku** — sama dengan favicon dan logo
+header. Yang dilihat siswa selama menunggu adalah mereknya, bukan roda berputar
+yang bisa milik aplikasi mana pun. Selnya berdenyut bergiliran menempuh tiga
+warna merek: `--royal` → `--cyan` → `--yellow` (terukur persis
+`rgb(29,78,216)` / `rgb(6,182,212)` / `rgb(255,200,0)`).
+
+`#app` mulai dari `opacity: 0` dan baru tampil saat
+`html[data-app-ready="true"]`. `revealApp()` dipanggil dari blok **`finally`**
+di `boot()`, jadi layar muat SELALU turun — termasuk kalau manifesnya gagal
+diambil. Tanpa itu, satu galat jaringan akan meninggalkan siswa menatap
+animasi yang berdenyut selamanya.
+
+> `.fs-btn` hidup di luar `#app`, jadi ia disembunyikan terpisah — kalau tidak,
+> tombol layar penuh melayang sendirian di atas layar muat.
+
+### Identitas & "Ganti Akun"
+
+Lihat §9 untuk rinciannya. Ringkasnya: identitas pindah ke `localStorage`
+supaya bertahan lintas tab & muat-ulang, dan tombol "Ganti Akun" di menu utama
+adalah **syarat** yang membuat keputusan itu aman di perangkat bersama.
 
 ---
 
@@ -348,7 +383,7 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **409/409 lolos** |
+| `python tests/smoke.py` | **425/425 lolos** |
 
 Fase 9 menambah bagian 63–69; Fase 10 menambah bagian 70–76: identitas aplikasi,
 sapaan masuk & hak cipta, penempatan header, arsitektur Sidebar & Stage (diukur di
@@ -360,6 +395,9 @@ murni ketuk, gerak & timer benar-benar mati saat pindah layar, kemajuan
 multi-kasus, penjaga layar masuk, gulir daftar bab, skala di tiga viewport, dan
 kontras warna pada puncak denyut.
 
+Fase 14 menambah bagian 98–100 (16 pengujian): layar muat & munculnya
+aplikasi, identitas bertahan lintas muat-ulang/tab, dan alur "Ganti Akun".
+
 Fase 13 menambah bagian 94–97 (20 pengujian): audit klik-beruntun menyapu
 seluruh sub-topik, kunci pilihan pada modul yang dilaporkan, Kombinasi Skalar
 memakai mesin ketuk-ketuk yang sama, dan pemusatan banner/toast.
@@ -370,8 +408,9 @@ kunci multi-kasus, denyut salinan Sarrus, kunci Kesamaan, anti-spam pilihan
 ganda, dan HOTS ketuk-ketuk.
 
 > ⚠️ `clear_session()` di `smoke.py` sengaja **mempertahankan** kunci identitas.
-> Sejak penjaga rute Fase 11 berjalan di setiap perpindahan, `sessionStorage.clear()`
-> polos akan melempar pengujian ke `#/login` di tengah jalan.
+> Sejak Fase 14 identitas pindah ke `localStorage`, jadi `sessionStorage.clear()`
+> tidak lagi menyentuhnya dan `clear_session()` kembali sesederhana namanya.
+> (Di Fase 11–13 ia harus menyelamatkan identitas lebih dulu.)
 
 ---
 
@@ -415,8 +454,9 @@ matriks-lab-interaktif/
 │   │                                    layar masuk)
 │   ├── phase12.css                    Kategori jenis matriks, tambatan toast,
 │   │                                    panel Segera Hadir, HOTS ketuk
-│   └── phase13.css                    ← DIMUAT TERAKHIR: kunci .is-locked,
-│                                        pemusatan banner & toast
+│   ├── phase13.css                    Kunci .is-locked, pemusatan banner & toast
+│   └── phase14.css                    ← DIMUAT TERAKHIR: layar muat bermerek,
+│                                        #app fade-in, tombol Ganti Akun
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -537,7 +577,7 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 15. **Footer wajib berbunyi persis:** `© Penta Putra Purnomo, S.Pd., Gr. | SMAS YPVDP Bontang.` (simbol, bukan kata "Copyright" — diubah di Fase 10)
 16. **Streak sudah dicabut total** — UI, logika, CSS, dan skema PRD. Jangan dihidupkan lagi tanpa perintah eksplisit.
 17. **Aplikasi HANYA berjalan di lanskap.** Potret memunculkan `.rotate-lock` (z-index 9999, latar diburamkan) dan `#app` disembunyikan. (Fase 9, bagian uji 42.)
-18. **Layar masuk mendahului menu.** Tanpa identitas di `sessionStorage`, rute apa pun dialihkan ke `#/login`. (Fase 9, bagian uji 64.)
+18. **Layar masuk mendahului menu.** Tanpa identitas di `localStorage` (pindah dari `sessionStorage` di Fase 14), rute apa pun dialihkan ke `#/login`. (Fase 9, bagian uji 64.)
 19. **Keyboard OS tidak pernah muncul — termasuk untuk TEKS.** Isian nama & sekolah memakai papan huruf QWERTY milik Mathpad (`mode: 'text'`). (Fase 9, bagian uji 64.)
 20. **Teori TIDAK dipotong jadi kolom.** Satu kolom terpusat maksimum 1000px; teori panjang menggulir di dalam kartunya, halaman tetap 100vh. (Fase 9, bagian uji 50.)
 21. **Layar belajar memakai Sidebar & Stage.** Kendali (kembali, judul, tab, petunjuk, aksi) di kolom kiri 25–30%; kanvas matriks di kolom kanan 69–76%. Panggung TIDAK boleh berisi tab, prompt, atau bilah aksi. (Fase 10, bagian uji 73.)
@@ -584,7 +624,13 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 
 47. **Pemusatan diukur terhadap kotak ISI, bukan kotak kolom.** `.ws-stage` memakai margin negatif untuk talang scrollbar, jadi titik tengah kotaknya ~12px meleset dari sumbu matriks. (Fase 13, bagian uji 97.)
 
-48. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
+48. **Aplikasi tidak pernah tampil setengah jadi.** `#app` mulai `opacity: 0`; layar muat baru turun saat `data-app-ready="true"`. Pemanggilnya WAJIB ada di blok `finally` supaya galat jaringan tidak meninggalkan siswa menatap animasi selamanya. (Fase 14, bagian uji 98.)
+
+49. **Identitas di `localStorage` HARUS berpasangan dengan jalan keluarnya.** Identitas yang menempel di perangkat bersama tanpa tombol "Ganti Akun" adalah cacat, bukan fitur. Keduanya satu paket. (Fase 14, bagian uji 99–100.)
+
+50. **Keluar akun membuang identitas + posisi, TIDAK membuang pencapaian.** Progres milik perangkat, bukan milik satu siswa; menghapusnya diam-diam membuang pekerjaan seisi kelas. (Fase 14, bagian uji 100.)
+
+51. **Potret kini dikunci** — lihat butir 17. Aturan lama tentang potret yang boleh menggulir hanya berlaku sebelum Fase 9: boleh menggulir, tapi marginnya harus lega — bukan dimampatkan sampai sesak. (Fase 8, bagian uji 51.)
 
 ---
 
@@ -749,14 +795,24 @@ lihat §11.
 (`attachMathpad(input, { mode: 'text' })`): kerangka pad yang sama, tapi tombol
 angkanya disembunyikan dan papan QWERTY-nya muncul.
 
-Identitas disimpan di `sessionStorage` dengan kunci `matriksLab.identity.v1` —
-sengaja BUKAN `localStorage`. Ini perkenalan satu sesi, bukan akun; tablet yang
-dipakai bergantian di kelas tidak boleh menyapa siswa berikutnya dengan nama
-siswa sebelumnya.
+Identitas disimpan di **`localStorage`** dengan kunci `matriksLab.identity.v1`
+(pindah dari `sessionStorage` di Fase 14). Alasannya lapangan: `sessionStorage`
+hanya hidup di SATU tab, jadi menyegarkan halaman atau membuka tab baru melempar
+siswa kembali ke layar masuk dan memaksanya mengetik nama lagi lewat papan huruf.
 
-`init()` mengalihkan ke `#/login` bila identitas belum ada. **Uji otomatis harus
-menyemai identitas** lewat `page.add_init_script` — kalau tidak, setiap rute
-akan berakhir di layar masuk.
+> ⚠️ **Keputusan ini berpasangan dengan tombol "Ganti Akun".** Karena identitas
+> kini menempel, perangkat kelas yang dipakai bergantian akan terus menyapa
+> siswa PERTAMA sampai ada yang menggantinya. Tombol di menu utama itulah jalan
+> keluarnya — **jangan hapus salah satunya tanpa yang lain.**
+
+`clearIdentity()` membuang identitas + posisi belajar (`clearAllResume()`),
+tetapi **TIDAK** menyentuh pencapaian di `progressStore`: itu milik perangkat,
+bukan milik satu siswa, dan menghapusnya diam-diam akan membuang pekerjaan
+seisi kelas. Menghapus progres punya pintunya sendiri ("Reset Progres").
+
+Penjaga rute (`router.setGuard`, Fase 11) mengalihkan ke `#/login` bila identitas
+belum ada. **Uji otomatis harus menyemai identitas** lewat `page.add_init_script`
+ke `localStorage` — kalau tidak, setiap rute akan berakhir di layar masuk.
 
 ### Kunci Orientasi (Fase 9)
 

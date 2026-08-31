@@ -34,15 +34,40 @@ const screenHost = document.getElementById('screen-host');
 
 /* ------------------------------------------------------------
    Identitas siswa
-   Disimpan di sessionStorage, bukan localStorage: ini bukan akun, hanya
-   perkenalan untuk satu sesi pemakaian. Perangkat yang dipakai bergantian
-   di kelas tidak boleh menyapa siswa berikutnya dengan nama siswa sebelumnya.
+
+   Disimpan di localStorage (sejak Fase 14), bukan sessionStorage.
+   Alasannya lapangan: sessionStorage hanya hidup di SATU tab. Siswa yang
+   tidak sengaja menyegarkan halaman — atau membuka tautan di tab baru —
+   dilempar kembali ke layar masuk dan harus mengetik namanya lagi lewat
+   papan huruf. Di jaringan sekolah yang lambat itu terasa seperti aplikasi
+   yang kehilangan pekerjaannya.
+
+   Konsekuensinya diakui dan ditangani: perangkat kelas yang dipakai
+   bergantian kini MENGINGAT siswa pertama sampai ada yang menggantinya.
+   Karena itu tombol "Ganti Akun" di menu utama BUKAN pelengkap — ia
+   syarat supaya keputusan ini aman. Jangan hapus salah satunya tanpa
+   yang lain.
    ------------------------------------------------------------ */
 const IDENTITY_KEY = 'matriksLab.identity.v1';
 
-function getIdentity() {
+/** Penyimpanan identitas; null kalau peramban memblokirnya (mode privat). */
+function identityStore() {
   try {
-    const raw = sessionStorage.getItem(IDENTITY_KEY);
+    const s = window.localStorage;
+    const probe = `${IDENTITY_KEY}.probe`;
+    s.setItem(probe, '1');
+    s.removeItem(probe);
+    return s;
+  } catch (err) {
+    return null;
+  }
+}
+
+function getIdentity() {
+  const store = identityStore();
+  if (!store) return null;
+  try {
+    const raw = store.getItem(IDENTITY_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
     return data && data.nama ? data : null;
@@ -52,11 +77,36 @@ function getIdentity() {
 }
 
 function setIdentity(identity) {
+  const store = identityStore();
+  if (!store) {
+    console.warn('[app] penyimpanan diblokir — identitas tidak bisa disimpan');
+    return;
+  }
   try {
-    sessionStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
+    store.setItem(IDENTITY_KEY, JSON.stringify(identity));
   } catch (err) {
     console.warn('[app] identitas gagal disimpan:', err);
   }
+}
+
+/**
+ * Lupakan siswa yang sedang masuk.
+ *
+ * Yang dihapus HANYA identitas dan posisi belajarnya. Pencapaian di
+ * `progressStore` sengaja DIBIARKAN: ia milik perangkat, bukan milik satu
+ * siswa, dan menghapusnya diam-diam setiap pergantian akun akan membuang
+ * pekerjaan seisi kelas. Menghapus progres punya pintunya sendiri
+ * ("Reset Progres") yang meminta konfirmasi terpisah.
+ */
+function clearIdentity() {
+  const store = identityStore();
+  try {
+    if (store) store.removeItem(IDENTITY_KEY);
+  } catch (err) {
+    console.warn('[app] identitas gagal dihapus:', err);
+  }
+  // Posisi terakhir milik siswa sebelumnya tidak boleh diwarisi.
+  clearAllResume();
 }
 
 /** Nama panggilan: kata pertama saja, agar sapaan tetap ringkas. */
@@ -298,6 +348,36 @@ function renderTka(params, options) {
   }, options);
 }
 
+/**
+ * Keluar dari identitas yang tersimpan, lalu kembali ke layar masuk.
+ *
+ * Dikonfirmasi lebih dulu lewat `modal.js` (kontrak §5 butir 1 melarang
+ * `confirm()` bawaan). Konfirmasinya bukan basa-basi: di tablet kelas,
+ * salah sentuh akan melempar siswa keluar di tengah pengerjaan, dan satu
+ * ketukan tambahan jauh lebih murah daripada mengetik ulang nama lewat
+ * papan huruf.
+ */
+async function switchAccount(identity) {
+  const ok = await confirmAction({
+    title: 'Ganti akun?',
+    // Tebalnya ditulis **markdown**, bukan <b>: `renderMixed()` meng-escape
+    // seluruh masukannya, jadi tag HTML akan tampil mentah sebagai teks.
+    body: `Kamu akan keluar dari **${firstName(identity.nama)}** dan kembali ke layar masuk. `
+      + 'Pencapaian yang sudah tersimpan di perangkat ini **tidak** dihapus.',
+    confirmLabel: 'Ya, Ganti Akun',
+    cancelLabel: 'Batal',
+    icon: 'refresh',
+  });
+  if (!ok) return;
+
+  clearIdentity();
+  toast.info('Sampai jumpa! Silakan masuk dengan nama yang baru.');
+
+  // Penjaga rute akan menahan rute mana pun tanpa identitas, jadi cukup
+  // arahkan ke layar masuk dan biarkan ia bekerja.
+  router.navigate('login');
+}
+
 /* ------------------------------------------------------------
    Layar: Main Menu
    ------------------------------------------------------------ */
@@ -353,9 +433,38 @@ async function renderMenu(params, options) {
       head.appendChild(el('div', 'menu__eyebrow', 'Matematika Tingkat Lanjut - Kelas 11'));
     }
 
-    head.appendChild(el('h1', 'menu__title', identity
+    const title = el('h1', 'menu__title', identity
       ? `Halo, ${firstName(identity.nama)}.`
-      : (overall.completed > 0 ? 'Selamat datang kembali.' : 'Ruang Matriks')));
+      : (overall.completed > 0 ? 'Selamat datang kembali.' : 'Ruang Matriks'));
+
+    if (identity) {
+      /**
+       * Jalan keluar dari identitas yang menempel.
+       *
+       * Sejak identitas pindah ke localStorage (Fase 14), perangkat kelas
+       * yang dipakai bergantian akan terus menyapa siswa PERTAMA sampai ada
+       * yang menggantinya. Tombol ini karena itu bukan pelengkap — ia yang
+       * membuat keputusan localStorage aman dipakai bersama.
+       *
+       * Letaknya menempel pada sapaan nama, karena di situlah siswa
+       * berikutnya menyadari "ini bukan saya".
+       */
+      const row = el('div', 'menu__identity');
+      row.appendChild(title);
+
+      const swap = el('button', 'btn--switch');
+      swap.type = 'button';
+      swap.innerHTML = `${icon('refresh', { size: 14 })}<span>Ganti Akun</span>`;
+      swap.setAttribute('aria-label',
+        `Keluar dari akun ${firstName(identity.nama)} dan masuk sebagai siswa lain`);
+      swap.title = 'Keluar dan masuk sebagai siswa lain';
+      swap.addEventListener('click', () => switchAccount(identity));
+
+      row.appendChild(swap);
+      head.appendChild(row);
+    } else {
+      head.appendChild(title);
+    }
     head.appendChild(el('p', 'menu__lead',
       'Belajar matriks secara visual dan menyenangkan'));
     container.appendChild(head);
@@ -927,6 +1036,27 @@ function initFullscreen() {
   syncFullscreenButton();
 }
 
+/**
+ * Turunkan layar muat dan munculkan aplikasinya.
+ *
+ * Dipanggil dari `finally` supaya ia berjalan APA PUN yang terjadi. Kalau
+ * `init()` gagal di tengah jalan, siswa harus melihat pesan galat aplikasi —
+ * bukan layar muat yang berdenyut selamanya tanpa pernah menjelaskan apa-apa.
+ */
+function revealApp() {
+  document.documentElement.dataset.appReady = 'true';
+
+  const boot = document.getElementById('boot-loader');
+  if (!boot) return;
+
+  boot.dataset.done = 'true';
+  // Node-nya dibuang setelah transisinya selesai; membiarkannya berarti
+  // menyisakan lapisan fixed setinggi layar yang tidak pernah dipakai lagi.
+  const drop = () => boot.remove();
+  boot.addEventListener('transitionend', drop, { once: true });
+  setTimeout(drop, 700);   // jaring pengaman kalau transisinya tidak berjalan
+}
+
 async function init() {
   touchSession();
   initFullscreen();
@@ -957,9 +1087,6 @@ async function init() {
   // ikut berjalan pada setiap perpindahan berikutnya — bukan sekali saja.
   router.start();
   updateHeader();
-
-  // Tandai aplikasi siap — dipakai skrip pengujian untuk menunggu.
-  document.documentElement.dataset.appReady = 'true';
 }
 
 // Ekspos sedikit permukaan untuk keperluan pengujian otomatis.
@@ -972,8 +1099,26 @@ window.__matriksLab = {
   setIdentity,
 };
 
+/**
+ * Bootstrap.
+ *
+ * `revealApp()` dipanggil di `finally`, jadi layar muat SELALU turun — baik
+ * saat semuanya berhasil maupun saat manifesnya gagal diambil. Sampai saat
+ * itu, `#app` tetap `opacity: 0`, sehingga siswa tidak pernah melihat header
+ * dan footer tergambar duluan di atas isi yang masih kosong.
+ */
+async function boot() {
+  try {
+    await init();
+  } catch (err) {
+    console.error('[app] gagal memulai:', err);
+  } finally {
+    revealApp();
+  }
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', boot);
 } else {
-  init();
+  boot();
 }

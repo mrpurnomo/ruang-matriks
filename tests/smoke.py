@@ -43,6 +43,138 @@ PANEL_SEGERA_HADIR = """() => ({
 })"""
 
 # ============================================================
+# Skrip peramban untuk bagian regresi Fase 14 (98-100).
+# ============================================================
+
+LAYAR_MUAT = r"""() => new Promise(resolve => {
+    // Layar muat sudah lewat pada halaman yang sedang tampil, jadi ia diuji
+    // di IFRAME yang dimuat segar — sekaligus membuktikan markupnya memang
+    // ada di HTML dan tidak bergantung pada JavaScript aplikasi.
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;left:-9999px;width:1280px;height:800px';
+    frame.src = 'index.html?bootcheck=1';
+    document.body.appendChild(frame);
+
+    frame.addEventListener('load', () => {
+        const d = frame.contentDocument, w = frame.contentWindow;
+        const boot = d.getElementById('boot-loader');
+        const out = {
+            adaDiHtml: !!boot,
+            sel: d.querySelectorAll('.boot__cell').length,
+            kurung: d.querySelectorAll('.boot__bracket').length,
+            teks: boot ? boot.querySelector('.boot__text').textContent.trim() : '',
+            warna: {},
+        };
+
+        // Bekukan sel pertama pada tiga puncak warna keyframe.
+        const cell = d.querySelector('.boot__cell');
+        const anim = cell && cell.getAnimations()[0];
+        if (anim) {
+            anim.pause();
+            const D = anim.effect.getTiming().duration;
+            [['royal', 0.18], ['cyan', 0.40], ['yellow', 0.60]].forEach(([k, f]) => {
+                anim.currentTime = D * f;
+                out.warna[k] = w.getComputedStyle(cell).backgroundColor;
+            });
+        }
+
+        // Tunggu aplikasinya siap, lalu pastikan loader turun & #app tampil.
+        const tunggu = setInterval(() => {
+            if (d.documentElement.dataset.appReady !== 'true') return;
+            clearInterval(tunggu);
+            setTimeout(() => {
+                out.sesudahLoaderHilang = !d.getElementById('boot-loader');
+                out.sesudahAppOpacity = w.getComputedStyle(d.getElementById('app')).opacity;
+                frame.remove();
+                resolve(out);
+            }, 900);
+        }, 120);
+    });
+})"""
+
+PERSISTENSI_IDENTITAS = """() => new Promise(resolve => {
+    window.__matriksLab.setIdentity(
+        { nama: 'Budi Santoso', sekolah: 'SMAS YPVDP Bontang', at: Date.now() });
+
+    const out = {
+        diLocal: localStorage.getItem('matriksLab.identity.v1') !== null,
+        diSession: sessionStorage.getItem('matriksLab.identity.v1') !== null,
+    };
+
+    // Iframe = dokumen baru yang berbagi localStorage: setara membuka tab baru
+    // ATAU menyegarkan halaman. Keduanya tidak boleh memaksa masuk ulang.
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;left:-9999px;width:1280px;height:800px';
+    frame.src = 'index.html';
+    document.body.appendChild(frame);
+
+    frame.addEventListener('load', () => {
+        const d = frame.contentDocument;
+        const tunggu = setInterval(() => {
+            if (d.documentElement.dataset.appReady !== 'true') return;
+            clearInterval(tunggu);
+            setTimeout(() => {
+                out.hashSetelahMuatUlang = frame.contentWindow.location.hash;
+                out.sapaan = (d.querySelector('.menu__title') || {}).textContent || '';
+                frame.remove();
+                resolve(out);
+            }, 700);
+        }, 120);
+    });
+})"""
+
+GANTI_AKUN = r"""() => new Promise(resolve => {
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    // Hitung panggilan confirm() bawaan: kontrak §5 butir 1 melarangnya.
+    let bawaan = 0;
+    const asli = window.confirm;
+    window.confirm = function () { bawaan += 1; return true; };
+
+    (async () => {
+        sessionStorage.setItem('matriksLab.session.v1',
+            JSON.stringify({ 'lesson:uji/uji': { step: 1 } }));
+
+        const btn = document.querySelector('.btn--switch');
+        const out = {
+            ada: !!btn,
+            aria: btn ? btn.getAttribute('aria-label') : null,
+            dekatNama: !!document.querySelector('.menu__identity .menu__title'),
+            progresSebelum: localStorage.getItem('matriksLab.v1') !== null,
+        };
+        if (!btn) { window.confirm = asli; return resolve(out); }
+
+        btn.click(); await wait(600);
+        const modal = document.querySelector('.modal');
+        out.modalTampil = !!modal;
+        out.tagMentah = modal
+            ? /<b>|<\/b>|<span/.test(modal.querySelector('.modal__body').textContent)
+            : null;
+
+        // Batal dulu: identitas harus selamat.
+        [...document.querySelectorAll('.modal__actions button')]
+            .find(b => b.textContent.includes('Batal')).click();
+        await wait(600);
+        out.identitasSetelahBatal = localStorage.getItem('matriksLab.identity.v1') !== null;
+
+        // Sekarang konfirmasi.
+        document.querySelector('.btn--switch').click(); await wait(600);
+        [...document.querySelectorAll('.modal__actions button')]
+            .find(b => b.textContent.includes('Ganti Akun')).click();
+        await wait(1400);
+
+        out.identitasSetelahKonfirmasi = localStorage.getItem('matriksLab.identity.v1') !== null;
+        out.posisiTerhapus = sessionStorage.getItem('matriksLab.session.v1') === null;
+        out.progresBertahan = out.progresSebelum
+            ? localStorage.getItem('matriksLab.v1') !== null
+            : true;
+        out.hashAkhir = location.hash;
+        out.dialogBawaan = bawaan;
+        window.confirm = asli;
+        resolve(out);
+    })();
+})"""
+
+# ============================================================
 # Skrip peramban untuk bagian regresi Fase 13 (94-97).
 # ============================================================
 
@@ -726,21 +858,13 @@ def clear_session(page):
     jadi kunjungan berikutnya mendarat di sana — bukan di Materi. Bagian uji
     yang memang ingin memulai dari nol harus menyatakannya secara eksplisit.
 
-    Dulu fungsi ini memanggil `sessionStorage.clear()` polos, yang ikut
-    menghapus IDENTITAS siswa. Itu lolos selama penjaga masuk hanya berjalan
-    sekali di `init()`. Sejak Fase 11 penjaga itu berjalan di setiap
-    perpindahan rute (isu 4), jadi menghapus identitas di tengah sesi kini
-    melempar pengujian ke #/login — persis seperti yang seharusnya terjadi
-    pada siswa sungguhan. Identitasnya karena itu DIPERTAHANKAN; yang dibuang
-    hanya kunci posisi, sesuai nama fungsi ini.
+    Sejak Fase 14 identitas pindah ke localStorage, jadi `sessionStorage.clear()`
+    tidak bisa lagi menyentuhnya — fungsi ini kembali sesederhana namanya.
+    (Di Fase 11–13 ia harus menyelamatkan identitas dari sessionStorage lebih
+    dulu, karena penjaga rute akan melempar uji ke #/login begitu identitas
+    hilang di tengah sesi.)
     """
-    page.evaluate("""() => {
-        try {
-            const keep = sessionStorage.getItem('matriksLab.identity.v1');
-            sessionStorage.clear();
-            if (keep) sessionStorage.setItem('matriksLab.identity.v1', keep);
-        } catch (e) {}
-    }""")
+    page.evaluate("() => { try { sessionStorage.clear(); } catch (e) {} }")
 
 
 def open_fresh(page, route):
@@ -2379,7 +2503,8 @@ def run(page, errors):
            gone["lab"] == 0, json.dumps(gone))
 
     print("\n64. Layar masuk & papan huruf kustom")
-    page.evaluate("() => { try { sessionStorage.clear(); } catch (e) {} }")
+    # "Keluar" kini berarti membuang identitas dari localStorage.
+    page.evaluate("() => { try { localStorage.removeItem('matriksLab.identity.v1'); sessionStorage.clear(); } catch (e) {} }")
     page.goto(f"{BASE}/#/login")
     page.reload()
     page.wait_for_timeout(900)
@@ -2454,7 +2579,7 @@ def run(page, errors):
         document.querySelector('.login__submit').click();
         setTimeout(() => {
             let stored = null;
-            try { stored = JSON.parse(sessionStorage.getItem('matriksLab.identity.v1')); } catch (e) {}
+            try { stored = JSON.parse(localStorage.getItem('matriksLab.identity.v1')); } catch (e) {}
             resolve({
                 hash: location.hash,
                 stored,
@@ -2463,7 +2588,7 @@ def run(page, errors):
             });
         }, 900);
     })""")
-    record("Identitas tersimpan di sessionStorage",
+    record("Identitas tersimpan di localStorage",
            bool(saved.get("stored")) and saved["stored"].get("nama") == "Budi Santoso",
            json.dumps(saved))
     record("Menu utama menyapa dengan nama depan",
@@ -2472,6 +2597,7 @@ def run(page, errors):
            "YPVDP" in saved.get("school", ""), json.dumps(saved))
 
     empty = page.evaluate("""() => new Promise(resolve => {
+        try { localStorage.removeItem('matriksLab.identity.v1'); } catch (e) {}
         sessionStorage.clear();
         location.hash = '#/login';
         setTimeout(() => {
@@ -2793,7 +2919,7 @@ def run(page, errors):
     record("Nama lama tidak tersisa di DOM", ident["oldName"] is False, json.dumps(ident)[:220])
 
     print("\n71. Layar masuk & hak cipta")
-    page.evaluate("() => { try { sessionStorage.clear(); } catch (e) {} }")
+    page.evaluate("() => { try { localStorage.removeItem('matriksLab.identity.v1'); sessionStorage.clear(); } catch (e) {} }")
     page.goto(f"{BASE}/#/login")
     page.reload()
     page.wait_for_timeout(800)
@@ -3596,6 +3722,62 @@ def run(page, errors):
     record("Sumbu isi memang berbeda dari sumbu kolom (talang scrollbar)",
            pusat["contentVsColumn"] >= 2, json.dumps(pusat))
 
+    # ==========================================================
+    # FASE 14 — LAYAR MUAT & SESI LINTAS-TAB
+    # ==========================================================
+
+    print("\n98. Fase 14 - Layar muat & munculnya aplikasi")
+    boot = page.evaluate(LAYAR_MUAT)
+    record("Layar muat ada di HTML, bukan dibuat JavaScript",
+           boot["adaDiHtml"] is True, json.dumps(boot)[:240])
+    record("Bentuknya matriks 2x2 di dalam kurung siku",
+           boot["sel"] == 4 and boot["kurung"] == 2, json.dumps(boot)[:240])
+    record("Teksnya 'Memuat Ruang Matriks...'",
+           boot["teks"].startswith("Memuat Ruang Matriks"), json.dumps(boot)[:240])
+    record("Denyutnya memakai ketiga warna merek",
+           boot["warna"]["royal"] == "rgb(29, 78, 216)"
+           and boot["warna"]["cyan"] == "rgb(6, 182, 212)"
+           and boot["warna"]["yellow"] == "rgb(255, 200, 0)", json.dumps(boot)[:240])
+    record("Setelah siap, layar muat dibuang dan #app tampil penuh",
+           boot["sesudahLoaderHilang"] is True and boot["sesudahAppOpacity"] == "1",
+           json.dumps(boot)[:240])
+
+    print("\n99. Fase 14 - Identitas bertahan lintas muat-ulang & tab")
+    persist = page.evaluate(PERSISTENSI_IDENTITAS)
+    record("Identitas disimpan di localStorage, bukan sessionStorage",
+           persist["diLocal"] is True and persist["diSession"] is False, json.dumps(persist))
+    record("Muat ulang tidak memaksa masuk lagi",
+           persist["hashSetelahMuatUlang"] == "#/", json.dumps(persist))
+    # Namanya sengaja tidak dipatok: `add_init_script` menyemai ulang identitas
+    # di SETIAP dokumen baru (termasuk iframe ini), jadi yang bisa dibuktikan
+    # adalah identitasnya BERTAHAN — mendarat di menu dengan sapaan, bukan
+    # dilempar ke layar masuk.
+    record("Sapaan nama tetap muncul setelah muat ulang",
+           persist["sapaan"].startswith("Halo,"), json.dumps(persist))
+
+    print("\n100. Fase 14 - Tombol 'Ganti Akun'")
+    # Tombolnya hanya ada di menu utama, jadi ke sana dulu.
+    open_fresh(page, "#/")
+    ganti = page.evaluate(GANTI_AKUN)
+    record("Tombol Ganti Akun ada di sebelah sapaan nama",
+           ganti["ada"] is True and ganti["dekatNama"] is True, json.dumps(ganti)[:240])
+    record("Tombol punya label aksesibilitas yang jelas",
+           bool(ganti["aria"]) and "Keluar" in ganti["aria"], json.dumps(ganti)[:240])
+    record("Konfirmasi memakai modal aplikasi, bukan confirm() bawaan",
+           ganti["modalTampil"] is True and ganti["dialogBawaan"] == 0,
+           json.dumps(ganti)[:240])
+    record("Tidak ada tag HTML mentah di badan modal",
+           ganti["tagMentah"] is False, json.dumps(ganti)[:240])
+    record("Membatalkan tidak menghapus identitas",
+           ganti["identitasSetelahBatal"] is True, json.dumps(ganti)[:240])
+    record("Mengonfirmasi menghapus identitas dan kembali ke #/login",
+           ganti["identitasSetelahKonfirmasi"] is False
+           and ganti["hashAkhir"] == "#/login", json.dumps(ganti)[:240])
+    record("Posisi belajar siswa sebelumnya ikut dibuang",
+           ganti["posisiTerhapus"] is True, json.dumps(ganti)[:240])
+    record("Pencapaian di perangkat TIDAK ikut terhapus",
+           ganti["progresBertahan"] is True, json.dumps(ganti)[:240])
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -3620,9 +3802,12 @@ def main():
             # Fase 9 mengalihkan pengunjung tanpa identitas ke #/login.
             # Sebagian besar uji tidak sedang menguji layar masuk, jadi
             # identitasnya disemai lebih dulu di setiap navigasi.
+            #
+            # Sejak Fase 14 identitas tinggal di localStorage supaya siswa
+            # tidak dipaksa masuk ulang tiap membuka tab baru.
             page.add_init_script("""
                 try {
-                    sessionStorage.setItem('matriksLab.identity.v1',
+                    localStorage.setItem('matriksLab.identity.v1',
                         JSON.stringify({ nama: 'Uji Otomatis', sekolah: 'SMAS YPVDP Bontang' }));
                 } catch (e) {}
             """)

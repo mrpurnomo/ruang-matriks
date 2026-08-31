@@ -35,6 +35,7 @@
   <link rel="stylesheet" href="css/phase11.css">
   <link rel="stylesheet" href="css/phase12.css">
   <link rel="stylesheet" href="css/phase13.css">
+  <link rel="stylesheet" href="css/phase14.css">
 
   <!-- Favicon: kotak biru TERANG dengan glif navy gelap — terbaca di tab
        terang maupun gelap (versi lama gelap-di-atas-gelap tidak terlihat). -->
@@ -71,6 +72,33 @@
       </p>
       <span class="rotate-lock__hint">Ruang Matriks</span>
     </div>
+  </div>
+
+  <!-- ============================================================
+       LAYAR MUAT
+
+       Markupnya STATIS di HTML, bukan dibuat JavaScript: di jaringan
+       sekolah yang lambat, modul ES bisa perlu beberapa detik untuk
+       tiba, dan sepanjang itu layar tidak boleh kosong-putih.
+
+       Bentuknya matriks 2x2 di dalam kurung siku — bukan spinner
+       generik. Bentuk itu sudah jadi tanda pengenal aplikasi ini:
+       ia sama dengan favicon dan dengan logo di header, sehingga
+       yang dilihat siswa selama menunggu adalah MEREKNYA, bukan
+       sebuah roda berputar yang bisa milik aplikasi mana pun.
+       ============================================================ -->
+  <div class="boot" id="boot-loader" role="status" aria-live="polite">
+    <div class="boot__stage" aria-hidden="true">
+      <span class="boot__bracket boot__bracket--left"></span>
+      <div class="boot__grid">
+        <span class="boot__cell"></span>
+        <span class="boot__cell"></span>
+        <span class="boot__cell"></span>
+        <span class="boot__cell"></span>
+      </div>
+      <span class="boot__bracket boot__bracket--right"></span>
+    </div>
+    <p class="boot__text">Memuat Ruang Matriks…</p>
   </div>
 
   <div id="app">
@@ -112,16 +140,7 @@
     </header>
 
     <!-- Satu layar terlihat pada satu waktu; tidak ada scroll di level body -->
-    <main class="screen-host" id="screen-host">
-      <div class="screen">
-        <div class="container">
-          <div class="empty-state">
-            <div class="skeleton" style="width:240px;height:20px"></div>
-            <p class="text-sm">Menyiapkan ruang belajar…</p>
-          </div>
-        </div>
-      </div>
-    </main>
+    <main class="screen-host" id="screen-host"></main>
 
     <footer class="app-footer">
       <span class="app-footer__text">
