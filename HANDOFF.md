@@ -34,6 +34,32 @@
 
 ---
 
+## MULAI DARI SINI (sesi baru)
+
+Keadaan per **31 Agustus 2026**, sesaat setelah Fase 15 ditutup:
+
+| | |
+|---|---|
+| Pekerjaan terakhir | **Fase 15 — Papan Coret** (§000). Selesai, teruji, sudah di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **451/451** |
+| Git | `main` = `512d83b`, **1 commit di depan `origin/main`**. Fase 15 sengaja belum di-push (§1A) |
+| Pekerjaan tertunda | **Tidak ada.** Fase 15 tuntas; sedang menunggu tugas berikutnya |
+
+### Tiga hal yang paling mudah dilanggar sesi baru
+
+1. **Jangan `git push`.** Aplikasi ini dipakai siswa secara langsung dan remote
+   tersambung ke hosting. Push selalu butuh izin baru — lihat **§1A**.
+2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase15.css`), karena
+   `index.html` memuatnya paling akhir dan yang belakangan menimpa yang duluan.
+3. **Ukur di peramban, jangan menyimpulkan dari kode.** Daftar panjang jebakan
+   yang sudah menggigit ada di §6 dan §000 — hampir semuanya tak terlihat dari
+   pembacaan kode.
+
+`smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
+menggantung.
+
+---
+
 ## 000. FASE 15 — PAPAN CORET (SELESAI)
 
 Kanvas coret-coret di atas KOLOM PANGGUNG, untuk siswa yang menghitung
@@ -418,11 +444,45 @@ Sembilan temuan QA manual, semuanya tertutup.
 | Bahasa komentar kode | **Bahasa Indonesia**, menjelaskan *mengapa*, bukan *apa* |
 | Rendering matematika | **KaTeX** |
 | Direktori kerja | `F:\MATERI MATEMATIKA\MATEMATIKA TINGKAT LANJUT\KELAS 11\MATRIKS\matriks-lab-interaktif` |
-| Version control | **Repo git lokal aktif** (sejak Fase 10). Belum ada remote |
+| Version control | **Repo git aktif**, cabang `main`, remote `origin` = `https://github.com/mrpurnomo/ruang-matriks.git`. Rincian di **§1A** |
 
 **Pustaka eksternal (CDN, dimuat di `index.html`):** KaTeX 0.16.9, GSAP 3.12.5 + MotionPathPlugin, Google Fonts (**Montserrat / Roboto / Roboto Mono**). SortableJS dilepas di Fase 9 — ia tidak pernah dipakai.
 
 > ⚠️ Aplikasi butuh koneksi internet untuk CDN tersebut. Belum ada fallback offline.
+
+---
+
+## 1A. Git, Remote, dan Aturan Push
+
+| | |
+|---|---|
+| Cabang | `main` (satu-satunya cabang lokal) |
+| Remote | `origin` → `https://github.com/mrpurnomo/ruang-matriks.git` |
+| `origin/main` | `ae9f90e` — Fase 14 (layar muat + `localStorage`) |
+| `main` lokal | `512d83b` — Fase 15 (Papan Coret), **1 commit di depan remote** |
+| Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh 8 commit**, terverifikasi |
+| Tanda tangan AI | **nol.** `git log --format=%B | grep -i claude` tidak menemukan apa pun |
+
+### Yang WAJIB diketahui sebelum menyentuh git di sini
+
+**Riwayatnya sudah pernah ditulis ulang** (Fase 13.5→14) untuk menormalkan
+author dan mencabut trailer `Co-Authored-By`. Yang ada di remote sekarang
+adalah riwayat hasil tulis-ulang itu — jadi remote dan lokal sudah sinkron
+akarnya, dan **`push` biasa sudah cukup**; tidak perlu `--force` lagi.
+Cabang `backup/pre-rewrite` sudah dihapus setelah isinya diverifikasi
+byte-identik (`git diff` kosong, keenam hash pohon sama).
+
+**Jangan pernah push tanpa diminta.** Aplikasi ini **dipakai siswa secara
+langsung**, dan remote-nya tersambung ke hosting. Sejak Fase 14 pengguna
+selalu menyebut eksplisit "commit lokal saja, jangan push". Perlakukan push
+sebagai tindakan yang selalu butuh izin baru — izin di satu fase tidak
+berlaku untuk fase berikutnya.
+
+**Push otomatis pernah gagal 403** (`Permission to mrpurnomo/ruang-matriks.git
+denied to pentaputra98`): kredensial tersimpan di Windows Credential Manager
+milik akun lain. Push yang berhasil ke `ae9f90e` dilakukan pengguna sendiri.
+Bila push diminta lalu gagal 403 lagi, itu bukan masalah kode — laporkan dan
+serahkan ke pengguna, jangan mencoba memasukkan kredensial.
 
 ---
 
@@ -456,7 +516,7 @@ python tests/smoke.py
 pip install playwright && playwright install chromium
 ```
 
-### Status pengujian per 30 Agustus 2026 — **terverifikasi, bukan klaim**
+### Status pengujian per 31 Agustus 2026 — **terverifikasi, bukan klaim**
 
 | Suite | Hasil |
 |---|---|
@@ -498,7 +558,7 @@ ganda, dan HOTS ketuk-ketuk.
 
 ## 3. Peta File
 
-Total **14.445 baris** kode aplikasi (JS + CSS + HTML), 44 berkas.
+Total **±19.980 baris** kode aplikasi (JS + CSS + HTML), 43 berkas.
 
 ```
 matriks-lab-interaktif/
@@ -1026,18 +1086,18 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Repo git lokal sudah ada** (sejak Fase 10), tetapi **belum punya remote** — jadi belum ada cadangan di luar mesin ini.
+6. **Commit Fase 15 belum di-push.** `origin/main` masih di `ae9f90e` (Fase 14, versi yang dipakai siswa sekarang); `512d83b` (Papan Coret) hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
 
 ---
 
 ## 12. Aturan Kerja yang Diharapkan Pengguna
 
-Dikumpulkan dari tujuh fase kerja sama. Ini penting untuk diikuti sesi berikutnya.
+Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi berikutnya.
 
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → 144 justru karena itu.
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **451** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 di fase 11–15).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.
