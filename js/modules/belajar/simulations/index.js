@@ -21,6 +21,7 @@ import {
 
 import {
   DataTranslationSim, SplSolverSim, MultiStatementSim,
+  DominoTranslationSim, SPLDVUtbkSim, SniperExtractionSim, MultiConditionSim,
 } from './simModeling.js';
 
 export const SIMULATION_REGISTRY = {
@@ -57,6 +58,12 @@ export const SIMULATION_REGISTRY = {
   data_translation: DataTranslationSim,
   spl_solver: SplSolverSim,
   multi_statement: MultiStatementSim,
+
+  // --- Fase 17: masterclass pemodelan TKA ---
+  domino_translation: DominoTranslationSim,
+  spldv_utbk: SPLDVUtbkSim,
+  sniper_extraction: SniperExtractionSim,
+  multi_condition: MultiConditionSim,
 };
 
 /**

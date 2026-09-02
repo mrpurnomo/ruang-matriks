@@ -1,0 +1,495 @@
+/* ============================================================
+   phase17.css — Fase 17: Masterclass Pemodelan TKA
+   DIMUAT PALING AKHIR, sesudah phase16.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. NARASI DENGAN ANGKA YANG BISA DIKETUK
+
+   Angka di dalam cerita bukan sekadar teks — ia tombol. Supaya
+   afordansnya jelas tanpa merusak keterbacaan kalimat, ia diberi
+   kotak tipis yang menyatu dengan baris teks, bukan tombol penuh
+   yang memotong aliran bacaan.
+   ------------------------------------------------------------ */
+.story {
+  max-width: 62ch;
+  margin-inline: auto;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  box-shadow: var(--sh-1);
+  line-height: 2.1;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.story__text { white-space: pre-wrap; }
+
+.story-num {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 2px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--brand-primary-line);
+  background: var(--blue-50);
+  color: var(--royal);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: .95em;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.story-num:hover:not([data-spent="true"]),
+.story-num:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-2);
+}
+
+/* Angka yang sedang "dipegang" siswa. */
+.story-num--picked {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: var(--ink);
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: var(--sh-2);
+}
+
+/* Angka yang sudah mendarat: tetap TERBACA di kalimatnya (siswa masih
+   perlu melihat ceritanya utuh), hanya jelas sudah terpakai. */
+.story-num--spent {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-3);
+  text-decoration: line-through;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------
+   2. RANGKA MATRIKS KOSONG
+   ------------------------------------------------------------ */
+.domino-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.domino-mat {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+}
+
+.domino-mat__cap {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  max-width: 22ch;
+  text-align: center;
+}
+
+/* Sel yang masih menunggu diisi. */
+.cell--empty-slot {
+  border-style: dashed;
+  color: transparent;
+}
+
+/* ------------------------------------------------------------
+   3. ATURAN DOMINO
+
+   Ordo ditulis per-bagian supaya angka DALAM dan LUAR bisa
+   disorot sendiri-sendiri — itulah seluruh isi pelajarannya.
+   ------------------------------------------------------------ */
+.ordo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: .95rem;
+  color: var(--ink-2);
+}
+
+.ordo-part {
+  display: inline-block;
+  min-width: 1.2em;
+  text-align: center;
+  border-radius: 5px;
+  padding: 0 3px;
+  transition: background var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out),
+              transform var(--dur-base) var(--ease-out);
+}
+
+.ordo-x { color: var(--ink-3); }
+
+/* Angka DALAM yang sedang diperiksa: berdenyut hijau. */
+.ordo-part--glow {
+  background: var(--success-soft);
+  color: var(--success);
+  transform: scale(1.18);
+  animation: dominoGlow 1.1s ease-in-out infinite;
+}
+
+/* Cocok: berhenti berdenyut, jadi hijau padat. */
+.ordo-part--matched {
+  background: var(--success);
+  color: var(--white);
+  animation: none;
+  transform: scale(1.12);
+}
+
+/* Tidak cocok: merah, dan animasinya berhenti — tidak ada yang dirayakan. */
+.ordo-part--clash {
+  background: var(--danger);
+  color: var(--white);
+  animation: none;
+}
+
+/* Angka LUAR: kuning, karena merekalah yang jadi ordo hasil. */
+.ordo-part--outer-glow {
+  background: var(--yellow);
+  color: var(--ink);
+  transform: scale(1.1);
+}
+
+@keyframes dominoGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, .45); }
+  50%      { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+}
+
+.domino-host {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: center;
+}
+
+.domino-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  max-width: 60ch;
+  text-align: left;
+}
+
+.domino-verdict--ok {
+  background: var(--success-soft);
+  border: 1px solid var(--success);
+  color: var(--ink);
+}
+
+.domino-verdict--no {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  color: var(--ink);
+}
+
+.domino-result {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.domino-result-label {
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.ordo-badge--result {
+  border-color: var(--yellow);
+  background: var(--yellow-100);
+  font-size: 1.15rem;
+  padding: 5px 14px;
+}
+
+/* ------------------------------------------------------------
+   4. OPSI GAYA UTBK
+
+   Lima opsi matriks yang bedanya cuma tanda atau skalar. Kartunya
+   harus cukup lega supaya perbedaan itu terlihat tanpa menyipitkan
+   mata — di situlah soal ini dimenangkan atau kalah.
+   ------------------------------------------------------------ */
+.spldv-inverse { width: 100%; }
+
+.utbk-panel {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+  width: 100%;
+  padding: var(--sp-3);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--brand-primary-line);
+  background: var(--bg-surface);
+  box-shadow: var(--sh-1);
+}
+
+.utbk-panel__head {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.utbk-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  justify-content: center;
+  width: 100%;
+}
+
+.utbk-option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 2px solid var(--border-soft);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.utbk-option:hover:not(.is-failed):not(.is-locked) {
+  transform: translateY(-2px);
+  border-color: var(--royal);
+  box-shadow: var(--sh-2);
+}
+
+.utbk-option__tag {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--royal);
+  color: var(--white);
+  font-weight: 800;
+  font-size: .82rem;
+}
+
+.utbk-option__tex { font-size: .95rem; }
+
+.utbk-option--correct {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.utbk-option--correct .utbk-option__tag { background: var(--success); }
+
+/* Opsi keliru dikunci permanen (kontrak §5 butir 11). */
+.utbk-option.is-failed {
+  opacity: .42;
+  border-color: var(--danger);
+  text-decoration: line-through;
+}
+
+/* ------------------------------------------------------------
+   5. SNIPER — meredupkan yang tidak dipakai
+
+   Inti pelajarannya visual: satu sel hasil hanya butuh SATU baris
+   dan SATU kolom. Peredupannya karena itu harus tegas (0.16), dan
+   transisinya cukup panjang (400ms) supaya mata sempat mengikuti
+   apa yang padam dan apa yang bertahan.
+   ------------------------------------------------------------ */
+.sniper-on .cell,
+.sniper-on .matrix__name,
+.sniper-on .matrix__bracket::before,
+.sniper-on .matrix__bracket::after {
+  transition: opacity 400ms var(--ease-out), filter 400ms var(--ease-out);
+}
+
+.sniper-on .cell {
+  opacity: .16;
+  filter: grayscale(1);
+}
+
+.sniper-on .cell.sniper-live {
+  opacity: 1;
+  filter: none;
+  border-color: var(--royal);
+  background: var(--blue-50);
+}
+
+.sniper-on .cell.sniper-live--target {
+  border-color: var(--yellow);
+  background: var(--yellow-100);
+}
+
+/* Sel yang memuat variabel yang dicari. */
+.cell--unknown {
+  background: var(--yellow-100);
+  border-color: var(--yellow);
+  color: var(--ink);
+  font-style: italic;
+}
+
+.sniper-host {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+}
+
+.sniper-eq {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--brand-primary-line);
+  background: var(--bg-surface);
+  box-shadow: var(--sh-1);
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.sniper-eq__term { display: inline-flex; align-items: center; }
+
+.sniper-eq__slot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.6ch;
+  min-height: 1.6em;
+  border-radius: 5px;
+  background: var(--blue-50);
+  color: var(--royal);
+  padding: 0 4px;
+}
+
+.sniper-eq__slot--unknown {
+  background: var(--yellow-100);
+  color: var(--ink);
+  font-style: italic;
+}
+
+.sniper-eq__slot--rhs {
+  background: var(--yellow);
+  color: var(--ink);
+  min-width: 4ch;
+}
+
+.sniper-eq__paren { color: var(--ink-3); }
+.sniper-eq__op { color: var(--ink-2); padding: 0 2px; }
+
+.sniper-ask {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.sniper-ask__label { font-size: 1.05rem; }
+
+.sniper-done {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--success-soft);
+  border: 1px solid var(--success);
+  font-size: var(--fs-sm);
+  max-width: 60ch;
+  text-align: left;
+}
+
+/* ------------------------------------------------------------
+   6. ANALISIS MULTI-KONDISI
+   ------------------------------------------------------------ */
+.tka-subhint:empty { display: none; }
+
+.mc-multiply,
+.mc-statements {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+  width: 100%;
+}
+
+/* Matriks hasil yang DIKUNCI di layar: keempat pernyataan merujuk
+   angka-angka ini, jadi ia tidak boleh perlu digulir untuk dilihat. */
+.mc-locked {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: center;
+  width: 100%;
+  padding: var(--sp-3);
+  border-radius: var(--r-lg);
+  border: 2px solid var(--yellow);
+  background: var(--yellow-100);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.mc-locked__label {
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 700;
+}
+
+.mc-locked__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  justify-content: center;
+}
+
+.mc-locked__chip {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 6px 14px;
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+}
+
+.mc-locked__name { font-size: var(--fs-xs); color: var(--ink-3); }
+
+.mc-locked__value {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------
+   Lanskap pendek: semuanya dirapatkan
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .story { line-height: 1.9; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); }
+  .sniper-eq { font-size: .95rem; padding: var(--sp-2) var(--sp-3); }
+  .utbk-option { padding: 5px var(--sp-2); }
+  .mc-locked { padding: var(--sp-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ordo-part--glow { animation: none; }
+  .story-num, .ordo-part, .utbk-option { transition: none; }
+  .sniper-on .cell { transition: none; }
+}

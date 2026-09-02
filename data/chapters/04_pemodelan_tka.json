@@ -4,377 +4,445 @@
   "subtopics": [
     {
       "id": "translasi_data",
-      "title": "Translasi Data ke Matriks",
+      "title": "Translasi Data & Aturan Domino",
       "materi": [
         {
           "t": "p",
-          "x": "Kelemahan terbesar siswa di soal cerita matriks **bukan** pada hitungannya — melainkan pada langkah paling awal: mengubah tabel/narasi menjadi bentuk matriks yang benar."
+          "x": "Kelemahan terbesar siswa di soal cerita matriks **bukan** hitungannya, melainkan langkah paling awal: mengubah narasi menjadi matriks yang benar. Salah menaruh satu angka, seluruh jawaban ikut salah."
         },
         {
-          "t": "list",
-          "items": [
-            "**Identifikasi dua \"sumbu\" data.** Biasanya ada sumbu jenis barang/produk dan sumbu jenis kebutuhan/sumber daya.",
-            "**Jaga kesesuaian urutan.** Jika kolom pertama berarti \"bahan A\", maka posisi yang bersesuaian di matriks lain harus tetap merujuk \"bahan A\".",
-            "**Kenali pola \"koefisien × kuantitas = total\".** Ini pola yang paling sering muncul di TKA."
-          ]
+          "t": "def",
+          "title": "Aturan Baris & Kolom",
+          "x": "Tentukan dulu **apa yang jadi baris** dan **apa yang jadi kolom**, lalu konsisten. Untuk data produksi: baris = cabang/pelaku, kolom = jenis barang."
         },
         {
-          "t": "p",
-          "x": "**Contoh:** Bu Rina memproduksi Brownies dan Cookies. Satu loyang Brownies butuh 200 g tepung dan 150 g mentega; satu loyang Cookies butuh 120 g tepung dan 100 g mentega."
+          "t": "def",
+          "title": "Aturan Domino",
+          "x": "Sebelum mengalikan, tempelkan kedua ordo berdampingan: $(m \\times \\mathbf{n})(\\mathbf{p} \\times q)$. Angka **dalam** ($n$ dan $p$) harus **sama** agar perkalian sah; angka **luar** ($m$ dan $q$) menjadi ordo hasilnya."
         },
         {
-          "t": "tex",
-          "x": "K = \\begin{pmatrix} 200 & 150 \\\\ 120 & 100 \\end{pmatrix} \\begin{matrix} \\leftarrow \\text{Brownies} \\\\ \\leftarrow \\text{Cookies} \\end{matrix}"
+          "t": "tip",
+          "title": "Kenapa dinamai Domino",
+          "x": "Sama seperti kartu domino, dua matriks hanya bisa disambung kalau angka yang **bersentuhan** cocok. Kalau tidak cocok, jawaban soalnya adalah \"tidak dapat ditentukan\" — dan itu sering jadi pengecoh di TKA."
         },
         {
           "t": "warn",
-          "title": "Hati-hati Ordo",
-          "x": "Perkalian $K \\times Q$ baru valid jika baris $K$ mewakili jenis kue dan $Q$ adalah matriks kolom kuantitas. Salah menyusun sumbu = perkalian gagal atau hasilnya tidak bermakna."
+          "title": "Jangan langsung menghitung",
+          "x": "Di TKA, memeriksa Aturan Domino butuh 3 detik dan bisa langsung menggugurkan beberapa opsi. Menghitung dulu baru sadar ordonya tidak cocok akan membuang satu menit penuh."
         }
       ],
       "simulation": {
-        "engine": "data_translation",
-        "title": "Simulasi: Narasi Jadi Matriks",
-        "brief": "Pasang label sumbu dulu, baru jatuhkan angka dari narasi ke sel yang tepat.",
+        "engine": "domino_translation",
+        "title": "Simulasi: Bedah Cerita, lalu Cek Domino",
+        "brief": "Ketuk angka di dalam cerita, taruh di sel yang tepat, lalu periksa sendiri apakah kedua matriks boleh dikalikan.",
         "config": {
-          "narrative": "Warung jus milik Kak Sinta menjual dua menu andalan. Satu gelas **Jus Alpukat** memerlukan 2 buah alpukat dan 50 gram gula. Satu gelas **Jus Mangga** memerlukan 1 buah mangga dan 30 gram gula.",
-          "rowLabels": [
-            "Jus Alpukat",
-            "Jus Mangga"
+          "story": [
+            {
+              "t": "Toko roti \"Manis Legit\" mencatat produksi harian dua cabangnya.\n\nCabang Utara membuat "
+            },
+            {
+              "n": 12,
+              "to": "A:0,0"
+            },
+            {
+              "t": " roti manis, "
+            },
+            {
+              "n": 8,
+              "to": "A:0,1"
+            },
+            {
+              "t": " donat, dan "
+            },
+            {
+              "n": 5,
+              "to": "A:0,2"
+            },
+            {
+              "t": " croissant.\n\nCabang Selatan membuat "
+            },
+            {
+              "n": 9,
+              "to": "A:1,0"
+            },
+            {
+              "t": " roti manis, "
+            },
+            {
+              "n": 14,
+              "to": "A:1,1"
+            },
+            {
+              "t": " donat, dan "
+            },
+            {
+              "n": 6,
+              "to": "A:1,2"
+            },
+            {
+              "t": " croissant.\n\nHarga jual per unit: roti manis Rp"
+            },
+            {
+              "n": 7000,
+              "to": "B:0,0"
+            },
+            {
+              "t": ", donat Rp"
+            },
+            {
+              "n": 5000,
+              "to": "B:1,0"
+            },
+            {
+              "t": ", dan croissant Rp"
+            },
+            {
+              "n": 11000,
+              "to": "B:2,0"
+            },
+            {
+              "t": "."
+            }
           ],
-          "colLabels": [
-            "Buah",
-            "Gula (g)"
-          ],
-          "labelPool": [
-            "Jus Alpukat",
-            "Jus Mangga",
-            "Buah",
-            "Gula (g)",
-            "Harga",
-            "Gelas"
-          ],
-          "matrix": [
-            [
-              2,
-              50
-            ],
-            [
-              1,
-              30
-            ]
-          ],
-          "numberPool": [
-            30,
-            2,
-            50,
-            1,
-            40,
-            20
+          "matrices": [
+            {
+              "name": "A",
+              "values": [
+                [
+                  12,
+                  8,
+                  5
+                ],
+                [
+                  9,
+                  14,
+                  6
+                ]
+              ],
+              "caption": "Produksi — baris: cabang, kolom: jenis roti"
+            },
+            {
+              "name": "B",
+              "values": [
+                [
+                  7000
+                ],
+                [
+                  5000
+                ],
+                [
+                  11000
+                ]
+              ],
+              "caption": "Harga per unit — baris: jenis roti"
+            }
           ]
         },
         "toasts": {
-          "wrongAxis": "Coba cek lagi: label yang kamu taruh di sini menyebut jenis menu, padahal header di posisi ini seharusnya menyebut jenis bahan.",
-          "wrongAxisRow": "Label ini menyebut jenis bahan, padahal header baris seharusnya menyebut jenis menu yang dijual.",
-          "unusedLabel": "Label ini tidak disebut sebagai kategori di narasi — baca ulang, ada label lain yang lebih tepat.",
-          "wrongNumber": "Angka ini memang ada di narasi, tapi sepertinya tertukar tempat dengan sel lain — cek lagi baris (menu) mana yang dimaksud.",
-          "numberNotInNarrative": "Angka ini tidak disebut di narasi sama sekali. Baca ulang teksnya dengan teliti.",
-          "success": "Mantap! Narasi berhasil diterjemahkan menjadi objek matematis."
+          "pickFirst": "Ketuk dulu salah satu **angka di dalam cerita**, baru ketuk selnya. Urutannya: pegang angkanya, lalu tentukan tempatnya.",
+          "wrongSlot": "Angka {{nilai}} tidak duduk di ${{matriks}}_{{{baris}}{{kolom}}}$. Baca ulang kalimatnya: angka itu milik baris (siapa) dan kolom (apa) yang mana?",
+          "success": "Cerita berhasil jadi matriks, dan syarat kalinya sudah kamu periksa sendiri."
         }
       },
       "quiz": [
         {
           "id": "q_04_01_a",
-          "input_type": "matrix_input",
-          "prompt": "Susun data warung jus sebagai matriks $2\\times2$ dengan **baris** = jenis jus (Alpukat, Mangga) dan **kolom** = (Buah, Gula).",
-          "tex": null,
-          "rows": 2,
-          "cols": 2,
-          "answer": [
-            [
-              2,
-              50
-            ],
-            [
-              1,
-              30
-            ]
+          "input_type": "single_choice",
+          "prompt": "Matriks $P$ berordo $4 \\times 2$ dan matriks $Q$ berordo $2 \\times 5$. Manakah pernyataan yang benar?",
+          "options": [
+            {
+              "label": "$PQ$ terdefinisi dan berordo $4 \\times 5$"
+            },
+            {
+              "label": "$PQ$ terdefinisi dan berordo $2 \\times 2$"
+            },
+            {
+              "label": "$PQ$ tidak terdefinisi karena $4 \\ne 5$"
+            }
           ],
-          "explanation": "Baris 1 (Alpukat): 2 buah, 50 g gula. Baris 2 (Mangga): 1 buah, 30 g gula.",
-          "toastWrong": "Ada sel yang belum tepat. Pastikan setiap BARIS mewakili satu jenis jus, dan kolom pertama selalu jumlah buah, kolom kedua selalu gram gula."
+          "answerIndex": 0,
+          "explanation": "Tempelkan ordonya: $(4 \\times \\mathbf{2})(\\mathbf{2} \\times 5)$. Angka dalamnya sama ($2 = 2$), jadi sah; angka luarnya memberi ordo hasil $4 \\times 5$.",
+          "toastWrong": "Belum tepat. Yang harus sama adalah angka **dalam** (kolom $P$ dengan baris $Q$), dan yang jadi ordo hasil adalah angka **luar**."
         },
         {
           "id": "q_04_01_b",
           "input_type": "single_choice",
-          "prompt": "Mengapa urutan kolom pada matriks kebutuhan harus konsisten dengan urutan baris pada matriks kuantitas saat keduanya dikalikan?",
+          "prompt": "Data penjualan 3 toko untuk 4 jenis barang disusun dengan **baris = toko**. Berapa ordo matriksnya?",
           "options": [
             {
-              "label": "Karena aturan baris × kolom memasangkan elemen ke-$n$ kolom pertama dengan elemen ke-$n$ baris kedua — kalau urutannya beda, yang terkalikan jadi kategori yang salah"
+              "label": "$3 \\times 4$"
             },
             {
-              "label": "Karena ordo hasil perkaliannya akan berubah"
+              "label": "$4 \\times 3$"
             },
             {
-              "label": "Karena determinannya akan menjadi nol"
+              "label": "$12 \\times 1$"
             }
           ],
           "answerIndex": 0,
-          "explanation": "Perkalian matriks memasangkan elemen secara sejajar berdasarkan posisi. Jika kolom ke-1 berarti \"tepung\" tapi baris ke-1 matriks kuantitas berarti \"mentega\", maka yang terkalikan adalah pasangan kategori yang salah — hasilnya angka tanpa makna.",
-          "toastWrong": "Belum tepat — ordo hasilnya tetap sama dan determinan tidak terlibat. Masalahnya ada pada MAKNA: kategori yang terkalikan jadi tidak bersesuaian."
+          "explanation": "Baris menyatakan toko (ada 3) dan kolom menyatakan jenis barang (ada 4), jadi ordonya $3 \\times 4$.",
+          "toastWrong": "Belum tepat. Ordo ditulis **baris × kolom**. Karena barisnya toko (3) dan kolomnya barang (4), urutannya $3 \\times 4$, bukan sebaliknya."
         }
       ]
     },
     {
       "id": "spldv_matriks",
-      "title": "Menyelesaikan SPLDV dengan Matriks",
+      "title": "Membaca Model Invers SPLDV (Gaya Opsi UTBK)",
       "materi": [
         {
           "t": "p",
-          "x": "**SPLDV** adalah aplikasi paling langsung dari invers matriks $2\\times2$. Alih-alih eliminasi/substitusi, sekarang kamu punya alat yang jauh lebih sistematis."
+          "x": "Sistem persamaan linear dua variabel bisa ditulis sebagai $AX = B$, dengan $A$ matriks koefisien, $X$ matriks variabel, dan $B$ matriks konstanta. Penyelesaiannya $X = A^{-1}B$."
         },
         {
-          "t": "p",
-          "x": "Sistem $ax + by = e$ dan $cx + dy = f$ bisa ditulis ulang sebagai **satu persamaan matriks**:"
-        },
-        {
-          "t": "tex",
-          "x": "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} \\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} e \\\\ f \\end{pmatrix}"
+          "t": "def",
+          "title": "Bentuk Baku",
+          "x": "$\\begin{cases} ax + by = p \\\\ cx + dy = q \\end{cases} \\iff \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} p \\\\ q \\end{pmatrix}$"
         },
         {
           "t": "tip",
-          "title": "Sudah Pernah Ketemu!",
-          "x": "Bentuk ini **sama persis** dengan $AX = B$ dari sub-topik Persamaan Matriks. Solusinya pun sama: $\\begin{pmatrix} x \\\\ y \\end{pmatrix} = A^{-1}B$."
+          "title": "Trik UTBK: berhenti di bentuk, jangan dihitung habis",
+          "x": "Sebagian besar soal SNBT/UTBK **tidak** menanyakan nilai $x$ dan $y$, melainkan menanyakan **bentuk mana yang benar**. Menghitung sampai angka terakhir hanya membuang menit — cukup pastikan tiga hal: skalarnya $\\frac{1}{\\det}$ (bukan $\\det$), diagonal utamanya tertukar, dan diagonal sekundernya berganti tanda."
         },
         {
-          "t": "p",
-          "x": "**Contoh:** Andi membeli 3 pensil dan 2 penghapus seharga Rp13.000. Budi membeli 2 pensil dan 1 penghapus seharga Rp8.000. Sistemnya menjadi $3x + 2y = 13000$ dan $2x + y = 8000$."
+          "t": "warn",
+          "title": "Urutan tidak boleh dibalik",
+          "x": "$A^{-1}B$ **tidak sama dengan** $BA^{-1}$. Pada $AX = B$, inversnya selalu di **depan**. Opsi yang membalik urutannya bahkan sering tidak terdefinisi ordonya."
         }
       ],
       "simulation": {
-        "engine": "spl_solver",
-        "title": "Simulasi: Cerita ke Solusi",
-        "brief": "Terjemahkan narasi ke bentuk $AX=B$, lalu selesaikan dengan invers.",
+        "engine": "spldv_utbk",
+        "title": "Simulasi: Susun, Balik, lalu Baca Opsinya",
+        "brief": "Susun $AX = B$ dari cerita, cari $A^{-1}$ seperti di Bab 3, lalu pilih opsi yang bentuknya tepat — tanpa menghitungnya sampai habis.",
         "config": {
           "size": 2,
-          "narrative": "Sebuah kantin menjual bakso seharga $x$ rupiah dan es teh seharga $y$ rupiah. Seorang pembeli membayar Rp23.000 untuk **1 bakso dan 2 es teh**. Pembeli lain membayar Rp31.000 untuk **2 bakso dan 1 es teh**.",
+          "narrative": "Pak Rahmat membeli **3 sapi dan 2 kambing** seharga **Rp47 juta**. Di pasar yang sama, Bu Sari membeli **1 sapi dan 4 kambing** seharga **Rp29 juta**. Susun sistem ini menjadi $AX = B$ (satuan: juta rupiah).",
           "coefficients": [
             [
-              1,
+              3,
               2
             ],
             [
-              2,
-              1
+              1,
+              4
             ]
           ],
           "constants": [
             [
-              23000
+              47
             ],
             [
-              31000
+              29
             ]
           ],
           "numberPool": [
-            1,
-            2,
-            2,
-            1,
-            23000,
-            31000,
             3,
-            5000
+            2,
+            1,
+            4,
+            47,
+            29,
+            5,
+            30
           ],
           "varNames": [
-            "x",
-            "y"
+            "s",
+            "k"
           ],
-          "solution": [
-            [
-              13000
-            ],
-            [
-              5000
-            ]
+          "nameB": "B",
+          "options": [
+            {
+              "label": "A",
+              "tex": "X = \\frac{1}{10}\\begin{pmatrix} 4 & -2 \\\\ -1 & 3 \\end{pmatrix}\\begin{pmatrix} 47 \\\\ 29 \\end{pmatrix}"
+            },
+            {
+              "label": "B",
+              "tex": "X = \\frac{1}{10}\\begin{pmatrix} 4 & 2 \\\\ 1 & 3 \\end{pmatrix}\\begin{pmatrix} 47 \\\\ 29 \\end{pmatrix}",
+              "why": "Tandanya belum dibalik. Pada adjoin, diagonal **sekunder** ($b$ dan $c$) harus berganti tanda menjadi $-2$ dan $-1$."
+            },
+            {
+              "label": "C",
+              "tex": "X = 10\\begin{pmatrix} 4 & -2 \\\\ -1 & 3 \\end{pmatrix}\\begin{pmatrix} 47 \\\\ 29 \\end{pmatrix}",
+              "why": "Determinannya jadi PENGALI di sini, padahal ia **penyebut**: skalarnya $\\frac{1}{\\det}$, yaitu $\\frac{1}{10}$, bukan $10$."
+            },
+            {
+              "label": "D",
+              "tex": "X = \\frac{1}{10}\\begin{pmatrix} 3 & -2 \\\\ -1 & 4 \\end{pmatrix}\\begin{pmatrix} 47 \\\\ 29 \\end{pmatrix}",
+              "why": "Diagonal utamanya belum ditukar. Elemen $3$ dan $4$ harus bertukar tempat lebih dulu, jadi $\\begin{pmatrix} 4 & \\cdot \\\\ \\cdot & 3 \\end{pmatrix}$."
+            },
+            {
+              "label": "E",
+              "tex": "X = \\frac{1}{10}\\begin{pmatrix} 47 \\\\ 29 \\end{pmatrix}\\begin{pmatrix} 4 & -2 \\\\ -1 & 3 \\end{pmatrix}",
+              "why": "Urutannya terbalik. Pada $AX = B$ inversnya dikalikan dari **depan**, dan bentuk $BA^{-1}$ di sini bahkan tidak terdefinisi ($2\\times1$ dikali $2\\times2$)."
+            }
           ],
-          "closing": "Jadi, harga satu bakso adalah Rp{{x}} dan harga satu es teh adalah Rp{{y}}."
+          "answerIndex": 0,
+          "explanation": "$\\det(A) = (3)(4) - (2)(1) = 10$, sehingga $A^{-1} = \\frac{1}{10}\\begin{pmatrix} 4 & -2 \\\\ -1 & 3 \\end{pmatrix}$. Karena bentuknya $AX = B$, inversnya dikalikan dari depan: $X = A^{-1}B$. Di ujian, sampai sini saja sudah cukup — kamu tidak perlu menghitung $\\begin{pmatrix} 13 \\\\ 4 \\end{pmatrix}$-nya."
         },
         "toasts": {
-          "wrongCoefficient": "Koefisien ini belum pas — baca ulang narasinya: angka di posisi ini menunjukkan BANYAK barang pada transaksi ke-{{row}}, bukan total harganya.",
-          "wrongConstant": "Yang masuk ke matriks $B$ adalah TOTAL harga yang dibayar, bukan banyaknya barang.",
-          "solveFirst": "Susun dulu matriksnya dengan benar sebelum menyelesaikan persamaan.",
-          "success": "Solusi ditemukan! Perhatikan bagaimana jawabannya kembali bermakna dalam konteks cerita."
+          "wrongCoefficient": "Angka itu bukan koefisien untuk baris {{row}}. Baca ulang kalimatnya: berapa banyak sapi dan kambing yang dibeli di baris itu?",
+          "wrongConstant": "Angka itu konstanta (total harga), bukan koefisien — atau sebaliknya. Konstanta duduk di matriks $B$ di kanan tanda sama dengan.",
+          "wrongDiagonal": "Belum tepat — sekarang giliran elemen yang **berwarna {{warna}}**.",
+          "wrongSwap": "Yang bertukar posisi hanya diagonal UTAMA (**biru**).",
+          "wrongFlip": "Yang dibalik tandanya hanya diagonal SEKUNDER (**oranye**).",
+          "scalarInCell": "Jangan dimasukkan ke dalam sel — $\\frac{1}{\\det}$ ditulis satu kali di depan kurung.",
+          "wrongOption": "Belum tepat. Periksa tiga hal: skalarnya, posisi diagonal utama, dan tanda diagonal sekunder.",
+          "success": "Tepat. Di UTBK, berhenti di bentuk yang benar sudah cukup — dan jauh lebih cepat."
         }
       },
       "quiz": [
         {
           "id": "q_04_02_a",
-          "input_type": "mathpad",
-          "prompt": "Kantin menjual bakso ($x$) dan es teh ($y$). Rp23.000 untuk 1 bakso + 2 es teh; Rp31.000 untuk 2 bakso + 1 es teh. Tentukan harga satu bakso (dalam rupiah).",
-          "tex": "\\begin{pmatrix} 1 & 2 \\\\ 2 & 1 \\end{pmatrix}\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} 23000 \\\\ 31000 \\end{pmatrix}",
-          "answer": 13000,
-          "explanation": "$\\det(A) = (1)(1)-(2)(2) = -3$, sehingga $A^{-1} = \\frac{1}{-3}\\begin{pmatrix} 1 & -2 \\\\ -2 & 1 \\end{pmatrix}$. Maka $x = \\frac{1}{-3}(23000 - 62000) = \\frac{-39000}{-3} = 13000$.",
-          "toastWrong": "Belum tepat. Susun $AX=B$, hitung $\\det(A) = 1 - 4 = -3$, lalu kerjakan $X = A^{-1}B$. Hati-hati dengan tanda negatif pada determinan."
-        },
-        {
-          "id": "q_04_02_b",
           "input_type": "single_choice",
-          "prompt": "Setelah mendapat matriks $A$ dari sebuah SPLDV, ternyata $\\det(A) = 0$. Apa artinya bagi sistem persamaan tersebut?",
+          "prompt": "Diketahui $\\begin{pmatrix} 2 & 1 \\\\ 5 & 3 \\end{pmatrix}\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} 8 \\\\ 21 \\end{pmatrix}$. Manakah bentuk penyelesaian yang **benar**?",
           "options": [
             {
-              "label": "Sistem tidak punya solusi tunggal (bisa tanpa solusi, atau punya tak hingga solusi)"
+              "label": "$\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\frac{1}{1}\\begin{pmatrix} 3 & -1 \\\\ -5 & 2 \\end{pmatrix}\\begin{pmatrix} 8 \\\\ 21 \\end{pmatrix}$"
             },
             {
-              "label": "Sistem pasti punya tepat satu solusi"
+              "label": "$\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\frac{1}{1}\\begin{pmatrix} 2 & -1 \\\\ -5 & 3 \\end{pmatrix}\\begin{pmatrix} 8 \\\\ 21 \\end{pmatrix}$"
             },
             {
-              "label": "Sistem pasti bernilai nol untuk semua variabel"
+              "label": "$\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\begin{pmatrix} 8 \\\\ 21 \\end{pmatrix}\\frac{1}{1}\\begin{pmatrix} 3 & -1 \\\\ -5 & 2 \\end{pmatrix}$"
             }
           ],
           "answerIndex": 0,
-          "explanation": "Determinan nol berarti $A$ singular sehingga $A^{-1}$ tidak ada — metode $X = A^{-1}B$ tidak bisa dipakai. Secara geometris, kedua garisnya sejajar (tanpa solusi) atau berimpit (tak hingga solusi).",
-          "toastWrong": "Belum tepat — kaitkan dengan konsep matriks singular di Bab 3. Kalau $\\det = 0$, $A^{-1}$ TIDAK ADA, jadi solusi tunggal tidak bisa dijamin."
+          "explanation": "$\\det = (2)(3) - (1)(5) = 1$. Adjoinnya: tukar $2$ dan $3$, balik tanda $1$ dan $5$, menghasilkan $\\begin{pmatrix} 3 & -1 \\\\ -5 & 2 \\end{pmatrix}$. Karena bentuknya $AX = B$, invers dikalikan dari depan.",
+          "toastWrong": "Belum tepat. Periksa dua hal: apakah diagonal utamanya sudah **tertukar** ($2$ dan $3$), dan apakah inversnya berada di **depan** $B$."
+        },
+        {
+          "id": "q_04_02_b",
+          "input_type": "mathpad",
+          "prompt": "Dari sistem $\\begin{pmatrix} 3 & 2 \\\\ 1 & 4 \\end{pmatrix}\\begin{pmatrix} s \\\\ k \\end{pmatrix} = \\begin{pmatrix} 47 \\\\ 29 \\end{pmatrix}$, tentukan $\\det(A)$.",
+          "tex": null,
+          "answer": 10,
+          "explanation": "$\\det(A) = (3)(4) - (2)(1) = 12 - 2 = 10$. Angka inilah yang menjadi penyebut skalar $\\frac{1}{10}$ pada $A^{-1}$.",
+          "toastWrong": "Belum tepat. Determinan $2\\times2$ dihitung $ad - bc$: kalikan diagonal utama $3 \\times 4$, lalu KURANGI dengan diagonal sekunder $2 \\times 1$."
         }
       ]
     },
     {
-      "id": "spltv_matriks",
-      "title": "Menyelesaikan SPLTV dengan Matriks",
+      "id": "ekstraksi_elemen",
+      "title": "Ekstraksi Elemen Tersembunyi (Sniper TKA)",
       "materi": [
         {
           "t": "p",
-          "x": "Logika yang sama persis berlaku untuk **SPLTV** — bedanya, sekarang kamu memakai invers matriks $3\\times3$ (Metode Adjoin), yang jauh lebih efisien dibanding eliminasi bertingkat yang panjang."
+          "x": "Soal TKA sering menyembunyikan satu variabel di dalam matriks besar, lalu menanyakan nilainya. Refleks kebanyakan siswa: mengalikan **seluruh** matriks — sembilan perkalian demi satu angka."
         },
         {
-          "t": "tex",
-          "x": "\\begin{pmatrix} a_1 & b_1 & c_1 \\\\ a_2 & b_2 & c_2 \\\\ a_3 & b_3 & c_3 \\end{pmatrix}\\begin{pmatrix} x \\\\ y \\\\ z \\end{pmatrix} = \\begin{pmatrix} d_1 \\\\ d_2 \\\\ d_3 \\end{pmatrix}"
+          "t": "def",
+          "title": "Aturan Sniper",
+          "x": "Satu sel hasil $c_{ij}$ hanya dibentuk oleh **baris ke-$i$** matriks kiri dan **kolom ke-$j$** matriks kanan. Elemen lain sama sekali tidak ikut menentukannya."
         },
         {
-          "t": "p",
-          "x": "Diselesaikan dengan $X = A^{-1}D$, di mana $A^{-1}$ dicari lewat Metode Adjoin dari sub-topik sebelumnya."
+          "t": "steps",
+          "items": [
+            "Temukan sel hasil yang **angkanya sudah diketahui** dan yang barisnya memuat variabel.",
+            "Ambil HANYA baris itu dari matriks kiri dan kolom pasangannya dari matriks kanan.",
+            "Tulis sebagai persamaan linear biasa, lalu selesaikan seperti aljabar kelas 8."
+          ]
         },
         {
           "t": "tip",
-          "title": "Kenapa Layak?",
-          "x": "Begitu kamu punya $A^{-1}$, kamu bisa memakainya lagi untuk sistem lain dengan koefisien sama tapi konstanta beda — sesuatu yang tidak seefisien itu dengan eliminasi manual berulang."
+          "title": "Hemat waktu, hemat kesalahan",
+          "x": "Delapan perkalian yang tidak kamu kerjakan adalah delapan kesempatan salah hitung yang tidak kamu ambil. Di ujian berdurasi ketat, ini bukan sekadar cepat — ini lebih aman."
         }
       ],
       "simulation": {
-        "engine": "spl_solver",
-        "title": "Simulasi: SPLTV Terpandu",
-        "brief": "Susun matriks $3\\times3$, lalu pilih jalur \"Kerjakan Penuh\" atau \"Percepat\".",
+        "engine": "sniper_extraction",
+        "title": "Simulasi: Tembak Satu Baris Saja",
+        "brief": "Cari nilai variabel yang tersembunyi tanpa mengalikan seluruh matriks.",
         "config": {
-          "size": 3,
-          "narrative": "Tiga orang berbelanja di toko buah yang sama. **Nadia** membeli 2 kg apel, 1 kg jeruk, 1 kg anggur seharga Rp140.000. **Dinda** membeli 1 kg apel, 2 kg jeruk, 1 kg anggur seharga Rp110.000. **Fajar** membeli 1 kg apel, 1 kg jeruk, 2 kg anggur seharga Rp130.000.",
-          "coefficients": [
+          "narrative": "Sebuah katering menerima tiga paket pesanan. Matriks $A$ mencatat banyaknya porsi tiap jenis lauk pada setiap paket, matriks $B$ mencatat harga per porsi (ribu rupiah), dan matriks $C$ adalah total tagihan tiap paket (ribu rupiah). Banyaknya porsi ayam pada Paket 1 tercatat sebagai $k$. **Berapa nilai $k$?**",
+          "matrixA": [
             [
-              2,
-              1,
-              1
+              10,
+              25,
+              0
             ],
             [
-              1,
-              2,
-              1
+              8,
+              12,
+              6
             ],
             [
-              1,
-              1,
-              2
+              5,
+              9,
+              15
             ]
           ],
-          "constants": [
+          "matrixB": [
             [
-              140000
+              120
             ],
             [
-              110000
+              40
             ],
             [
-              130000
+              60
             ]
           ],
-          "numberPool": [
-            2,
-            1,
-            1,
-            1,
-            2,
-            1,
-            1,
-            1,
-            2,
-            140000,
-            110000,
-            130000
-          ],
-          "varNames": [
-            "x",
-            "y",
-            "z"
-          ],
-          "allowFastPath": true,
-          "solution": [
+          "matrixC": [
             [
-              45000
+              2680
             ],
             [
-              15000
+              1800
             ],
             [
-              35000
+              1860
             ]
           ],
-          "closing": "Jadi, harga apel Rp{{x}}/kg, jeruk Rp{{y}}/kg, dan anggur Rp{{z}}/kg."
+          "nameA": "A",
+          "nameB": "B",
+          "nameC": "C",
+          "kPos": [
+            0,
+            2
+          ],
+          "kSymbol": "k",
+          "kAnswer": 8,
+          "closing": "Tepat — $k = 8$. Kamu hanya memakai **satu baris** dan **satu kolom**; delapan perkalian lainnya tidak pernah perlu dikerjakan."
         },
         "toasts": {
-          "wrongCoefficient": "Koefisien ini belum pas — setiap BARIS mewakili satu pembeli, dan setiap KOLOM mewakili satu jenis buah. Cek lagi siapa membeli apa.",
-          "wrongConstant": "Kolom konstanta berisi TOTAL harga yang dibayar tiap pembeli, sesuai urutan barisnya.",
-          "success": "Solusi ditemukan! Perhatikan betapa sistematisnya dibanding eliminasi bertingkat."
+          "notK": "Bukan sel itu. Yang menentukan nilai $k$ hanyalah **baris tempat $k$ berada** — cari sel yang memuat huruf $k$, lalu ketuk sel itu.",
+          "wrongK": "Belum tepat. Susun persamaannya dari angka yang tersisa di layar, lalu pindahkan suku yang sudah diketahui ke ruas kanan sebelum membagi.",
+          "success": "Itulah cara sniper: satu baris, satu kolom, satu persamaan."
         }
       },
       "quiz": [
         {
           "id": "q_04_03_a",
-          "input_type": "matrix_input",
-          "prompt": "Susun matriks koefisien $A$ dari sistem belanja buah di atas (baris = pembeli Nadia, Dinda, Fajar; kolom = apel, jeruk, anggur).",
+          "input_type": "mathpad",
+          "prompt": "Diketahui $\\begin{pmatrix} 4 & p \\\\ 2 & 3 \\end{pmatrix}\\begin{pmatrix} 5 \\\\ 6 \\end{pmatrix} = \\begin{pmatrix} 38 \\\\ 28 \\end{pmatrix}$. Tentukan nilai $p$.",
           "tex": null,
-          "rows": 3,
-          "cols": 3,
-          "answer": [
-            [
-              2,
-              1,
-              1
-            ],
-            [
-              1,
-              2,
-              1
-            ],
-            [
-              1,
-              1,
-              2
-            ]
-          ],
-          "explanation": "Nadia: 2 apel, 1 jeruk, 1 anggur. Dinda: 1, 2, 1. Fajar: 1, 1, 2. Konstanta (total harga) tidak masuk ke matriks $A$.",
-          "toastWrong": "Ada sel yang belum tepat. Ingat: matriks $A$ hanya berisi BANYAKNYA barang (koefisien), bukan total harga. Total harga masuk ke matriks $B$."
+          "answer": 3,
+          "explanation": "Pakai baris pertama saja: $4(5) + p(6) = 38 \\Rightarrow 20 + 6p = 38 \\Rightarrow 6p = 18 \\Rightarrow p = 3$. Baris kedua tidak perlu disentuh sama sekali.",
+          "toastWrong": "Belum tepat. Ambil **baris pertama** matriks kiri dan **kolom** matriks kanan: $4(5) + p(6) = 38$. Selesaikan persamaan itu saja."
         },
         {
           "id": "q_04_03_b",
-          "input_type": "mathpad",
-          "prompt": "Dari sistem belanja buah di atas, tentukan harga 1 kg anggur (dalam rupiah).",
-          "tex": null,
-          "answer": 35000,
-          "explanation": "Menjumlahkan ketiga persamaan: $4x+4y+4z = 380000 \\implies x+y+z = 95000$. Kurangkan dari persamaan Fajar ($x+y+2z = 130000$): $z = 35000$.",
-          "toastWrong": "Belum tepat. Trik cepat: jumlahkan ketiga persamaan untuk mendapat $x+y+z$, lalu kurangkan dari persamaan yang mengandung $2z$."
+          "input_type": "single_choice",
+          "prompt": "Untuk mencari satu variabel yang tersembunyi di baris ke-2 sebuah perkalian matriks $3\\times3$, berapa banyak perkalian yang sebenarnya diperlukan?",
+          "options": [
+            {
+              "label": "3 perkalian — hanya baris ke-2 dengan satu kolom"
+            },
+            {
+              "label": "9 perkalian — seluruh matriks harus dihitung"
+            },
+            {
+              "label": "6 perkalian — dua baris untuk saling mengecek"
+            }
+          ],
+          "answerIndex": 0,
+          "explanation": "Satu sel hasil hanya dibentuk oleh satu baris dan satu kolom. Untuk matriks $3\\times3$, itu berarti 3 pasang perkalian — bukan 9.",
+          "toastWrong": "Belum tepat. Ingat Aturan Sniper: sel $c_{ij}$ hanya bergantung pada baris ke-$i$ dan kolom ke-$j$. Baris lain tidak memengaruhinya sedikit pun."
         }
       ]
     },
     {
       "id": "analisis_multi_kondisi",
-      "title": "Analisis Multi-Kondisi ala TKA",
+      "title": "Analisis Multi-Kondisi (Pilih Semua Jawaban Benar)",
       "materi": [
         {
           "t": "p",
@@ -396,9 +464,9 @@
         }
       ],
       "simulation": {
-        "engine": "multi_statement",
-        "title": "Simulasi: Analisis Pendapatan Cabang",
-        "brief": "Hitung matriks pendapatan, lalu centang semua pernyataan yang benar.",
+        "engine": "multi_condition",
+        "title": "Simulasi: Hitung Sendiri, lalu Nilai Pernyataannya",
+        "brief": "Kalikan sendiri matriks harga dengan matriks kapasitas, lalu nilai setiap pernyataan berdasarkan angka yang kamu hasilkan.",
         "config": {
           "context": "Percetakan \"Karya Cetak\" mengelola 3 cabang (X, Y, Z) dengan kapasitas produksi harian dan harga satuan berikut.",
           "table": {
@@ -474,38 +542,35 @@
               "id": "s1",
               "text": "Pendapatan Cabang Z adalah yang tertinggi di antara ketiganya.",
               "correct": true,
-              "feedback": "Benar — Cabang Z memperoleh Rp1.660.000, lebih tinggi dari X (Rp1.480.000) dan Y (Rp1.370.000)."
+              "feedback": "Benar — Cabang Z memperoleh Rp1.660.000, lebih tinggi daripada X (Rp1.480.000) maupun Y (Rp1.370.000)."
             },
             {
               "id": "s2",
               "text": "Pendapatan Cabang X lebih besar daripada Cabang Y.",
               "correct": true,
-              "feedback": "Benar — Rp1.480.000 > Rp1.370.000."
+              "feedback": "Benar — Rp1.480.000 > Rp1.370.000, selisihnya Rp110.000."
             },
             {
               "id": "s3",
               "text": "Total pendapatan ketiga cabang kurang dari Rp4.000.000.",
               "correct": false,
-              "feedback": "Salah — totalnya Rp4.510.000, yang justru LEBIH dari Rp4.000.000."
+              "feedback": "Salah — totalnya Rp1.480.000 + Rp1.370.000 + Rp1.660.000 = Rp4.510.000, justru LEBIH dari Rp4.000.000."
             },
             {
               "id": "s4",
               "text": "Selisih pendapatan Cabang Z dan Cabang Y adalah Rp180.000.",
               "correct": false,
-              "feedback": "Salah — selisihnya Rp1.660.000 − Rp1.370.000 = Rp290.000, bukan Rp180.000."
-            },
-            {
-              "id": "s5",
-              "text": "Masing-masing cabang memiliki selisih pendapatan yang sama besar.",
-              "correct": false,
-              "feedback": "Salah — selisih X−Y = Rp110.000 sedangkan Z−X = Rp180.000, jadi tidak sama besar."
+              "feedback": "Salah — Rp1.660.000 − Rp1.370.000 = Rp290.000, bukan Rp180.000."
             }
-          ]
+          ],
+          "priceName": "Harga",
+          "capacityName": "Kapasitas"
         },
         "toasts": {
           "computeFirst": "Hitung dulu matriks pendapatannya — pernyataan baru bisa dinilai setelah kamu tahu angka pendapatan tiap cabang.",
           "partialWrong": "Ada pernyataan yang belum tepat kamu nilai. Baca caption di bawah tiap kartu untuk melihat angka pembandingnya.",
-          "success": "Tepat semua! Inilah cara efisien menghadapi soal \"pilih semua yang benar\" di TKA."
+          "success": "Tepat semua! Inilah cara efisien menghadapi soal \"pilih semua yang benar\" di TKA.",
+          "multiplyFirst": "Hitung dulu matriks pendapatannya. Pernyataan di bawah semuanya merujuk angka itu."
         }
       },
       "quiz": [

@@ -1,7 +1,11 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **1 September 2026**, menutup Fase 16.
-> Status: **fase 1–16 selesai, seluruh pengujian otomatis hijau (21/21 + 513/513).**
+> Dokumen serah-terima antar sesi. Diperbarui **1 September 2026**, menutup Fase 17.
+> Status: **fase 1–17 selesai, seluruh pengujian otomatis hijau (21/21 + 569/569).**
+>
+> ✅ **FASE 17 SELESAI.** Bab 4 ditulis ulang jadi masterclass TKA: **Translasi &
+> Aturan Domino**, **Model Invers SPLDV gaya UTBK**, **Ekstraksi Elemen (Sniper)**,
+> dan **Analisis Multi-Kondisi**. Rinciannya di **§00000**.
 >
 > ✅ **FASE 16 SELESAI.** Tiga sub-topik terakhir Bab 3 dibuka: **Invers 2×2**,
 > **Invers 3×3 (Adjoin)**, dan **Penyelesaian Persamaan Matriks** — tiga di antara
@@ -49,16 +53,16 @@ Keadaan per **1 September 2026**, sesaat setelah Fase 16 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 16 — Invers & Persamaan Matriks** (§0000). Selesai, teruji, sudah di-commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **513/513** |
-| Git | **1 commit di depan `origin/main`**: hanya Fase 16. Fase 15 s/d 15.5 sudah ada di remote (di-push pengguna sendiri). Fase 16 sengaja belum di-push (§1A) |
-| Pekerjaan tertunda | **Tidak ada.** Fase 16 tuntas; seluruh 22 sub-topik kini punya simulasi sungguhan |
+| Pekerjaan terakhir | **Fase 17 — Masterclass Pemodelan TKA** (§00000). Selesai, teruji, sudah di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **569/569** |
+| Git | **2 commit di depan `origin/main`**: Fase 16 dan Fase 17. Keduanya sengaja belum di-push (§1A) |
+| Pekerjaan tertunda | **Tidak ada.** Fase 17 tuntas; keempat bab kini lengkap dari konsep dasar sampai strategi TKA |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
 1. **Jangan `git push`.** Aplikasi ini dipakai siswa secara langsung dan remote
    tersambung ke hosting. Push selalu butuh izin baru — lihat **§1A**.
-2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase16.css`), karena
+2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase17.css`), karena
    `index.html` memuatnya paling akhir dan yang belakangan menimpa yang duluan.
 3. **Ukur di peramban, jangan menyimpulkan dari kode.** Daftar panjang jebakan
    yang sudah menggigit ada di §6 dan §000 — hampir semuanya tak terlihat dari
@@ -66,6 +70,146 @@ Keadaan per **1 September 2026**, sesaat setelah Fase 16 ditutup:
 
 `smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
 menggantung.
+
+---
+
+## 00000. FASE 17 — MASTERCLASS PEMODELAN TKA (SELESAI)
+
+Bab 4 ditulis ulang menjadi empat sub-topik yang menggeser latihan dari
+**menghitung** ke **membaca**: mengurai soal cerita, mengenali bentuk jawaban
+tanpa menghitungnya habis, dan tahu bagian mana dari matriks besar yang
+sebenarnya perlu disentuh.
+
+| # | Sub-topik | Engine | Yang dilatih |
+|---|---|---|---|
+| 1 | Translasi Data & Aturan Domino | `domino_translation` | Parsing narasi + syarat kali |
+| 2 | Membaca Model Invers SPLDV | `spldv_utbk` | Memilih BENTUK, bukan menghitung |
+| 3 | Ekstraksi Elemen Tersembunyi | `sniper_extraction` | Satu baris, bukan sembilan perkalian |
+| 4 | Analisis Multi-Kondisi | `multi_condition` | "Pilih semua yang benar" |
+
+### Pemakaian ulang, lagi
+
+Pola sub-engine Fase 16 dipakai lagi, dan kali ini lintas-BAB:
+
+| Langkah | Engine yang dipakai ulang |
+|---|---|
+| SPLDV · susun $AX=B$ | `SplSolverSim` — `SPLDVUtbkSim` **turunannya**, hanya `startSolvePhase()` yang diganti |
+| SPLDV · cari $A^{-1}$ | `Inverse2x2Sim` (Bab 3) dipasang sebagai sub-engine |
+| Multi-kondisi · hitung pendapatan | `MatrixMultiplySim` (Bab 2) dipasang sebagai sub-engine |
+| Multi-kondisi · penilaian | `MultiStatementSim.renderStatements()`/`check()` diwarisi UTUH |
+
+`MultiConditionSim` adalah contoh paling bersihnya: ia turunan
+`MultiStatementSim` yang **hanya** mengganti cara matriks pendapatannya lahir.
+Seluruh logika penilaian per-pernyataan tidak disentuh sama sekali.
+
+### 1. Translasi & Domino
+
+Angka di dalam narasi adalah **tombol**. Siswa mengetuk sebuah angka (ia
+terangkat dan menguning), lalu mengetuk sel tujuannya.
+
+> ⚠️ **Permintaan Fase 17 menyebut "sekali klik, angkanya terbang ke slot yang
+> benar".** Di sini ia sengaja dipecah jadi ketuk-angka lalu ketuk-slot.
+> Alasannya pedagogis: kalau satu klik sudah menerbangkan angka ke tempat yang
+> benar, yang memutuskan penempatan adalah APLIKASI — dan justru keputusan itu
+> satu-satunya hal yang sedang diajarkan sub-topik ini. Bentuk ketuk-ketuk juga
+> yang dipakai seluruh aplikasi (kontrak §5 butir 12).
+>
+> Konsekuensinya: **semua** sel kosong menyala saat siswa memegang angka, bukan
+> hanya sel yang benar. Menyalakan hanya yang benar sama saja dengan menjawab.
+
+Aturan Domino diperagakan pada ordo yang ditulis **per-bagian**: angka DALAM
+berdenyut hijau, saling menghampiri lewat `flyTo()` (targetnya elemen sungguhan
+— "titik temu" tetap dicabut sejak Fase 13), lalu menyatu; angka LUAR kemudian
+menguning dan membentuk ordo hasil.
+
+### 2. SPLDV gaya UTBK
+
+Berhenti di **bentuk** $X = A^{-1}B$, bukan di angkanya. Lima opsi (A–E) berbeda
+hanya pada tanda, skalar, posisi diagonal, atau urutan — dan **tiap pengecoh
+punya penjelasannya sendiri**, karena kesalahan yang dikenali siswa berbeda-beda.
+Opsi yang sudah dicoba salah dikunci permanen (kontrak §5 butir 11).
+
+Kolam angkanya memuat **pengecoh** (5 dan 30) yang memang tidak terpakai.
+
+### 3. Sniper
+
+Ketukan pada sel berisi $k$ meredupkan seluruh panggung ke **opacity 0.16**
+(terukur) dan menyisakan tepat tujuh sel menyala: tiga di baris $A$, tiga di
+kolom $B$, satu sel hasil di $C$. Angkanya lalu ditarik keluar menjadi
+`10(120) + 25(40) + k(60) = 2680`, dan nilai $k$ diisi siswa lewat Mathpad.
+
+Peredupannya sengaja tegas dan transisinya 400ms: yang diajarkan adalah bahwa
+delapan angka lain **tidak dipakai sama sekali**, dan itu hanya terlihat kalau
+padamnya benar-benar terasa.
+
+### 4. Analisis Multi-Kondisi
+
+Versi lama punya tombol "Hitung Matriks Pendapatan" yang mengisi hasilnya
+sendiri — **aplikasi yang menghitung untuk siswa**, tepat di langkah yang paling
+menentukan jawabannya. Sekarang siswa mengalikannya sendiri lewat mesin
+perkalian Bab 2, lalu matriks hasilnya **dikunci di layar** (`position: sticky`)
+karena keempat pernyataan semuanya merujuk angka itu.
+
+### Jebakan yang sudah digigit (jangan diulang)
+
+1. **Kotak yang di-`visibility:hidden` hanya memesan ruang SEUKURAN ISINYA.**
+   Kotak ordo dibiarkan kosong sampai tahap 2, dan barisnya melonjak **24px**
+   terukur tepat saat ordonya muncul. Isi kotaknya SEKARANG, sembunyikan dengan
+   `visibility` — jangan biarkan kosong. Ini melengkapi pola §6: "pesan
+   ruangnya" berarti pesan ruang yang **benar-benar akan dipakai**.
+2. **`cell.textContent` ikut membawa label alamat.** Persamaan hasil ekstraksi
+   sniper sempat berbunyi `10a11(120) + 25a12(40) + k(60) = 2680`, karena
+   `.cell__addr` adalah `<span>` ANAK dan `textContent` menggabungkannya.
+   Helper `cellText()` membaca `dataset.value`. Kerabat persis dari
+   `rewriteCell()` di Fase 16 — dan ia menggigit lagi di fase berikutnya,
+   di engine yang sama sekali berbeda.
+3. **`classList.add('')` MELEMPAR `SyntaxError`.** `MultiStatementSim.check()`
+   memanggilnya lewat
+   `add('option--locked', st.correct ? … : (picked ? … : ''))`, dan argumen
+   ketiga menjadi string kosong pada SATU kasus: pernyataan **salah** yang
+   dibiarkan **tidak dicentang** — yaitu ketika siswa menjawab butir itu dengan
+   **benar**. `check()` lalu berhenti di tengah jalan: caption butir sesudahnya
+   tidak pernah muncul, panggung tidak terkunci, dan simulasinya tidak pernah
+   selesai. Bug ini **sudah ada sejak engine `multi_statement` dibuat** dan baru
+   terlihat ketika alurnya dijalankan sampai akhir dengan jawaban campuran.
+4. **Panel yang baru muncul bisa mendarat di luar layar.** Panel opsi UTBK
+   berhenti di y=806 sementara panggungnya berakhir di y=816 — hanya mengintip
+   10px, dan siswa harus menggulir untuk menemukan soal yang sedang ditanyakan
+   kepadanya. Helper `revealInStage()` membawanya ke pandangan. Alur bertahap
+   yang tumbuh ke bawah **selalu** perlu ini.
+5. **Mencuplik animasi di SATU titik waktu itu rapuh.** Pengujian "Mengintip
+   memudar" (Fase 15.5) membaca opacity sekali di milidetik ke-90 dan gagal
+   sekitar sekali dalam tiga kali jalan — bukan karena perilakunya salah,
+   melainkan karena transisinya baru benar-benar mulai di ~60–80ms. Terukur:
+   empat cuplikan pertama masih bernilai 1. Yang ingin dibuktikan sebenarnya
+   bukan "nilainya sekian di titik sekian", melainkan **"ia melewati nilai
+   antara"** — dan itu hanya bisa dijawab dengan MENYAPU (`setInterval` tiap
+   20ms), bukan mengintip sekali. Sapuan itu sekaligus memperlihatkan bentuk
+   kurvanya: 1 → 0,87 → 0,64 → 0,50 → 0,36 → 0,23 → 0,13 → 0,06.
+
+### Catatan kurikulum yang perlu diketahui
+
+**Sub-topik `spltv_matriks` (SPLTV) DIGANTI oleh `ekstraksi_elemen`.** Idnya
+sengaja baru: mempertahankan id lama untuk isi yang sama sekali berbeda akan
+menandai siswa sudah menyelesaikan sesuatu yang tidak pernah ia kerjakan.
+Konsekuensinya, progres lama pada `spltv_matriks` menjadi yatim di
+`progressStore` (tidak merusak apa pun — ia hanya tidak lagi dirujuk).
+
+SPLTV sebagai teknik tidak hilang: pemodelan $3\times3$ tetap dilatih di
+sub-topik Sniper, hanya dengan pertanyaan yang lebih dekat ke pola TKA asli.
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/modules/belajar/simulations/simModeling.js` | Empat engine baru; helper `buildOrdoBadge()`, `cellText()`, `revealInStage()`; perbaikan `classList.add('')` di `MultiStatementSim` |
+| `js/modules/belajar/simulations/index.js` | Registry `domino_translation`, `spldv_utbk`, `sniper_extraction`, `multi_condition` |
+| `css/phase17.css` | **BARU — DIMUAT PALING AKHIR**: narasi ber-angka, rangka domino, ordo per-bagian, opsi UTBK, peredupan sniper, panel terkunci |
+| `data/chapters/04_pemodelan_tka.json` | Empat sub-topik ditulis ulang beserta Mini Kuisnya |
+| `data/lessons.json` | `subtopicOrder` Bab 4 |
+| `content/04_Pemodelan_TKA.md` | Ditulis ulang total, disinkronkan dengan engine |
+| `index.html` | Memuat `css/phase17.css` |
+| `tests/smoke.py` | Bagian **106–109** baru; dua daftar sub-topik diselaraskan |
 
 ---
 
@@ -774,7 +918,7 @@ Sembilan temuan QA manual, semuanya tertutup.
 | Cabang | `main` (satu-satunya cabang lokal) |
 | Remote | `origin` → `https://github.com/mrpurnomo/ruang-matriks.git` |
 | `origin/main` | `ccfc7d7` — Fase 15.5 (poles papan coret). **Inilah versi yang dipakai siswa sekarang** |
-| `main` lokal | **1 commit di depan remote**: `4706b7a` (Fase 16 · invers & persamaan) |
+| `main` lokal | **2 commit di depan remote**: Fase 16 (invers & persamaan) dan Fase 17 (masterclass TKA) |
 | Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh commit**, terverifikasi |
 | Tanda tangan AI | **nol.** `git log --format=%B | grep -i claude` tidak menemukan apa pun |
 
@@ -843,7 +987,12 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **513/513 lolos** |
+| `python tests/smoke.py` | **569/569 lolos** |
+
+Fase 17 menambah bagian 106–109: translasi cerita & Aturan Domino, SPLDV
+gaya UTBK beserta pengecoh-pengecohnya, ekstraksi sniper (peredupan, jalur
+yang menyala, persamaan hasil ekstraksi), dan analisis multi-kondisi dari
+perkalian yang dihitung siswa sampai penilaian per-pernyataan.
 
 Fase 16 menulis ULANG bagian 57 & 58 (yang dulu menguji placeholder
 "Segera Hadir") dan menambah bagian 105: alur invers 2×2 & 3×3 lengkap,
@@ -934,9 +1083,12 @@ matriks-lab-interaktif/
 │   │                                    tombol Ganti Akun
 │   ├── phase15.css                    Papan coret (FAB,
 │   │                                    kanvas, bilah alat, Mengintip)
-│   └── phase16.css                    ← DIMUAT TERAKHIR: invers & persamaan
-│                                        (slot skalar, cap air kofaktor,
-│                                        panel minor, balok persamaan)
+│   ├── phase16.css                    Invers & persamaan
+│   │                                    (slot skalar, cap air kofaktor,
+│   │                                    panel minor, balok persamaan)
+│   └── phase17.css                    ← DIMUAT TERAKHIR: masterclass TKA
+│                                        (narasi ber-angka, Aturan Domino,
+│                                        opsi UTBK, peredupan sniper)
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -974,14 +1126,14 @@ matriks-lab-interaktif/
 │       │       ├── simBasics.js  694  Bab 1
 │       │       ├── simOperations.js 1156  Bab 2
 │       │       ├── simDetInv.js  1897  Bab 3 (+ invers 3×3 & persamaan, Fase 16)
-│       │       └── simModeling.js 498  Bab 4
+│       │       └── simModeling.js 1290  Bab 4 (+ 4 engine TKA, Fase 17)
 │       └── kuis/
 │           ├── quizEngine.js          Satu soal per layar + navigasi maju-mundur
 │           └── quizResult.js     138
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    └── smoke.py                       513 pengujian Playwright, 105 bagian
+    └── smoke.py                       569 pengujian Playwright, 109 bagian
 ```
 
 ---
@@ -1008,13 +1160,13 @@ matriks-lab-interaktif/
 | 1 | `01_konsep_dasar` | pengertian_letak, ordo_matriks, **transpose, jenis_matriks** (ditukar di Fase 12), kesamaan_matriks |
 | 2 | `02_operasi_aljabar` | penjumlahan_pengurangan, perkalian_skalar, kombinasi_operasi, ordo_perkalian, perkalian_matriks, sifat_operasi |
 | 3 | `03_determinan_invers` | determinan_2x2, determinan_3x3, singular_nonsingular, sifat_determinan, invers_2x2, invers_3x3, persamaan_matriks |
-| 4 | `04_pemodelan_tka` | translasi_data, spldv_matriks, spltv_matriks, analisis_multi_kondisi |
+| 4 | `04_pemodelan_tka` | translasi_data, spldv_matriks, **ekstraksi_elemen** (dulu spltv, Fase 17), analisis_multi_kondisi |
 
 ### Registry Simulasi
 
 `js/modules/belajar/simulations/index.js` memetakan string ke kelas. **Kunci di registry HARUS sama persis dengan nilai `simulation.engine` di `data/chapters/*.json`.** Engine yang tidak terdaftar tidak melempar error — ia menampilkan empty-state dan tetap mengizinkan siswa lanjut ke Mini Kuis.
 
-24 engine terdaftar (Fase 16 menambah `inverse3x3` & `equation_solver`):
+28 engine terdaftar (Fase 17 menambah empat engine TKA):
 
 ```
 identify_element · ordo_builder · label_matrix_types · transpose_morph · equality_link
@@ -1023,6 +1175,7 @@ det2x2 · det3x3_sarrus · singular_check · property_calculator
 inverse2x2 · inverse3x3 · equation_solver          (Fase 16)
 adjoint_flow · matrix_equation                     (alias nama lama)
 data_translation · spl_solver · multi_statement
+domino_translation · spldv_utbk · sniper_extraction · multi_condition   (Fase 17)
 coming_soon                                        (tidak dipakai data mana pun)
 ```
 
@@ -1144,6 +1297,16 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 64. **Label yang berubah di tengah simulasi harus berlebar TETAP.** Nama matriks duduk di atas kurung, jadi `A` → `adj(A)` menggeser matriksnya 15px terukur. (Fase 16, bagian uji 57 & 58.)
 
 65. **`renderMixed()` hanya mengenali `$…$`.** `$$…$$` meninggalkan dolar mentah di layar. Placeholder toast memakai `{{kunci}}`, bukan `{kunci}` — kurung tunggal lolos tanpa galat dan tampil apa adanya. (Fase 16, bagian uji 105.)
+
+66. **Memesan ruang berarti memesan ruang yang BENAR-BENAR akan dipakai.** Kotak kosong yang di-`visibility:hidden` hanya memesan ruang seukuran isinya — dan isi kosong tingginya nol. Isi kotaknya lebih dulu, baru sembunyikan. (Fase 17, bagian uji 106.)
+
+67. **Jangan pernah membaca `cell.textContent` pada sel yang punya anak elemen.** Label alamat dan tanda centang adalah `<span>` anak, dan `textContent` menggabungkan semuanya: sel bernilai 10 terbaca "10a11". `dataset.value` satu-satunya sumber yang bersih. (Fase 16 butir 63 & Fase 17, bagian uji 108.)
+
+68. **`classList.add('')` melempar `SyntaxError`.** Kelas yang dihitung lewat ekspresi kondisional WAJIB diperiksa dulu; satu string kosong menghentikan seluruh perulangan penilaian di tengah jalan. (Fase 17, bagian uji 109.)
+
+69. **Panel yang baru muncul harus dibawa ke pandangan.** Alur bertahap yang tumbuh ke bawah bisa menaruh pertanyaan di luar layar; panggung boleh menggulir, tetapi siswa tidak boleh harus mencarinya. (Fase 17, bagian uji 107 & 109.)
+
+70. **Sub-topik yang isinya berganti total mendapat ID BARU.** Mempertahankan id lama akan menandai siswa sudah menyelesaikan sesuatu yang tidak pernah ia kerjakan. (Fase 17: `spltv_matriks` → `ekstraksi_elemen`.)
 
 ---
 
@@ -1448,7 +1611,7 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Commit Fase 16 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); `4706b7a` (Fase 16) hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
+6. **Commit Fase 16 dan 17 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); keduanya hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
 
 ---
 
@@ -1459,7 +1622,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **513** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 → 469 → 513 di fase 11–16).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **569** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 → 469 → 513 → 569 di fase 11–17).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.

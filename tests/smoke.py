@@ -404,10 +404,25 @@ PAPAN55_INTIP = """() => new Promise(resolve => {
 
     eye.dispatchEvent(ppe('pointerdown'));
 
-    // Diintip di TENGAH transisi: kalau nilainya langsung 0, berarti ia
-    // berpindah seketika dan bukan memudar.
+    /**
+     * Opacity DICUPLIK BERULANG selama transisi, bukan sekali di 90ms.
+     *
+     * Satu cuplikan di titik tetap ternyata rapuh: kalau frame pertama
+     * datang terlambat, transisinya belum sempat mulai dan nilainya masih
+     * 1 — pengujiannya gagal padahal perilakunya benar (terukur sekali
+     * dalam tiga kali jalan). Yang sebenarnya ingin dibuktikan bukan
+     * "nilainya sekian di milidetik ke-90", melainkan "ia MELEWATI nilai
+     * antara" — dan itu hanya bisa dijawab dengan menyapu, bukan mengintip.
+     */
+    const cuplikan = [];
+    const sampler = setInterval(() => {
+        cuplikan.push(parseFloat(getComputedStyle(cv).opacity));
+    }, 20);
+
     setTimeout(() => {
-        out.diTengahTransisi = parseFloat(getComputedStyle(cv).opacity);
+        clearInterval(sampler);
+        out.cuplikan = cuplikan;
+        out.adaNilaiAntara = cuplikan.some(v => v > 0.02 && v < 0.98);
         setTimeout(() => {
             out.saatDitahan = { peeking: pad.state.peeking,
                                 opacity: getComputedStyle(cv).opacity,
@@ -439,7 +454,7 @@ PAPAN55_INTIP = """() => new Promise(resolve => {
                 }, 250);
             }, 400);
         }, 350);
-    }, 90);
+    }, 190);
 })"""
 
 PAPAN_SIAP_RESIZE = """() => {
@@ -460,6 +475,326 @@ PAPAN_RUTE_BARU = """() => new Promise(resolve => {
         });
     }, 500);
 })"""
+# ============================================================
+# Skrip peramban untuk bagian regresi Fase 17 (106).
+# ============================================================
+
+F17_ALAT = """
+    const tap = (n) => n.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    const kotak = (el) => { const r = el.getBoundingClientRect();
+        return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+    // Toast MENUMPUK dan yang dibuang tinggal ~400ms — baca semuanya.
+    const toastTeks = () => [...document.querySelectorAll('.toast')]
+        .map(t => t.textContent.replace(/\\s+/g, ' ').trim()).join(' | ');
+    const padGrid = () => document.querySelector('.mathpad .mathpad__grid');
+    const padPress = (l) => [...padGrid().querySelectorAll('button')]
+        .find(b => b.getAttribute('aria-label') === l)
+        .dispatchEvent(new PointerEvent('pointerdown',
+            { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
+    const bukaPad = (input) => input.dispatchEvent(new PointerEvent('pointerdown',
+        { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
+"""
+
+# --- Engine 1: parsing visual + Aturan Domino ---
+F17_DOMINO = """async () => {
+    """ + F17_ALAT + """
+    const out = { geser: [] };
+    const numBtn = (v) => [...document.querySelectorAll('.story-num')]
+        .find(b => b.textContent === v && b.dataset.spent !== 'true');
+    const mat = (name) => [...document.querySelectorAll('.domino-mat')]
+        .find(w => w.querySelector('.matrix__name')?.textContent === name);
+    const cell = (name, i, j) => [...mat(name).querySelectorAll('.cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == j);
+    const baris = () => document.querySelector('.domino-row');
+
+    out.angka = [...document.querySelectorAll('.story-num')].map(b => b.textContent);
+    out.selKosong = document.querySelectorAll('.cell--empty-slot').length;
+    // Ruang ordo dipesan sejak awal — DAN sudah berisi, supaya tingginya
+    // sama persis dengan saat ia tampil nanti.
+    out.ordoTersembunyi = [...document.querySelectorAll('.ordo-badge')]
+        .map(o => getComputedStyle(o).visibility);
+    out.geser.push(kotak(baris()));
+
+    // Mengetuk sel tanpa memegang angka harus DITOLAK dengan penjelasan.
+    tap(cell('A', 0, 0));
+    await tunggu(1500);
+    out.tanpaPegang = { toast: toastTeks(), kosong: !cell('A', 0, 0).dataset.filled };
+
+    // Memegang angka menyalakan SEMUA sel kosong, bukan hanya yang benar.
+    tap(numBtn('12'));
+    await tunggu(400);
+    out.menyala = document.querySelectorAll('.cell--awaiting').length;
+
+    // Slot yang salah ditolak, dan alamatnya disebut.
+    tap(cell('A', 1, 0));
+    await tunggu(1700);
+    out.slotSalah = { toast: toastTeks(), kosong: !cell('A', 1, 0).dataset.filled };
+
+    // Penolakan TIDAK melepas angka yang sedang dipegang — taruh di tempat benar.
+    tap(cell('A', 0, 0));
+    await tunggu(1400);
+
+    const sisa = [['8','A',0,1],['5','A',0,2],['9','A',1,0],['14','A',1,1],['6','A',1,2],
+                  ['7000','B',0,0],['5000','B',1,0],['11000','B',2,0]];
+    for (const [v, m, i, j] of sisa) {
+        tap(numBtn(v)); await tunggu(260);
+        tap(cell(m, i, j)); await tunggu(1150);
+    }
+    await tunggu(900);
+
+    out.geser.push(kotak(baris()));
+    out.isiA = [...mat('A').querySelectorAll('.cell')].map(c => c.dataset.value);
+    out.isiB = [...mat('B').querySelectorAll('.cell')].map(c => c.dataset.value);
+    out.terpakai = document.querySelectorAll('.story-num--spent').length;
+    out.ordoTampil = [...document.querySelectorAll('.ordo-badge')].map(o => o.textContent);
+    out.tombolDomino = !!([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Cek Aturan Domino')));
+    return out;
+}"""
+
+F17_DOMINO_CEK = """async () => {
+    """ + F17_ALAT + """
+    const out = { sebelum: kotak(document.querySelector('.domino-row')) };
+
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Cek Aturan Domino')).click();
+
+    // Ditangkap DI TENGAH animasi: angka dalam harus berdenyut hijau dulu.
+    await tunggu(400);
+    out.saatMenyala = {
+        jumlah: document.querySelectorAll('.ordo-part--glow').length,
+        teks: [...document.querySelectorAll('.ordo-part--glow')].map(n => n.textContent),
+    };
+
+    await tunggu(3000);
+    out.cocok = [...document.querySelectorAll('.ordo-part--matched')].map(n => n.textContent);
+    out.luar = [...document.querySelectorAll('.ordo-part--outer-glow')].map(n => n.textContent);
+    out.verdictOk = !!document.querySelector('.domino-verdict--ok');
+    out.ordoHasil = document.querySelector('.ordo-badge--result')?.textContent;
+    out.sesudah = kotak(document.querySelector('.domino-row'));
+    out.banner = document.querySelectorAll('.sim__done-overlay').length;
+    out.lanjut = !([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled;
+    return out;
+}"""
+
+# --- Engine 2: SPLDV gaya UTBK ---
+F17_SPLDV = """async () => {
+    """ + F17_ALAT + """
+    const out = {};
+    const pool = (v) => [...document.querySelectorAll('.sim .cell--draggable')]
+        .find(c => c.dataset.value === v);
+    const mats = () => [...document.querySelectorAll('.sim .matrix')];
+    const cellIn = (k, i, j) => [...mats()[k].querySelectorAll('.cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == j);
+
+    out.pool = [...document.querySelectorAll('.sim .cell--draggable')].map(c => c.dataset.value);
+
+    // A = [[3,2],[1,4]] ; B = [[47],[29]]
+    for (const [v, mi, i, j] of [['3',0,0,0],['2',0,0,1],['1',0,1,0],['4',0,1,1],
+                                 ['47',2,0,0],['29',2,1,0]]) {
+        tap(pool(v)); await tunggu(260);
+        tap(cellIn(mi, i, j)); await tunggu(800);
+    }
+    await tunggu(1800);
+
+    out.A = [...mats()[0].querySelectorAll('.cell')].map(c => c.textContent.trim());
+    // Pengecoh 5 dan 30 memang tidak terpakai — itu bagian pelajarannya.
+    out.sisaPool = [...document.querySelectorAll('.sim .cell--draggable')].map(c => c.dataset.value);
+    out.subInvers = document.querySelectorAll('.spldv-inverse .sim').length;
+    out.promptGanda = document.querySelectorAll('.sim__prompt').length;
+
+    // Invers 2x2 dipakai ULANG apa adanya: determinan, tukar, balik, skalar.
+    const inv = () => document.querySelector('.spldv-inverse');
+    const at = (i, j) => [...inv().querySelectorAll('.matrix__grid .cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == j);
+
+    tap(at(0,0)); tap(at(1,1)); await tunggu(2700);
+    tap(at(0,1)); tap(at(1,0)); await tunggu(2700);
+    out.det = inv().querySelector('.scalar-result__value')?.textContent;
+
+    tap(at(0,0)); tap(at(1,1)); await tunggu(1700);
+    tap(at(0,1)); await tunggu(1300);
+    tap(at(1,0)); await tunggu(1800);
+    out.adjoin = [...inv().querySelectorAll('.matrix__grid .cell')].map(c => c.dataset.value);
+
+    tap(inv().querySelector('.scalar-chip--fraction')); await tunggu(300);
+    tap(inv().querySelector('.inv-scalar')); await tunggu(2600);
+
+    out.panel = !!document.querySelector('.utbk-panel');
+    out.opsi = [...document.querySelectorAll('.utbk-option')]
+        .map(o => o.querySelector('.utbk-option__tag')?.textContent);
+    out.inversRedup = inv().classList.contains('is-retired');
+    out.bannerBelum = document.querySelectorAll('.sim__done-overlay').length;
+    return out;
+}"""
+
+F17_SPLDV_OPSI = """async () => {
+    """ + F17_ALAT + """
+    const out = {};
+    const opt = (tag) => [...document.querySelectorAll('.utbk-option')]
+        .find(o => o.querySelector('.utbk-option__tag')?.textContent === tag);
+
+    // Opsi C: skalarnya terbalik (10, bukan 1/10).
+    tap(opt('C')); await tunggu(1800);
+    out.salahC = { toast: toastTeks(), terkunci: opt('C').classList.contains('is-failed') };
+
+    // Opsi E: urutannya terbalik.
+    tap(opt('E')); await tunggu(1800);
+    out.salahE = { toast: toastTeks(), terkunci: opt('E').classList.contains('is-failed') };
+
+    tap(opt('A')); await tunggu(2200);
+    out.benar = {
+        ditandai: opt('A').classList.contains('utbk-option--correct'),
+        semuaTerkunci: [...document.querySelectorAll('.utbk-option')]
+            .every(o => o.classList.contains('is-locked') || o.classList.contains('is-failed')),
+        explain: !!document.querySelector('.explain'),
+        banner: document.querySelectorAll('.sim__done-overlay').length,
+        lanjut: !([...document.querySelectorAll('button')]
+            .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled,
+    };
+    return out;
+}"""
+
+# --- Engine 3: sniper ---
+F17_SNIPER = """async () => {
+    """ + F17_ALAT + """
+    const out = {};
+    const mats = () => [...document.querySelectorAll('.sim .matrix')];
+    const aCell = (i, j) => [...mats()[0].querySelectorAll('.cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == j);
+
+    out.selK = { ada: !!document.querySelector('.cell--unknown'),
+                 pos: [document.querySelector('.cell--unknown').dataset.row,
+                       document.querySelector('.cell--unknown').dataset.col] };
+    out.nilaiC = [...mats()[2].querySelectorAll('.cell')].map(c => c.textContent.trim());
+
+    // Sel selain k harus ditolak DENGAN penjelasan, dan tidak meredupkan apa pun.
+    tap(aCell(1, 1)); await tunggu(1600);
+    out.selSalah = { toast: toastTeks(), belumRedup: !document.querySelector('.sniper-on') };
+
+    tap(aCell(0, 2)); await tunggu(800);
+    out.redup = {
+        aktif: !!document.querySelector('.sniper-on'),
+        hidup: document.querySelectorAll('.sniper-live').length,
+        target: document.querySelectorAll('.sniper-live--target').length,
+        opacityMati: getComputedStyle(aCell(2, 0)).opacity,
+    };
+
+    await tunggu(7000);
+    // Persamaannya harus BERSIH: label alamat sel tidak boleh ikut terbawa
+    // (bug "10a11(120)" — anak elemen selalu ikut terbaca oleh textContent).
+    out.persamaan = document.querySelector('.sniper-eq')?.textContent.replace(/\\s+/g, '').trim();
+    const inp = document.querySelector('.sniper-ask .numfield');
+    out.isian = { ada: !!inp, readOnly: inp?.readOnly, inputmode: inp?.getAttribute('inputmode') };
+    return out;
+}"""
+
+F17_SNIPER_JAWAB = """async () => {
+    """ + F17_ALAT + """
+    const out = {};
+    let inp = document.querySelector('.sniper-ask .numfield');
+
+    bukaPad(inp); await tunggu(700);
+    padPress('6'); padPress('Konfirmasi jawaban');
+    await tunggu(1600);
+    inp = document.querySelector('.sniper-ask .numfield');
+    out.salah = { toast: toastTeks(), dikosongkan: inp.value === '',
+                  belumSelesai: !document.querySelector('.sniper-done') };
+
+    bukaPad(inp); await tunggu(700);
+    padPress('8'); padPress('Konfirmasi jawaban');
+    await tunggu(2400);
+    out.benar = {
+        selesai: !!document.querySelector('.sniper-done'),
+        banner: document.querySelectorAll('.sim__done-overlay').length,
+        lanjut: !([...document.querySelectorAll('button')]
+            .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled,
+    };
+    return out;
+}"""
+
+# --- Engine 4: analisis multi-kondisi ---
+F17_MULTI_SIAP = """() => ({
+    engine: !!document.querySelector('.mc-multiply'),
+    tabel: !!document.querySelector('.data-table'),
+    subSim: document.querySelectorAll('.mc-multiply .sim').length,
+    matriks: [...document.querySelectorAll('.mc-multiply .matrix__name')].map(n => n.textContent),
+    selHasil: document.querySelectorAll('.mc-multiply .cell--invite').length,
+    // Pernyataan BELUM boleh muncul sebelum matriksnya dihitung.
+    pernyataanBelumAda: document.querySelectorAll('.option').length,
+})"""
+
+# Satu kolom hasil per pemanggilan: sembilan pasang ketukan terlalu lama
+# untuk satu `evaluate`.
+def f17_multi_kolom(j):
+    return """async () => {
+    """ + F17_ALAT + """
+    const host = () => document.querySelector('.mc-multiply');
+    const mats = () => [...host().querySelectorAll('.matrix')];
+    const cAt = (k, i, jj) => [...mats()[k].querySelectorAll('.cell')]
+        .find(c => c.dataset.row == i && c.dataset.col == jj);
+    const target = () => host().querySelector('.cell--target') || host().querySelector('.cell--active');
+    const j = """ + str(j) + """;
+
+    tap(cAt(2, 0, j)); await tunggu(900);
+    for (let t = 0; t < 3; t++) {
+        tap(cAt(0, 0, t)); await tunggu(280);
+        tap(target());     await tunggu(1300);
+        tap(cAt(1, t, j)); await tunggu(280);
+        tap(target());     await tunggu(1300);
+    }
+    const btn = host().querySelector('.workstrip__confirm');
+    const munculTombol = !!(btn && !btn.hidden);
+    if (munculTombol) { btn.click(); await tunggu(2400); }
+    await tunggu(900);
+    return { munculTombol, nilai: cAt(2, 0, j)?.firstChild?.textContent };
+}"""
+
+F17_MULTI_KUNCI = """() => ({
+    panelTerkunci: !!document.querySelector('.mc-locked'),
+    lengket: getComputedStyle(document.querySelector('.mc-locked')).position,
+    chip: [...document.querySelectorAll('.mc-locked__chip')]
+        .map(c => c.textContent.replace(/\\s+/g, ' ').trim()),
+    perkalianRedup: document.querySelector('.mc-multiply').classList.contains('is-retired'),
+    pernyataan: document.querySelectorAll('.option').length,
+    checklist: [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state),
+})"""
+
+F17_MULTI_NILAI = """async () => {
+    """ + F17_ALAT + """
+    const out = {};
+    const opts = () => [...document.querySelectorAll('.option')];
+
+    // Jawaban SENGAJA campuran: s1 tepat dicentang, s3 keliru dicentang,
+    // s2 keliru dilewatkan, s4 tepat dilewatkan. Keempat jalur penilaian
+    // karena itu terpakai sekaligus.
+    tap(opts()[0]); tap(opts()[2]);
+    await tunggu(400);
+    out.tercentang = opts().map(o => o.getAttribute('aria-checked'));
+
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Periksa Jawaban')).click();
+    await tunggu(2600);
+
+    out.feedback = [...document.querySelectorAll('.option-feedback')].map(f => ({
+        nada: f.classList.contains('option-feedback--ok') ? 'ok' : 'no',
+        teks: f.textContent.replace(/\\s+/g, ' ').trim(),
+    }));
+    out.kartu = opts().map(o => ({
+        locked: o.classList.contains('option--locked'),
+        correct: o.classList.contains('option--correct'),
+        wrong: o.classList.contains('option--wrong'),
+    }));
+    out.banner = document.querySelectorAll('.sim__done-overlay').length;
+    out.lanjut = !([...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Lanjut ke Mini Kuis')) || {}).disabled;
+    out.checklist = [...document.querySelectorAll('.checklist__item')].map(n => n.dataset.state);
+    return out;
+}"""
+
+
 # ============================================================
 # Skrip peramban untuk bagian regresi Fase 16 (57, 58, 105).
 # ============================================================
@@ -1592,7 +1927,7 @@ SUBTOPICS = [
     ("01_konsep_dasar", ["pengertian_letak", "ordo_matriks", "jenis_matriks", "transpose", "kesamaan_matriks"]),
     ("02_operasi_aljabar", ["penjumlahan_pengurangan", "perkalian_skalar", "kombinasi_operasi", "ordo_perkalian", "perkalian_matriks", "sifat_operasi"]),
     ("03_determinan_invers", ["determinan_2x2", "determinan_3x3", "singular_nonsingular", "sifat_determinan", "invers_2x2", "invers_3x3", "persamaan_matriks"]),
-    ("04_pemodelan_tka", ["translasi_data", "spldv_matriks", "spltv_matriks", "analisis_multi_kondisi"]),
+    ("04_pemodelan_tka", ["translasi_data", "spldv_matriks", "ekstraksi_elemen", "analisis_multi_kondisi"]),
 ]
 
 results = []
@@ -4451,7 +4786,7 @@ def run(page, errors):
         ("03_determinan_invers", ["determinan_2x2", "determinan_3x3",
                                   "singular_nonsingular", "sifat_determinan",
                                   "persamaan_matriks"]),
-        ("04_pemodelan_tka", ["translasi_data", "spldv_matriks", "spltv_matriks",
+        ("04_pemodelan_tka", ["translasi_data", "spldv_matriks", "ekstraksi_elemen",
                               "analisis_multi_kondisi"]),
     ]:
         for sub in subs:
@@ -4777,8 +5112,11 @@ def run(page, errors):
            json.dumps(padat)[:260])
 
     intip55 = page.evaluate(PAPAN55_INTIP)
+    # Yang dibuktikan: opacity MELEWATI nilai antara, bukan melompat 1 -> 0.
+    # Disapu berulang, bukan diintip sekali — satu cuplikan di titik tetap
+    # gagal sekitar sekali dalam tiga kali jalan saat frame pertama telat.
     record("Mengintip MEMUDAR, bukan berpindah seketika",
-           0.05 < intip55["diTengahTransisi"] < 0.95, json.dumps(intip55)[:300])
+           intip55["adaNilaiAntara"] is True, json.dumps(intip55)[:300])
     record("Tombol mata tetap menerima pointer selama mengintip",
            intip55["saatDitahan"]["peeking"] is True
            and intip55["saatDitahan"]["tombolPe"] == "auto", json.dumps(intip55)[:300])
@@ -4842,6 +5180,202 @@ def run(page, errors):
            eq2["banner"] == 1, e2)
     record("Dua langkah tuntas dan Mini Kuis terbuka",
            eq2["checklist"] == ["done", "done"] and eq2["lanjutAktif"] is True, e2)
+
+    # ==========================================================
+    # FASE 17 — MASTERCLASS PEMODELAN TKA
+    # ==========================================================
+
+    print("\n106. Fase 17 - Translasi cerita & Aturan Domino")
+    open_fresh(page, "#/belajar/04_pemodelan_tka/translasi_data")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(1000)
+
+    dom = page.evaluate(F17_DOMINO)
+    d = json.dumps(dom)[:340]
+    record("Sembilan angka di dalam cerita bisa diketuk",
+           dom["angka"] == ["12", "8", "5", "9", "14", "6", "7000", "5000", "11000"], d)
+    record("Kedua matriks mulai kosong (9 sel)",
+           dom["selKosong"] == 9, d)
+    # Ruang ordo dipesan DAN sudah berisi: kotak kosong yang di-hidden
+    # tingginya nol, dan barisnya melonjak 24px saat ordonya muncul.
+    record("Ruang ordo dipesan sejak awal, belum tampil",
+           dom["ordoTersembunyi"] == ["hidden", "hidden"], d)
+    record("Mengetuk sel tanpa memegang angka ditolak dengan penjelasan",
+           len(dom["tanpaPegang"]["toast"]) > 20 and dom["tanpaPegang"]["kosong"] is True, d)
+    # SEMUA sel kosong menyala, bukan hanya yang benar — kalau hanya yang
+    # benar, aplikasinya yang menjawab soalnya.
+    record("Memegang angka menyalakan SEMUA sel kosong, bukan hanya yang benar",
+           dom["menyala"] == 9, d)
+    record("Slot yang salah ditolak dan alamatnya disebut",
+           "A_{21}" in dom["slotSalah"]["toast"] or "A21" in dom["slotSalah"]["toast"].replace(" ", ""),
+           d)
+    record("Angka yang ditolak tetap dipegang, bukan terlepas",
+           dom["isiA"][0] == "12", d)
+    record("Matriks A tersusun benar dari cerita",
+           dom["isiA"] == ["12", "8", "5", "9", "14", "6"], d)
+    record("Matriks B tersusun benar dari cerita",
+           dom["isiB"] == ["7000", "5000", "11000"], d)
+    record("Kesembilan angka ditandai sudah terpakai di ceritanya",
+           dom["terpakai"] == 9, d)
+    record("Ordo muncul sebagai 2x3 dan 3x1",
+           dom["ordoTampil"] == ["2\u00d73", "3\u00d71"], d)
+    record("Nol pergeseran matriks saat ordo muncul",
+           dom["geser"][0] == dom["geser"][1], json.dumps(dom["geser"]))
+
+    cek = page.evaluate(F17_DOMINO_CEK)
+    c = json.dumps(cek)[:300]
+    record("Kedua angka DALAM berdenyut hijau lebih dulu",
+           cek["saatMenyala"]["jumlah"] == 2 and cek["saatMenyala"]["teks"] == ["3", "3"], c)
+    record("Angka dalam yang cocok menyatu",
+           cek["cocok"] == ["3", "3"], c)
+    record("Angka LUAR menyala dan membentuk ordo hasil 2x1",
+           cek["ordoHasil"] == "2\u00d71" and len(cek["luar"]) >= 2, c)
+    record("Vonis domino menyatakan perkaliannya sah",
+           cek["verdictOk"] is True, c)
+    record("Nol pergeseran matriks selama animasi domino",
+           cek["sebelum"] == cek["sesudah"], json.dumps([cek["sebelum"], cek["sesudah"]]))
+    record("Simulasi domino selesai dan membuka Mini Kuis",
+           cek["banner"] == 1 and cek["lanjut"] is True, c)
+
+    print("\n107. Fase 17 - SPLDV gaya UTBK: berhenti di bentuk, bukan angka")
+    open_fresh(page, "#/belajar/04_pemodelan_tka/spldv_matriks")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(1000)
+
+    sp = page.evaluate(F17_SPLDV)
+    p = json.dumps(sp)[:340]
+    record("Kolam angka memuat pengecoh yang tidak dipakai",
+           "5" in sp["pool"] and "30" in sp["pool"], p)
+    record("Matriks koefisien tersusun dari cerita",
+           sp["A"] == ["3", "2", "1", "4"], p)
+    record("Pengecoh tetap tertinggal di kolam",
+           sorted(sp["sisaPool"]) == ["30", "5"], p)
+    # Invers 2x2 dipakai ULANG sebagai sub-engine, bukan disalin.
+    record("Invers 2x2 dipasang sebagai sub-engine",
+           sp["subInvers"] == 1 and sp["promptGanda"] == 2, p)
+    record("Determinan dihitung siswa: 3x4 - 2x1 = 10",
+           sp["det"] == "10", p)
+    record("Adjoin terbentuk benar",
+           sp["adjoin"] == ["4", "-2", "-1", "3"], p)
+    record("Lima opsi bergaya UTBK muncul (A-E)",
+           sp["panel"] is True and sp["opsi"] == ["A", "B", "C", "D", "E"], p)
+    record("Panggung invers diredupkan, bukan dihapus",
+           sp["inversRedup"] is True, p)
+    record("Simulasi belum ditandai selesai sebelum opsi dipilih",
+           sp["bannerBelum"] == 0, p)
+
+    op = page.evaluate(F17_SPLDV_OPSI)
+    o = json.dumps(op)[:340]
+    # Tiap pengecoh punya kesalahan yang BERBEDA, dan itulah yang perlu
+    # dikenali siswa — jadi penjelasannya harus spesifik per opsi.
+    record("Opsi berskalar terbalik dijelaskan spesifik dan dikunci",
+           "penyebut" in op["salahC"]["toast"] and op["salahC"]["terkunci"] is True, o)
+    record("Opsi berurutan terbalik dijelaskan spesifik dan dikunci",
+           "terbalik" in op["salahE"]["toast"] and op["salahE"]["terkunci"] is True, o)
+    record("Opsi yang benar ditandai dan mengunci seluruh pilihan",
+           op["benar"]["ditandai"] is True and op["benar"]["semuaTerkunci"] is True, o)
+    record("Pembahasan muncul dan Mini Kuis terbuka",
+           op["benar"]["explain"] is True and op["benar"]["banner"] == 1
+           and op["benar"]["lanjut"] is True, o)
+
+    print("\n108. Fase 17 - Sniper: satu baris, satu kolom, satu persamaan")
+    open_fresh(page, "#/belajar/04_pemodelan_tka/ekstraksi_elemen")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(1000)
+
+    sn = page.evaluate(F17_SNIPER)
+    n = json.dumps(sn)[:340]
+    record("Variabel k tersembunyi di dalam matriks A",
+           sn["selK"]["ada"] is True and sn["selK"]["pos"] == ["0", "2"], n)
+    record("Matriks hasil menampilkan ketiga total tagihan",
+           sn["nilaiC"] == ["2680", "1800", "1860"], n)
+    record("Sel selain k ditolak DENGAN alasan, tanpa meredupkan apa pun",
+           len(sn["selSalah"]["toast"]) > 20 and sn["selSalah"]["belumRedup"] is True, n)
+    # Inti pelajarannya visual: yang tidak dipakai benar-benar padam.
+    record("Ketukan pada k meredupkan panggung sampai 0.16",
+           sn["redup"]["aktif"] is True and sn["redup"]["opacityMati"] == "0.16", n)
+    record("Hanya jalur yang dipakai yang menyala: 3 + 3 + 1 sel",
+           sn["redup"]["hidup"] == 7 and sn["redup"]["target"] == 1, n)
+    # Label alamat sel TIDAK boleh ikut terbawa ke persamaan: `textContent`
+    # pada sel ber-anak elemen mengembalikan "10a11", bukan "10".
+    record("Persamaan hasil ekstraksi bersih dari label alamat",
+           sn["persamaan"] == "10(120)+25(40)+k(60)=2680", n)
+    record("Nilai k diisi lewat Mathpad, keyboard OS tidak muncul",
+           sn["isian"]["readOnly"] is True and sn["isian"]["inputmode"] == "none", n)
+
+    jw = page.evaluate(F17_SNIPER_JAWAB)
+    j = json.dumps(jw)[:300]
+    record("Jawaban k yang salah ditolak dan isiannya dikosongkan",
+           jw["salah"]["dikosongkan"] is True and jw["salah"]["belumSelesai"] is True, j)
+    record("k = 8 diterima dan simulasi selesai",
+           jw["benar"]["selesai"] is True and jw["benar"]["banner"] == 1
+           and jw["benar"]["lanjut"] is True, j)
+
+    print("\n109. Fase 17 - Analisis multi-kondisi: hitung sendiri lalu dinilai")
+    open_fresh(page, "#/belajar/04_pemodelan_tka/analisis_multi_kondisi")
+    b = page.query_selector("button:has-text('Mulai Simulasi')")
+    if b:
+        b.click()
+        page.wait_for_timeout(1100)
+
+    siap = page.evaluate(F17_MULTI_SIAP)
+    z = json.dumps(siap)[:300]
+    # Versi lama punya tombol "Hitung Matriks Pendapatan" yang mengisi
+    # hasilnya sendiri — aplikasi menghitung untuk siswa, tepat di langkah
+    # yang paling menentukan jawabannya.
+    record("Matriks pendapatan dihitung siswa lewat mesin perkalian",
+           siap["engine"] is True and siap["subSim"] == 1, z)
+    record("Tabel data mentah tetap ditampilkan",
+           siap["tabel"] is True, z)
+    record("Tiga sel hasil menunggu dihitung",
+           siap["selHasil"] == 3, z)
+    record("Pernyataan belum muncul sebelum matriksnya dihitung",
+           siap["pernyataanBelumAda"] == 0, z)
+
+    hasil = [page.evaluate(f17_multi_kolom(0)),
+             page.evaluate(f17_multi_kolom(1)),
+             page.evaluate(f17_multi_kolom(2))]
+    h = json.dumps(hasil)[:300]
+    record("Tombol hitung baru muncul setelah semua pasangan lengkap",
+           all(x["munculTombol"] is True for x in hasil), h)
+    record("Pendapatan tiap cabang benar: 1.480.000 / 1.370.000 / 1.660.000",
+           [x["nilai"] for x in hasil] == ["1480000", "1370000", "1660000"], h)
+
+    kunci = page.evaluate(F17_MULTI_KUNCI)
+    k = json.dumps(kunci)[:300]
+    record("Matriks hasil dikunci di layar dan ikut menempel saat menggulir",
+           kunci["panelTerkunci"] is True and kunci["lengket"] == "sticky", k)
+    record("Ketiga angka pendapatan tampil sebagai rujukan",
+           len(kunci["chip"]) == 3 and "1.480.000" in kunci["chip"][0], k)
+    record("Panggung perkalian diredupkan, bukan dihapus",
+           kunci["perkalianRedup"] is True, k)
+    record("Empat pernyataan gaya 'pilih semua yang benar' muncul",
+           kunci["pernyataan"] == 4, k)
+
+    nilai = page.evaluate(F17_MULTI_NILAI)
+    v = json.dumps(nilai)[:400]
+    # ⚠️ `classList.add('')` MELEMPAR. Versi lama memanggilnya persis pada
+    # kasus "pernyataan salah yang dibiarkan tidak dicentang" — yaitu ketika
+    # siswa MENJAWAB BENAR — sehingga check() berhenti di tengah jalan.
+    record("Keempat pernyataan mendapat caption penjelas masing-masing",
+           len(nilai["feedback"]) == 4, v)
+    record("Caption menyebutkan angka pembandingnya, bukan sekadar benar/salah",
+           all(("Rp" in f["teks"]) for f in nilai["feedback"]), v)
+    record("Nada caption mengikuti benar/salahnya pernyataan",
+           [f["nada"] for f in nilai["feedback"]] == ["ok", "ok", "no", "no"], v)
+    record("Pernyataan yang keliru dicentang ditandai salah",
+           nilai["kartu"][2]["wrong"] is True and nilai["kartu"][3]["wrong"] is False, v)
+    record("Seluruh kartu dikunci setelah diperiksa",
+           all(x["locked"] for x in nilai["kartu"]), v)
+    record("Analisis multi-kondisi selesai dan Mini Kuis terbuka",
+           nilai["banner"] == 1 and nilai["lanjut"] is True
+           and nilai["checklist"] == ["done", "done"], v)
 
 
 def main():
