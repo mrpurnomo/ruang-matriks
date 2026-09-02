@@ -32,9 +32,9 @@ const SUBTOPIC_LABELS = {
   invers_2x2: 'Invers 2×2',
   invers_3x3: 'Invers 3×3 (Adjoin)',
   persamaan_matriks: 'Persamaan Matriks',
-  translasi_data: 'Translasi Data ke Matriks',
-  spldv_matriks: 'SPLDV dengan Matriks',
-  spltv_matriks: 'SPLTV dengan Matriks',
+  translasi_data: 'Translasi Data & Aturan Domino',
+  spldv_matriks: 'Model Invers SPLDV (Gaya UTBK)',
+  ekstraksi_elemen: 'Ekstraksi Elemen Tersembunyi (Sniper)',
   analisis_multi_kondisi: 'Analisis Multi-Kondisi',
 };
 

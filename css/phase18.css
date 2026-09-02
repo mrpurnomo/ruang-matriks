@@ -1,0 +1,389 @@
+/* ============================================================
+   phase18.css — Fase 18: Mesin Ujian CBT & Arsip Soal
+   DIMUAT PALING AKHIR, sesudah phase17.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. ISIAN MATRIKS YANG TIDAK PERNAH BERTABRAKAN
+
+   Kurung matriks digambar sebagai `::before`/`::after` yang
+   menempel di tepi `.matrix__bracket`, sementara isinya diberi
+   jarak lewat padding. Pada isian kuis, kotak `.numfield` jauh
+   lebih besar daripada sel biasa — dan dengan padding bawaan
+   (`--sp-3`) tepi kotaknya nyaris menyentuh kurung, sehingga
+   di layar sempit keduanya terlihat berhimpit.
+
+   Perbaikannya tiga lapis:
+     · padding kurung diperlebar khusus untuk mode isian,
+     · gridnya memakai gap yang jelas (bukan 6px sel biasa),
+     · dan kalau layarnya benar-benar sempit, WADAHNYA yang
+       menggulir mendatar — bukan isinya yang dipaksa mengecil
+       sampai berhimpit.
+   ------------------------------------------------------------ */
+.matrix-input-host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: var(--sp-3) 0;
+  /* Jalan keluar terakhir di layar sangat sempit: gulir, jangan
+     berhimpit. Batangnya disembunyikan agar tidak mengotori kartu. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.matrix-input-host::-webkit-scrollbar { height: 0; }
+
+.matrix--input { flex: none; }
+
+.matrix--input .matrix__bracket {
+  padding: var(--sp-3) calc(var(--sp-4) + 4px);
+}
+
+.matrix__grid--input {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.numfield--cell {
+  width: clamp(62px, 8vw, 84px);
+  min-width: 62px;
+  height: clamp(46px, 6vh, 56px);
+  padding: 4px;
+  font-size: var(--fs-base);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------
+   2. KERANGKA UJIAN DUA KOLOM
+
+   Sama dengan arsitektur Sidebar & Stage di mode Belajar
+   (kontrak §5 butir 21) — kendali di kiri, isi di kanan. Yang
+   berbeda hanya isinya: di sini kolom kiri memegang kisi
+   navigasi soal, persis seperti aplikasi CBT sungguhan.
+   ------------------------------------------------------------ */
+.exam-side {
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+}
+
+.exam-info {
+  display: grid;
+  gap: 4px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+}
+
+.exam-info__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.exam-info__row b { color: var(--ink); font-size: var(--fs-sm); }
+
+/* --- Riwayat percobaan --- */
+.exam-history {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.exam-history__title,
+.exam-nav__title {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.exam-history__list {
+  display: grid;
+  gap: 4px;
+  /* Riwayat boleh panjang (percobaan tak terbatas); ia menggulir di
+     dalam dirinya sendiri, bukan mendorong kisi navigasi keluar layar. */
+  max-height: 132px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.exam-history__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.exam-history__chip b {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+
+.exam-history__chip[data-tone="perfect"] { border-color: var(--success); }
+.exam-history__chip[data-tone="perfect"] b { color: var(--success); }
+.exam-history__chip[data-tone="good"] { border-color: var(--brand-primary-line); }
+.exam-history__chip[data-tone="low"] b { color: var(--danger); }
+
+/* ------------------------------------------------------------
+   3. KISI NAVIGASI SOAL
+
+   Setiap tombol 44px: ambang sentuh yang sama dengan seluruh
+   aplikasi (kontrak §5 butir 35). Di CBT sungguhan kisi inilah
+   yang paling sering ditekan, jadi ia tidak boleh jadi yang
+   paling kecil.
+   ------------------------------------------------------------ */
+.exam-nav { display: grid; gap: var(--sp-2); }
+
+.exam-nav__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+}
+
+.exam-nav__item {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--border-soft);
+  background: var(--bg-surface);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.exam-nav__item:hover { transform: translateY(-1px); border-color: var(--royal); }
+
+/* Sudah diisi — belum tentu benar, dan memang belum dinilai. */
+.exam-nav__item[data-state="answered"] {
+  background: var(--blue-50);
+  border-color: var(--royal);
+  color: var(--royal);
+}
+
+.exam-nav__item[data-state="correct"] {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.exam-nav__item[data-state="wrong"] {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Soal yang sedang dibuka: cincin tebal, bukan sekadar warna —
+   ia harus terbaca di atas keempat status di atas. */
+.exam-nav__item[aria-current="true"] {
+  box-shadow: 0 0 0 3px var(--yellow);
+  transform: translateY(-1px);
+}
+
+.exam-nav__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+}
+
+.exam-legend { display: inline-flex; align-items: center; gap: 5px; }
+
+.exam-legend::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 2px solid var(--border-soft);
+  background: var(--bg-surface);
+}
+
+.exam-legend--answered::before { background: var(--blue-50); border-color: var(--royal); }
+.exam-legend--correct::before { background: var(--success-soft); border-color: var(--success); }
+.exam-legend--wrong::before { background: var(--danger-soft); border-color: var(--danger); }
+
+/* ------------------------------------------------------------
+   4. BILAH AKSI UJIAN
+   ------------------------------------------------------------ */
+.exam .ws-side__actions {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.exam-prevnext {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.exam-prevnext .btn { flex: 1; }
+
+/* ------------------------------------------------------------
+   5. SOAL & PILIHAN BERHURUF
+   ------------------------------------------------------------ */
+.exam-question { width: 100%; }
+
+.exam-question .quiz__card {
+  max-width: 100%;
+  text-align: left;
+}
+
+.quiz__tex { margin: var(--sp-2) 0; }
+
+.exam-answer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.options--exam { display: grid; gap: var(--sp-2); }
+
+/* Huruf opsi (A–E) ditulis eksplisit: itulah bentuk yang dilihat
+   siswa di lembar UTBK, dan yang dirujuk pembahasannya. */
+.option--lettered {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--sp-3);
+  text-align: left;
+}
+
+.option__letter {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.option[aria-checked="true"] .option__letter {
+  background: var(--royal);
+  border-color: var(--royal);
+  color: var(--white);
+}
+
+.option--correct .option__letter { background: var(--success); border-color: var(--success); color: var(--white); }
+.option--wrong .option__letter { background: var(--danger); border-color: var(--danger); color: var(--white); }
+
+/* Opsi yang DIPILIH siswa tetap ditandai walau salah — tanpa itu,
+   siswa yang keliru tidak pernah tahu ia tadi memilih apa. */
+.option--picked { outline: 2px dashed var(--ink-3); outline-offset: 2px; }
+
+/* ------------------------------------------------------------
+   6. PEMBAHASAN SETELAH DIKUMPULKAN
+   ------------------------------------------------------------ */
+.exam-score {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: var(--sp-3);
+  border-radius: var(--r-lg);
+  border: 2px solid var(--border-soft);
+  background: var(--bg-surface);
+}
+
+.exam-score__label {
+  font-size: var(--fs-xs);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.exam-score__value {
+  font-family: var(--font-mono);
+  font-size: 2.4rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.exam-score__sub { font-size: var(--fs-xs); color: var(--ink-2); }
+
+.exam-score[data-tone="perfect"] { border-color: var(--success); background: var(--success-soft); }
+.exam-score[data-tone="perfect"] .exam-score__value { color: var(--success); }
+.exam-score[data-tone="good"] { border-color: var(--brand-primary-line); background: var(--blue-50); }
+.exam-score[data-tone="good"] .exam-score__value { color: var(--royal); }
+.exam-score[data-tone="mid"] { border-color: var(--yellow); background: var(--yellow-100); }
+.exam-score[data-tone="low"] { border-color: var(--danger); background: var(--danger-soft); }
+.exam-score[data-tone="low"] .exam-score__value { color: var(--danger); }
+
+.exam-yours {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border-soft);
+}
+
+.exam-yours--ok { background: var(--success-soft); border-color: var(--success); }
+.exam-yours--no { background: var(--danger-soft); border-color: var(--danger); }
+.exam-yours__key { color: var(--ink-2); }
+
+/* ------------------------------------------------------------
+   7. RIWAYAT DI MENU KUIS
+   ------------------------------------------------------------ */
+.quiz-attempts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.quiz-attempt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+}
+
+.quiz-attempt[data-tone="perfect"] { border-color: var(--success); color: var(--success); }
+
+/* ------------------------------------------------------------
+   Lanskap pendek
+   ------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .exam-history__list { max-height: 74px; }
+  .exam-nav__item { min-width: 38px; min-height: 38px; font-size: var(--fs-xs); }
+  .exam-nav__grid { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); }
+  .exam-score__value { font-size: 1.8rem; }
+  .numfield--cell { width: 58px; height: 42px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-nav__item { transition: none; }
+}

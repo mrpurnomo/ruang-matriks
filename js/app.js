@@ -10,10 +10,11 @@ import { showModal, confirmAction } from './ui/modal.js';
 import { renderMixed } from './engine/katexRenderer.js';
 import { LessonView } from './modules/belajar/lessonRenderer.js';
 import { QuizEngine } from './modules/kuis/quizEngine.js';
+import { ExamEngine } from './modules/kuis/examEngine.js';
 import { renderQuizResult } from './modules/kuis/quizResult.js';
 import {
   touchSession, getOverallProgress, getChapterProgress, getSubtopicProgress,
-  isSubtopicUnlocked, getLastVisited, saveQuizResult, getState,
+  isSubtopicUnlocked, getLastVisited, saveQuizResult, getQuizHistory, getState,
   isStorageAvailable, resetAll, getBadges, getSettings, updateSettings,
 } from './state/progressStore.js';
 import { quizKey, clearAllResume } from './state/sessionState.js';
@@ -325,7 +326,7 @@ function renderLogin(params, options) {
 }
 
 /* ------------------------------------------------------------
-   Layar: Simulasi TKA (placeholder)
+   Layar: Latihan Soal TKA (placeholder rute #/tka)
    ------------------------------------------------------------ */
 function renderTka(params, options) {
   mountScreen((container) => {
@@ -333,7 +334,7 @@ function renderTka(params, options) {
 
     const card = el('div', 'soon__card anim-rise');
     card.appendChild(el('span', 'soon__mark', icon('trophy', { size: 28 })));
-    card.appendChild(el('h2', 'soon__title', 'Simulasi TKA segera hadir'));
+    card.appendChild(el('h2', 'soon__title', 'Latihan Soal TKA'));
     card.appendChild(el('p', 'soon__text',
       'Mode ujian dengan soal acak lintas bab sedang disiapkan. Sementara ini, '
       + 'perkuat dulu pemahamanmu lewat Belajar dan Kuis per bab.'));
@@ -394,7 +395,7 @@ const MODE_CARDS = [
   },
 ];
 
-/* Simulasi TKA sengaja TIDAK ada di deretan kartu ini. Pintu masuknya cukup
+/* Latihan Soal TKA sengaja TIDAK ada di deretan kartu ini. Pintu masuknya cukup
    satu — tombol di panel Pencapaianmu — supaya siswa tidak melihat dua jalan
    menuju layar yang sama. */
 
@@ -550,7 +551,7 @@ async function renderMenu(params, options) {
     const statActions = el('div', 'hero__actions');
     const toQuiz = el('button', 'btn btn--amber btn--lg');
     toQuiz.type = 'button';
-    toQuiz.innerHTML = `${icon('trophy', { size: 18 })}<span>Simulasi TKA</span>`;
+    toQuiz.innerHTML = `${icon('trophy', { size: 18 })}<span>Latihan Soal TKA</span>`;
     toQuiz.addEventListener('click', () => router.navigate('kuis/simulasi_tka/all'));
     statActions.appendChild(toQuiz);
     stats.appendChild(statActions);
@@ -804,6 +805,25 @@ function renderQuizMenu(params, options) {
 
     const body = el('div', 'workspace__body');
 
+    // --- Latihan Soal TKA: 10 soal tetap, empat di antaranya soal asli 2025 ---
+    body.appendChild(el('div', 'panel__label', 'Latihan Soal TKA'));
+
+    const tkaSet = buildTkaSet(state.quizzes);
+    const tkaItem = el('button', 'chapter-item');
+    tkaItem.type = 'button';
+    tkaItem.dataset.role = 'tka-entry';
+    tkaItem.innerHTML = `
+      <span class="chapter-item__num">${icon('trophy', { size: 18 })}</span>
+      <span class="chapter-item__body">
+        <span class="chapter-item__title">Latihan Soal TKA</span>
+        <span class="chapter-item__tag">${tkaSet.length} soal &middot; gaya ujian sesungguhnya</span>
+        ${attemptChips('simulasi_tka', 'all')}
+      </span>
+      ${icon('chevron-right', { size: 16 })}
+    `;
+    tkaItem.addEventListener('click', () => router.navigate('kuis/simulasi_tka/all'));
+    body.appendChild(tkaItem);
+
     body.appendChild(el('div', 'panel__label', 'Latihan per Bab'));
 
     const list = el('div', 'chapter-list stagger');
@@ -817,6 +837,7 @@ function renderQuizMenu(params, options) {
         <span class="chapter-item__body">
           <span class="chapter-item__title">${ch.title}</span>
           <span class="chapter-item__tag">${bank.length} soal tersedia</span>
+          ${attemptChips('latihan_bab', ch.id)}
         </span>
         ${icon('chevron-right', { size: 16 })}
       `;
@@ -833,6 +854,35 @@ function renderQuizMenu(params, options) {
 /* ------------------------------------------------------------
    Layar: Sesi Kuis
    ------------------------------------------------------------ */
+/**
+ * Riwayat percobaan untuk satu set soal, urut dari yang PERTAMA.
+ *
+ * `progressStore` menyimpan seluruh riwayat kuis dalam satu daftar
+ * (terbaru di depan), jadi nomor percobaannya dihitung ulang di sini
+ * setelah disaring — tanpa itu, "Percobaan 1" pada Bab 3 bisa berarti
+ * percobaan ke-9 secara keseluruhan.
+ */
+function attemptsFor(mode, bankId) {
+  const semua = getQuizHistory(50)
+    .filter((h) => h.mode === mode && (h.chapter || 'all') === (bankId || 'all'))
+    .slice()
+    .reverse();                       // yang paling lama lebih dulu
+  return semua.map((h, i) => ({ attempt: i + 1, score: h.score, finishedAt: h.finishedAt }));
+}
+
+/** Deretan chip "Percobaan n: skor" untuk kartu di menu kuis. */
+function attemptChips(mode, bankId) {
+  const list = attemptsFor(mode, bankId);
+  if (!list.length) return '';
+  // Hanya lima terakhir yang ditampilkan di kartu; sisanya ada di panel ujian.
+  const tampil = list.slice(-5);
+  const chips = tampil.map((a) => {
+    const tone = a.score === 100 ? ' data-tone="perfect"' : '';
+    return `<span class="quiz-attempt"${tone}>P${a.attempt}<b>${a.score}</b></span>`;
+  }).join('');
+  return `<span class="quiz-attempts">${chips}</span>`;
+}
+
 function pickRandom(array, count) {
   const pool = [...array];
   const out = [];
@@ -842,17 +892,43 @@ function pickRandom(array, count) {
   return out;
 }
 
+/**
+ * Susun set Latihan Soal TKA.
+ *
+ * Sejak Fase 18 urutannya TETAP, bukan diundi. Alasannya: empat soal
+ * pertama adalah soal ASLI TKA 2025 dan harus selalu muncul — mengundinya
+ * berarti sebagian siswa tidak pernah menemuinya. Enam sisanya dipilih
+ * tangan dari bank bab sebagai soal HOTS penutup.
+ *
+ * `questionOrder` berisi id soal; `inlineBank` (bank `tka_2025`) memuat
+ * soal aslinya. Bila sebuah id tidak ditemukan, ia dilewati dengan
+ * peringatan — lebih baik ujiannya lebih pendek daripada gagal total.
+ */
 function buildTkaSet(quizzes) {
-  const config = quizzes.tkaSimulation;
+  const config = quizzes.tkaSimulation || {};
+
+  if (Array.isArray(config.questionOrder) && config.questionOrder.length) {
+    const index = new Map();
+    Object.values(quizzes.banks || {}).forEach((bank) => {
+      (bank || []).forEach((q) => index.set(q.id, q));
+    });
+
+    const set = [];
+    config.questionOrder.forEach((id) => {
+      const q = index.get(id);
+      if (q) set.push(q);
+      else console.warn(`[kuis] soal "${id}" tidak ditemukan di bank mana pun`);
+    });
+    return set;
+  }
+
+  // Jalur lama (undian) tetap didukung untuk konfigurasi tanpa urutan tetap.
   const picked = [];
-
-  config.drawFrom.forEach((bankId) => {
+  (config.drawFrom || []).forEach((bankId) => {
     const bank = quizzes.banks[bankId] || [];
-    const want = config.weight[bankId] || 2;
-    picked.push(...pickRandom(bank, want));
+    picked.push(...pickRandom(bank, config.weight[bankId] || 2));
   });
-
-  return pickRandom(picked, config.questionCount);
+  return pickRandom(picked, config.questionCount || picked.length);
 }
 
 function renderQuizSession(params, options) {
@@ -877,40 +953,28 @@ function renderQuizSession(params, options) {
       return;
     }
 
-    container.innerHTML = '';
-    const workspace = el('div', 'workspace');
-
     const chapterMeta = state.manifest.chapters.find((c) => c.id === params.bankId);
 
-    workspace.appendChild(buildBar({
-      eyebrow: isTka ? 'Simulasi TKA' : `Bab ${chapterMeta ? chapterMeta.number : ''}`,
-      title: isTka ? 'Soal Acak Lintas Bab' : (chapterMeta ? chapterMeta.title : 'Latihan'),
-      onBack: async () => {
-        const ok = await confirmAction({
-          title: 'Keluar dari kuis?',
-          body: 'Jawaban yang sudah kamu kerjakan pada sesi ini **tidak akan tersimpan**.',
-          confirmLabel: 'Ya, Keluar dari Kuis',
-          cancelLabel: 'Batal, Lanjut Mengerjakan',
-          variant: 'danger',
-        });
-        if (ok) router.navigate('kuis');
-      },
-    }));
-
-    const body = el('div', 'workspace__body');
-    workspace.appendChild(body);
-    container.appendChild(workspace);
-
-    const startedAt = new Date().toISOString();
-
+    /**
+     * Mode Kuis mandiri memakai MESIN UJIAN (Fase 18), bukan `QuizEngine`.
+     *
+     * `QuizEngine` tetap melayani Mini Kuis di dalam sub-topik, tempat umpan
+     * balik langsung memang benar (mastery learning). Di sini yang dilatih
+     * pengalaman ujian: navigasi bebas, jawaban bisa diubah, dan penilaian
+     * baru terjadi setelah dikumpulkan.
+     */
     const run = () => {
-      body.innerHTML = '';
-      const engine = new QuizEngine(body, questions, {
-        // Sesi kuis mandiri juga diingat: siswa yang mundur ke menu di
-        // tengah sesi kembali ke soal yang sama, bukan ke soal pertama.
-        sessionKey: quizKey(params.mode, params.bankId),
-        requireCorrect: false,   // mode kuis: boleh salah, lanjut, lihat hasil
-        showExplanation: true,
+      container.innerHTML = '';
+      const startedAt = new Date().toISOString();
+
+      const engine = new ExamEngine(container, questions, {
+        eyebrow: isTka ? 'Latihan Soal TKA' : `Bab ${chapterMeta ? chapterMeta.number : ''}`,
+        title: isTka
+          ? 'Sepuluh Soal Gaya Ujian'
+          : (chapterMeta ? chapterMeta.title : 'Latihan'),
+        getHistory: () => attemptsFor(params.mode, params.bankId),
+        onExit: () => router.navigate('kuis'),
+        onRetry: () => run(),
         onFinish: (result) => {
           saveQuizResult({
             mode: params.mode,
@@ -920,15 +984,6 @@ function renderQuizSession(params, options) {
             ...result,
           });
           updateHeader();
-
-          renderQuizResult(body, {
-            result,
-            manifest: state.manifest,
-            onRetry: run,
-            onExit: () => router.navigate(''),
-            onRemedial: (chapterId, subtopicId) =>
-              router.navigate(`belajar/${chapterId}/${subtopicId}`),
-          });
         },
       });
       engine.start();

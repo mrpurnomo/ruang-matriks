@@ -476,6 +476,243 @@ PAPAN_RUTE_BARU = """() => new Promise(resolve => {
     }, 500);
 })"""
 # ============================================================
+# Skrip peramban untuk bagian regresi Fase 18 (110-112).
+# ============================================================
+
+F18_ALAT = """
+    const tap = (n) => n.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    const nav = (i) => document.querySelectorAll('.exam-nav__item')[i];
+    const opts = () => [...document.querySelectorAll('.option')];
+    const ke = async (i) => { tap(nav(i)); await tunggu(700); };
+    const pd = (n) => n.dispatchEvent(new PointerEvent('pointerdown',
+        { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
+    const padPress = (l) => pd([...document.querySelector('.mathpad .mathpad__grid')
+        .querySelectorAll('button')].find(b => b.getAttribute('aria-label') === l));
+    /**
+     * Pastikan sebuah opsi berakhir TERCENTANG.
+     *
+     * Pada `multi_select`, ketukan bersifat menyala-mati. Skrip yang
+     * mengetuk opsi yang sudah tercentang justru mematikannya — terukur
+     * membuat skor terbaca 60, bukan 70, dan menuduh aplikasi keliru
+     * padahal yang salah pengujiannya.
+     */
+    const pilih = (i) => { const b = opts()[i];
+        if (b.getAttribute('aria-checked') !== 'true') tap(b); };
+"""
+
+# --- Tata letak CBT dua kolom ---
+F18_TATA = """() => {
+    const side = document.querySelector('.exam .ws-side');
+    const stage = document.querySelector('.exam .ws-stage');
+    const sr = side.getBoundingClientRect();
+    const gr = stage.getBoundingClientRect();
+    const total = sr.width + gr.width;
+    const navBtn = document.querySelector('.exam-nav__item').getBoundingClientRect();
+    return {
+        split: !!document.querySelector('.workspace--split.exam'),
+        rasioSide: +(sr.width / total * 100).toFixed(1),
+        rasioStage: +(gr.width / total * 100).toFixed(1),
+        navJumlah: document.querySelectorAll('.exam-nav__item').length,
+        navUkuran: [Math.round(navBtn.width), Math.round(navBtn.height)],
+        // Kontrak Fase 18: TIDAK ada umpan balik langsung di mode ujian.
+        adaPeriksaJawaban: [...document.querySelectorAll('button')]
+            .some(b => b.textContent.includes('Periksa Jawaban')),
+        adaKumpulkan: !!document.querySelector('[data-role="submit-exam"]'),
+        adaRiwayatPanel: !!document.querySelector('.exam-nav'),
+        hurufOpsi: [...document.querySelectorAll('.option__letter')].map(n => n.textContent),
+        legenda: document.querySelector('.exam-nav__legend').textContent.replace(/\\s+/g, ' ').trim(),
+    };
+}"""
+
+# --- Navigasi bebas + jawaban tertunda + ingatan antar-soal ---
+F18_ALUR = """async () => {
+    """ + F18_ALAT + """
+    const out = {};
+
+    // Soal 1: pilih E. Tidak boleh ada pembahasan yang muncul.
+    tap(opts()[4]);
+    await tunggu(400);
+    out.soal1 = {
+        terpilih: opts().map(o => o.getAttribute('aria-checked')),
+        navState: nav(0).dataset.state,
+        // Umpan balik DITUNDA: tidak ada pembahasan, tidak ada penandaan benar/salah.
+        adaPembahasan: !!document.querySelector('.explain'),
+        adaTandaBenar: document.querySelectorAll('.option--correct').length,
+        legenda: document.querySelector('.exam-nav__legend').textContent.replace(/\\s+/g, ' ').trim(),
+    };
+
+    // Melompat ke soal 4 TANPA menjawab soal 2 dan 3 — di ujian, semua soal
+    // selalu bisa dibuka.
+    await ke(3);
+    out.lompatBebas = {
+        nomor: document.querySelector('.quiz__meta').textContent.replace(/\\s+/g, ' ').trim(),
+        multi: document.querySelector('.options').dataset.multi,
+        // Tabel data soal hotel harus jadi TABEL sungguhan, bukan pipa mentah.
+        adaTabel: !!document.querySelector('.quiz__card .data-table'),
+        pipaMentah: document.querySelector('.quiz__prompt').textContent.includes('|'),
+        barisTabel: document.querySelectorAll('.quiz__card .data-table tbody tr').length,
+    };
+
+    tap(opts()[2]); tap(opts()[4]);
+    await tunggu(400);
+    out.soal4pilih = opts().map(o => o.getAttribute('aria-checked'));
+
+    // Kembali ke soal 1 — jawaban harus MASIH ada.
+    await ke(0);
+    out.soal1kembali = opts().map(o => o.getAttribute('aria-checked'));
+
+    // Jawaban boleh DIUBAH sebelum dikumpulkan.
+    tap(opts()[0]);
+    await tunggu(300);
+    out.setelahDiubah = opts().map(o => o.getAttribute('aria-checked'));
+    tap(opts()[4]);
+    await tunggu(300);
+    out.dikembalikan = opts().map(o => o.getAttribute('aria-checked'));
+
+    out.navSemua = [...document.querySelectorAll('.exam-nav__item')].map(b => b.dataset.state);
+    return out;
+}"""
+
+# --- Isian matriks tidak pernah berhimpit dengan kurung ---
+F18_MATRIKS = """async () => {
+    """ + F18_ALAT + """
+    await ke(7);
+    const br = document.querySelector('.matrix--input .matrix__bracket').getBoundingClientRect();
+    const cells = [...document.querySelectorAll('.numfield--cell')];
+    const host = document.querySelector('.matrix-input-host');
+    return {
+        jumlahSel: cells.length,
+        ukuran: cells.map(c => { const r = c.getBoundingClientRect();
+            return [Math.round(r.width), Math.round(r.height)]; }),
+        // Garis kurung selebar 9px menempel di tepi `.matrix__bracket`.
+        jarakTerkecil: Math.round(Math.min(...cells.map(c => {
+            const r = c.getBoundingClientRect();
+            return Math.min(r.left - br.left, br.right - r.right);
+        }))),
+        tumpangTindih: cells.some(c => { const r = c.getBoundingClientRect();
+            return (r.left - br.left) < 9 || (br.right - r.right) < 9; }),
+        luapHalaman: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        gridGap: getComputedStyle(document.querySelector('.matrix__grid--input')).gap,
+    };
+}"""
+
+# --- Mengisi jawaban lalu mengumpulkan ---
+F18_ISI = """async () => {
+    """ + F18_ALAT + """
+    const out = {};
+
+    await ke(0); pilih(4);                    // benar (E)
+    await ke(1); pilih(4);                    // benar (E)
+    await ke(2); pilih(2);                    // benar (C)
+    await ke(3); pilih(2); pilih(4);          // benar (C, E)
+    await ke(4); pilih(0); pilih(2); pilih(3);   // benar (A, C, D)
+
+    // Soal 6: isian angka 16.
+    await ke(5);
+    pd(document.querySelector('.quiz__answer input'));
+    await tunggu(700);
+    padPress('1'); padPress('6'); padPress('Konfirmasi jawaban');
+    await tunggu(700);
+    out.soal6 = document.querySelector('.quiz__answer input').value;
+
+    // Soal 8: isian matriks [[1,-3],[-1,4]].
+    await ke(7);
+    const isi = async (cell, digit, negatif) => {
+        pd(cell); await tunggu(650);
+        padPress(digit);
+        if (negatif) padPress('Ganti tanda positif atau negatif');
+        padPress('Konfirmasi jawaban');
+        await tunggu(650);
+    };
+    const sel = [...document.querySelectorAll('.numfield--cell')];
+    await isi(sel[0], '1', false);
+    await isi(sel[1], '3', true);
+    await isi(sel[2], '1', true);
+    await isi(sel[3], '4', false);
+    out.soal8 = [...document.querySelectorAll('.numfield--cell')].map(c => c.value);
+
+    // Soal 9 sengaja SALAH; soal 7 dan 10 sengaja dikosongkan.
+    await ke(8); pilih(1);
+    await tunggu(400);
+
+    out.kosongSebelumKumpul = document.querySelector('.exam-nav__legend')
+        .textContent.replace(/\\s+/g, ' ').trim();
+    return out;
+}"""
+
+F18_KUMPUL_MODAL = """async () => {
+    """ + F18_ALAT + """
+    document.querySelector('[data-role="submit-exam"]').click();
+    await tunggu(1000);
+    const dlg = document.querySelector('.modal, [role="dialog"]');
+    return {
+        adaModal: !!dlg,
+        teks: (dlg ? dlg.textContent : '').replace(/\\s+/g, ' ').trim(),
+        // Belum dinilai selama modalnya masih terbuka.
+        belumDinilai: document.querySelectorAll('.exam-nav__item[data-state="correct"]').length === 0,
+    };
+}"""
+
+F18_KUMPUL = """async () => {
+    """ + F18_ALAT + """
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Ya, Kumpulkan')).click();
+    await tunggu(2800);
+    return {
+        skor: document.querySelector('.exam-score__value').textContent,
+        rincian: document.querySelector('.exam-score__sub').textContent.replace(/\\s+/g, ' ').trim(),
+        navState: [...document.querySelectorAll('.exam-nav__item')].map(b => b.dataset.state),
+        kumpulHilang: !document.querySelector('[data-role="submit-exam"]'),
+        adaUlangi: [...document.querySelectorAll('button')]
+            .some(b => b.textContent.includes('Ulangi Ujian')),
+        // Pembahasan baru muncul SEKARANG, bukan sebelumnya.
+        adaPembahasan: !!document.querySelector('.explain'),
+        opsiBenarDitandai: document.querySelectorAll('.option--correct').length,
+        riwayat: [...document.querySelectorAll('.exam-history__chip')]
+            .map(c => c.textContent.replace(/\\s+/g, ' ').trim()),
+    };
+}"""
+
+F18_ULANGI = """async () => {
+    """ + F18_ALAT + """
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Ulangi Ujian')).click();
+    await tunggu(1600);
+    const out = {
+        riwayatTerbawa: [...document.querySelectorAll('.exam-history__chip')]
+            .map(c => c.textContent.replace(/\\s+/g, ' ').trim()),
+        jawabanBersih: [...document.querySelectorAll('.exam-nav__item')]
+            .every(b => b.dataset.state === 'empty'),
+        kumpulKembali: !!document.querySelector('[data-role="submit-exam"]'),
+    };
+
+    // Percobaan kedua: kumpulkan tanpa menjawab -> nilai 0.
+    document.querySelector('[data-role="submit-exam"]').click();
+    await tunggu(1000);
+    [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Ya, Kumpulkan')).click();
+    await tunggu(2600);
+    out.skorKedua = document.querySelector('.exam-score__value').textContent;
+    out.riwayatSetelah = [...document.querySelectorAll('.exam-history__chip')]
+        .map(c => c.textContent.replace(/\\s+/g, ' ').trim());
+    return out;
+}"""
+
+# --- Menu kuis: kartu TKA & chip riwayat ---
+F18_MENU = """() => ({
+    kartuTka: !!document.querySelector('[data-role="tka-entry"]'),
+    judul: (document.querySelector('[data-role="tka-entry"] .chapter-item__title') || {}).textContent,
+    tag: (document.querySelector('[data-role="tka-entry"] .chapter-item__tag') || {}).textContent,
+    label: [...document.querySelectorAll('.panel__label')].map(n => n.textContent),
+    chipRiwayat: [...document.querySelectorAll('[data-role="tka-entry"] .quiz-attempt')]
+        .map(c => c.textContent.replace(/\\s+/g, ' ').trim()),
+    // Nama lama tidak boleh tersisa di mana pun di layar ini.
+    adaNamaLama: document.body.textContent.includes('Simulasi TKA'),
+})"""
+
+
+# ============================================================
 # Skrip peramban untuk bagian regresi Fase 17 (106).
 # ============================================================
 
@@ -1876,11 +2113,26 @@ UKUR_PANGGUNG = """() => {
 }"""
 
 UKUR_KARTU_KUIS = """() => {
-    const el = document.querySelector('.quiz-slider');
-    if (!el) return { found: false };
-    const r = el.getBoundingClientRect();
-    return { found: true, width: +r.width.toFixed(1),
-             skew: +Math.abs(r.left - (innerWidth - r.right)).toFixed(1) };
+    const card = document.querySelector('.quiz__card');
+    const body = document.querySelector('.ws-stage .workspace__body');
+    if (!card || !body) return { found: false };
+
+    /**
+     * Diukur terhadap kotak ISI panggung, BUKAN terhadap jendela.
+     *
+     * Sebelum Fase 18 kartu soal memang berdiri di tengah layar. Sekarang
+     * ia hidup di kolom panggung sebuah tata letak dua kolom, dan kolom itu
+     * memakai margin negatif untuk talang scrollbar (kontrak §5 butir 23 &
+     * 47) — sehingga titik tengah jendela bukan lagi patokan yang sah.
+     */
+    const cs = getComputedStyle(body);
+    const br = body.getBoundingClientRect();
+    const kiri = br.left + parseFloat(cs.paddingLeft);
+    const kanan = br.right - parseFloat(cs.paddingRight);
+    const cr = card.getBoundingClientRect();
+
+    return { found: true, width: +cr.width.toFixed(1),
+             skew: +Math.abs((cr.left - kiri) - (kanan - cr.right)).toFixed(1) };
 }"""
 
 DENYUT_LATAR = """() => new Promise(resolve => {
@@ -1987,7 +2239,7 @@ def run(page, errors):
 
     print("\n1. Rute utama")
     for route, label in [("#/", "Main Menu"), ("#/belajar", "Daftar Bab"),
-                         ("#/tka", "Simulasi TKA"), ("#/kuis", "Menu Kuis"),
+                         ("#/tka", "Latihan Soal TKA"), ("#/kuis", "Menu Kuis"),
                          ("#/login", "Layar Masuk")]:
         errors.clear()
         page.goto(f"{BASE}/{route}")
@@ -2128,19 +2380,22 @@ def run(page, errors):
     record("Sorotan berdenyut terus-menerus", sim["pulseAnim"].startswith("hlPulse"), json.dumps(sim))
     record("Istilah 'disorot' sudah diganti", "disorot" not in sim["promptText"], sim["promptText"][:80])
 
-    print("\n11. Kuis: slider satu soal per layar")
+    print("\n11. Kuis: satu soal per layar di panggung CBT")
+    # Fase 18 mengganti slider satu-kolom dengan tata letak CBT dua kolom.
+    # Yang diuji di sini tetap sama: satu soal pada satu waktu, dan siswa
+    # selalu tahu ia ada di soal ke berapa.
     page.goto(f"{BASE}/#/kuis/latihan_bab/01_konsep_dasar")
-    page.wait_for_timeout(800)
+    page.wait_for_timeout(1000)
     quiz = page.evaluate("""() => ({
-        slider: !!document.querySelector('.quiz-slider'),
+        cbt: !!document.querySelector('.workspace--split.exam'),
         cards: document.querySelectorAll('.quiz__card').length,
-        steps: document.querySelectorAll('.quiz-nav__step').length,
-        counter: (document.querySelector('.quiz-nav__count') || {}).textContent || ''
+        navGrid: document.querySelectorAll('.exam-nav__item').length,
+        meta: (document.querySelector('.quiz__meta') || {}).textContent || ''
     })""")
-    record("Kuis memakai slider", quiz["slider"] is True, json.dumps(quiz))
+    record("Kuis memakai tata letak CBT dua kolom", quiz["cbt"] is True, json.dumps(quiz))
     record("Satu soal per tampilan", quiz["cards"] == 1, json.dumps(quiz))
-    record("Pelacak langkah soal tampil", quiz["steps"] >= 2, json.dumps(quiz))
-    record("Nomor soal tertulis jelas", "dari" in quiz["counter"], json.dumps(quiz))
+    record("Kisi navigasi memuat seluruh soal", quiz["navGrid"] >= 2, json.dumps(quiz))
+    record("Nomor soal tertulis jelas", "dari" in quiz["meta"], json.dumps(quiz))
 
     print("\n12. Mathpad: pecahan tersusun vertikal")
     field = page.query_selector(".numfield")
@@ -3141,31 +3396,53 @@ def run(page, errors):
            resumed["step"] == 1 and resumed["onSim"] is True, json.dumps(resumed)[:220])
     record("Posisi tersimpan di sessionStorage", bool(resumed.get("saved")), json.dumps(resumed)[:220])
 
-    # Nomor soal kuis juga diingat.
+    # --- Mode UJIAN sengaja TIDAK melanjutkan sesi ---
+    #
+    # Kontrak §5 butir 28 ("posisi siswa diingat") berlaku untuk mode Belajar
+    # dan Mini Kuis. Di mode ujian ia justru salah: ujian yang bisa ditinggal
+    # lalu dilanjutkan membuat siswa bebas mencari jawaban di antara dua sesi,
+    # dan itu meniadakan seluruh gunanya. Yang WAJIB ada sebagai gantinya:
+    # peringatan jujur sebelum keluar, dan percobaan baru yang bersih.
     open_fresh(page, "#/kuis/latihan_bab/01_konsep_dasar")
-    moved = page.evaluate("""() => new Promise(resolve => {
+    page.wait_for_timeout(600)
+    ujian = page.evaluate("""() => new Promise(resolve => {
+        // Soal PERTAMA bank ini bertipe isian angka, jadi `.option` belum ada.
+        // Lompat dulu ke soal kedua yang memang berupa pilihan.
+        document.querySelectorAll('.exam-nav__item')[1].click();
+        setTimeout(() => {
         const opt = document.querySelector('.option');
         if (opt) opt.click();
-        const submit = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Periksa'));
-        if (submit) submit.click();
         setTimeout(() => {
-            const next = [...document.querySelectorAll('button')]
-                .find(b => b.textContent.includes('Soal Berikutnya'));
-            if (next) next.click();
-            setTimeout(() => resolve({
-                counter: (document.querySelector('.quiz-nav__count') || {}).textContent,
-            }), 700);
-        }, 900);
+            const terisi = [...document.querySelectorAll('.exam-nav__item')]
+                .filter(b => b.dataset.state === 'answered').length;
+            document.querySelector('.ws-side__back').click();
+            setTimeout(() => {
+                const dlg = document.querySelector('.modal, [role="dialog"]');
+                resolve({
+                    terisi,
+                    adaPeringatan: !!dlg,
+                    teks: (dlg ? dlg.textContent : '').replace(/\\s+/g, ' ').trim(),
+                });
+            }, 700);
+        }, 500);
+        }, 700);
     })""")
+    record("Jawaban ujian tercatat di kisi navigasi",
+           ujian["terisi"] == 1, json.dumps(ujian)[:200])
+    record("Keluar dari ujian diperingatkan lebih dulu",
+           ujian["adaPeringatan"] is True
+           and "tidak akan tersimpan" in ujian["teks"], json.dumps(ujian)[:220])
+
     page.goto(f"{BASE}/#/")
     page.wait_for_timeout(500)
-    page.goto(f"{BASE}/#/kuis/latihan_bab/01_konsep_dasar")
-    page.reload()
-    page.wait_for_timeout(900)
-    back = page.evaluate("() => (document.querySelector('.quiz-nav__count') || {}).textContent")
-    record("Kuis kembali ke nomor soal terakhir",
-           back == moved.get("counter") and back not in (None, ""),
-           f"sebelum: {moved.get('counter')} · sesudah: {back}")
+    open_fresh(page, "#/kuis/latihan_bab/01_konsep_dasar")
+    page.wait_for_timeout(700)
+    segar = page.evaluate("""() => ({
+        kosong: [...document.querySelectorAll('.exam-nav__item')]
+            .every(b => b.dataset.state === 'empty'),
+    })""")
+    record("Masuk lagi memulai percobaan yang BERSIH",
+           segar["kosong"] is True, json.dumps(segar))
 
     print("\n54. Kesamaan matriks: dua ketukan, jawaban tidak dibocorkan")
     open_fresh(page, "#/belajar/01_konsep_dasar/kesamaan_matriks")
@@ -3900,67 +4177,41 @@ def run(page, errors):
     record("Hanya ada satu instans simulasi", bounce["sims"] == 1, json.dumps(bounce))
     record("Tidak ada chip terbang yang tertinggal", bounce["ghosts"] == 0, json.dumps(bounce))
 
-    print("\n68. Navigasi Mini Kuis: maju, mundur, pelacak progres")
+    print("\n68. Navigasi ujian: kisi soal, maju-mundur, dan pelacak nomor")
+    # Fase 18: navigasi kuis mandiri pindah ke KISI di panel kendali, dan
+    # seluruh soal selalu bisa dibuka (tidak lagi terkunci berurutan).
     open_fresh(page, "#/kuis/latihan_bab/01_konsep_dasar")
-    nav = page.evaluate("""() => new Promise(resolve => {
-        const count = () => (document.querySelector('.quiz-nav__count') || {}).textContent.trim();
-        const prev = document.querySelector('.quiz-nav .btn:first-child');
-        const next = document.querySelector('.quiz-nav .btn:last-child');
-        const start = {
-            count: count(),
-            prevDisabled: prev.disabled,
-            nextDisabled: next.disabled,
-            steps: document.querySelectorAll('.quiz-nav__step').length,
-        };
-        // Jawab soal pertama supaya soal kedua terbuka. Soal pertama tiap bank
-        // bertipe isian angka, jadi jawabannya diketuk lewat Mathpad —
-        // benar atau salah sama saja, yang diuji navigasinya.
-        const press = el => el && el.dispatchEvent(new PointerEvent('pointerdown',
-            { bubbles: true, cancelable: true, composed: true, pointerId: 1,
-              pointerType: 'mouse', button: 0, isPrimary: true }));
-        const opt = document.querySelector('.option');
-        if (opt) {
-            opt.click();
-        } else {
-            const field = document.querySelector('.numfield');
-            if (field) {
-                const fb = field.getBoundingClientRect();
-                field.dispatchEvent(new PointerEvent('pointerdown',
-                    { bubbles: true, cancelable: true, composed: true,
-                      clientX: fb.left + 8, clientY: fb.top + 8,
-                      pointerId: 1, pointerType: 'mouse', button: 0, isPrimary: true }));
-            }
-        }
+    page.wait_for_selector(".exam-nav__item", timeout=10000)
+    page.wait_for_timeout(500)
+    navi = page.evaluate("""() => new Promise(resolve => {
+        const item = (i) => document.querySelectorAll('.exam-nav__item')[i];
+        const meta = () => (document.querySelector('.quiz__meta') || {}).textContent || '';
+        const out = { jumlah: document.querySelectorAll('.exam-nav__item').length,
+                      awal: meta() };
+        // Lompat langsung ke soal terakhir tanpa menjawab apa pun.
+        const akhir = out.jumlah - 1;
+        item(akhir).click();
         setTimeout(() => {
-            if (!opt) {
-                const keys = [...document.querySelectorAll('.mp-key')];
-                press(keys.find(k => k.textContent.trim() === '2'));
-                press(document.querySelector('.mp-key--confirm'));
-            }
-            const check = [...document.querySelectorAll('button')].find(x => x.textContent.includes('Periksa'));
-            if (check) check.click();
-            setTimeout(() => {
-            const go = [...document.querySelectorAll('button')].find(x => x.textContent.includes('Soal Berikutnya'));
-            if (go) go.click();
-            setTimeout(() => {
-                const onTwo = count();
-                document.querySelector('.quiz-nav .btn:first-child').click();
-                setTimeout(() => resolve({ start, onTwo, backToOne: count() }), 600);
-            }, 700);
-            }, 900);
-        }, 400);
+            out.lompatKeAkhir = meta();
+            out.semuaTerbuka = [...document.querySelectorAll('.exam-nav__item')]
+                .every(b => !b.disabled);
+            // Tombol maju di soal terakhir harus mati; mundur harus hidup.
+            const tombol = [...document.querySelectorAll('.exam-prevnext .btn')];
+            out.mundurHidup = tombol[0] && !tombol[0].disabled;
+            out.majuMati = tombol[1] && tombol[1].disabled;
+            tombol[0].click();
+            setTimeout(() => { out.setelahMundur = meta(); resolve(out); }, 600);
+        }, 700);
     })""")
-    record("Pelacak menulis 'Soal 1 dari N'",
-           nav["start"]["count"].startswith("Soal 1 dari"), json.dumps(nav))
-    record("Tombol mundur mati di soal pertama",
-           nav["start"]["prevDisabled"] is True, json.dumps(nav))
-    record("Tombol maju terkunci sebelum dijawab",
-           nav["start"]["nextDisabled"] is True, json.dumps(nav))
-    record("Pelacak punya satu langkah per soal",
-           nav["start"]["steps"] >= 2, json.dumps(nav))
-    record("Maju ke soal berikutnya", nav["onTwo"].startswith("Soal 2 dari"), json.dumps(nav))
-    record("Mundur kembali ke soal sebelumnya",
-           nav["backToOne"].startswith("Soal 1 dari"), json.dumps(nav))
+    n = json.dumps(navi)[:300]
+    record("Kisi navigasi memuat seluruh soal bank",
+           navi["jumlah"] >= 5, n)
+    record("Semua soal bisa dibuka sejak awal, tanpa dikunci berurutan",
+           navi["semuaTerbuka"] is True and "dari" in navi["lompatKeAkhir"], n)
+    record("Tombol maju mati di soal terakhir, mundur tetap hidup",
+           navi["majuMati"] is True and navi["mundurHidup"] is True, n)
+    record("Tombol mundur benar-benar memindahkan soal",
+           navi["setelahMundur"] != navi["lompatKeAkhir"], n)
 
     print("\n69. Mekanik ketuk-ketuk tetap jalan di lanskap")
     page.set_viewport_size({"width": 1280, "height": 720})
@@ -4579,11 +4830,13 @@ def run(page, errors):
         m["viewport"] = str(w) + "x" + str(h)
         measured.append(m)
 
-        page.goto(BASE + "/#/kuis/latihan/01_konsep_dasar")
-        page.wait_for_timeout(1100)
+        # (mode-nya `latihan_bab`; ejaan lama "latihan" kebetulan lolos
+        #  karena pencarian banknya tidak pernah memeriksa mode.)
+        open_fresh(page, "#/kuis/latihan_bab/01_konsep_dasar")
+        page.wait_for_timeout(1200)
         c = page.evaluate(UKUR_KARTU_KUIS)
         label = "@" + str(w) + "x" + str(h)
-        record("Kartu kuis terpusat terhadap layar " + label + " (selisih <=2px)",
+        record("Kartu kuis terpusat di panggungnya " + label + " (selisih <=2px)",
                c.get("found") is True and c.get("skew", 99) <= 2, json.dumps(c))
         record("Tidak ada luapan horizontal " + label,
                m["hOverflow"] is False, json.dumps(m))
@@ -5376,6 +5629,149 @@ def run(page, errors):
     record("Analisis multi-kondisi selesai dan Mini Kuis terbuka",
            nilai["banner"] == 1 and nilai["lanjut"] is True
            and nilai["checklist"] == ["done", "done"], v)
+
+    # ==========================================================
+    # FASE 18 — MESIN UJIAN CBT & ARSIP SOAL
+    # ==========================================================
+
+    print("\n110. Fase 18 - Tata letak CBT dua kolom & umpan balik tertunda")
+    # Riwayat percobaan dibersihkan lebih dulu supaya penomorannya pasti.
+    page.evaluate("""() => { try {
+        const raw = localStorage.getItem('matriksLab.v1');
+        if (raw) { const d = JSON.parse(raw); d.quizHistory = [];
+                   localStorage.setItem('matriksLab.v1', JSON.stringify(d)); }
+    } catch (e) {} }""")
+    open_fresh(page, "#/kuis/simulasi_tka/all")
+    page.wait_for_selector(".exam-nav__item", timeout=10000)
+    page.wait_for_timeout(700)
+
+    tata = page.evaluate(F18_TATA)
+    t = json.dumps(tata)[:320]
+    record("Ujian memakai arsitektur Sidebar & Stage",
+           tata["split"] is True, t)
+    # Rasio yang sama dengan mode Belajar (kontrak §5 butir 21).
+    record("Kolom kendali 25-30%, panggung 69-76%",
+           25 <= tata["rasioSide"] <= 30 and 69 <= tata["rasioStage"] <= 76, t)
+    record("Kisi navigasi memuat kesepuluh soal",
+           tata["navJumlah"] == 10, t)
+    record("Tombol navigasi memenuhi ambang sentuh 44px",
+           tata["navUkuran"][0] >= 44 and tata["navUkuran"][1] >= 44, t)
+    # Inti Fase 18: mode ujian TIDAK punya umpan balik langsung.
+    record("Tombol 'Periksa Jawaban' dicabut dari mode ujian",
+           tata["adaPeriksaJawaban"] is False, t)
+    record("Tombol 'Kumpulkan Ujian' tersedia",
+           tata["adaKumpulkan"] is True, t)
+    record("Pilihan diberi huruf A-E seperti lembar UTBK",
+           tata["hurufOpsi"] == ["A", "B", "C", "D", "E"], t)
+    record("Legenda menghitung soal yang masih kosong",
+           "Kosong: 10" in tata["legenda"], t)
+
+    alur = page.evaluate(F18_ALUR)
+    a = json.dumps(alur)[:360]
+    record("Menjawab TIDAK memunculkan pembahasan apa pun",
+           alur["soal1"]["adaPembahasan"] is False
+           and alur["soal1"]["adaTandaBenar"] == 0, a)
+    record("Soal yang terisi ditandai di kisi navigasi",
+           alur["soal1"]["navState"] == "answered"
+           and "Kosong: 9" in alur["soal1"]["legenda"], a)
+    # Di ujian, semua soal selalu bisa dibuka — beda dari Mini Kuis.
+    record("Soal 4 bisa dibuka tanpa menjawab soal 2 dan 3",
+           "Soal 4 dari 10" in alur["lompatBebas"]["nomor"], a)
+    # `renderMixed()` tidak mengenal tabel markdown — pipanya akan tampil mentah.
+    record("Tabel data soal hotel dirender sebagai tabel sungguhan",
+           alur["lompatBebas"]["adaTabel"] is True
+           and alur["lompatBebas"]["barisTabel"] == 3, a)
+    record("Tidak ada pipa markdown mentah di teks soal",
+           alur["lompatBebas"]["pipaMentah"] is False, a)
+    record("Jawaban bertahan saat berpindah soal dan kembali",
+           alur["soal1kembali"] == ["false", "false", "false", "false", "true"], a)
+    record("Jawaban masih bisa diubah sebelum dikumpulkan",
+           alur["setelahDiubah"][0] == "true"
+           and alur["dikembalikan"][4] == "true", a)
+
+    print("\n111. Fase 18 - Isian matriks tidak pernah berhimpit dengan kurung")
+    for vp in ({"width": 1280, "height": 860}, {"width": 844, "height": 390}):
+        page.set_viewport_size(vp)
+        page.wait_for_timeout(600)
+        mtx = page.evaluate(F18_MATRIKS)
+        tag = f'{vp["width"]}x{vp["height"]}'
+        m = json.dumps(mtx)[:300]
+        record(f"Isian matriks tidak menyentuh garis kurung ({tag})",
+               mtx["tumpangTindih"] is False and mtx["jarakTerkecil"] >= 9, m)
+        record(f"Sel isian tetap cukup besar untuk diketuk ({tag})",
+               all(w >= 58 and h >= 42 for w, h in mtx["ukuran"]), m)
+        record(f"Isian matriks tidak meluapkan halaman ({tag})",
+               mtx["luapHalaman"] is False, m)
+    page.set_viewport_size({"width": 1280, "height": 860})
+    page.wait_for_timeout(500)
+
+    print("\n112. Fase 18 - Pengumpulan, penilaian serentak, dan riwayat percobaan")
+    isi = page.evaluate(F18_ISI)
+    i18 = json.dumps(isi)[:300]
+    record("Isian angka tersimpan tanpa dinilai",
+           isi["soal6"] == "16", i18)
+    record("Isian matriks tersimpan sel per sel",
+           isi["soal8"] == ["1", "-3", "-1", "4"], i18)
+    record("Dua soal sengaja dibiarkan kosong terlacak benar",
+           "Kosong: 2" in isi["kosongSebelumKumpul"], i18)
+
+    modal = page.evaluate(F18_KUMPUL_MODAL)
+    md = json.dumps(modal)[:300]
+    # Konfirmasi lewat Modal kustom, bukan `confirm()` bawaan (kontrak §5 butir 1).
+    record("Pengumpulan dikonfirmasi lewat Modal kustom",
+           modal["adaModal"] is True, md)
+    record("Konfirmasinya menyebut jumlah soal yang masih kosong",
+           "2 soal" in modal["teks"], md)
+    record("Belum ada penilaian selama konfirmasi masih terbuka",
+           modal["belumDinilai"] is True, md)
+
+    hasil = page.evaluate(F18_KUMPUL)
+    h18 = json.dumps(hasil)[:360]
+    # 7 benar dari 10: soal 7, 9, dan 10 sengaja salah/kosong.
+    record("Seluruh soal dinilai sekaligus dengan skor yang benar",
+           hasil["skor"] == "70" and "7 dari 10" in hasil["rincian"], h18)
+    record("Kisi navigasi berubah jadi peta benar/salah",
+           hasil["navState"] == ["correct", "correct", "correct", "correct", "correct",
+                                 "correct", "wrong", "correct", "wrong", "wrong"], h18)
+    record("Pembahasan baru muncul SETELAH dikumpulkan",
+           hasil["adaPembahasan"] is True and hasil["opsiBenarDitandai"] >= 1, h18)
+    record("Tombol kumpul diganti tombol ulangi",
+           hasil["kumpulHilang"] is True and hasil["adaUlangi"] is True, h18)
+    record("Percobaan tersimpan dan muncul di riwayat",
+           len(hasil["riwayat"]) == 1 and "70" in hasil["riwayat"][0], h18)
+
+    ulang = page.evaluate(F18_ULANGI)
+    u18 = json.dumps(ulang)[:320]
+    record("Mengulang ujian mengosongkan seluruh jawaban",
+           ulang["jawabanBersih"] is True and ulang["kumpulKembali"] is True, u18)
+    record("Riwayat percobaan sebelumnya tetap terbawa",
+           len(ulang["riwayatTerbawa"]) == 1, u18)
+    record("Percobaan boleh diulang tanpa batas, penomorannya berlanjut",
+           ulang["skorKedua"] == "0" and len(ulang["riwayatSetelah"]) == 2
+           and "Percobaan 2" in ulang["riwayatSetelah"][1], u18)
+
+    open_fresh(page, "#/kuis")
+    menu = page.evaluate(F18_MENU)
+    mn = json.dumps(menu)[:320]
+    record("Menu kuis punya pintu masuk Latihan Soal TKA",
+           menu["kartuTka"] is True and menu["judul"] == "Latihan Soal TKA", mn)
+    record("Nama lama 'Simulasi TKA' sudah tidak dipakai",
+           menu["adaNamaLama"] is False, mn)
+    record("Riwayat percobaan tampil sebagai chip di kartu",
+           len(menu["chipRiwayat"]) == 2, mn)
+
+    print("\n113. Fase 18 - Arsip soal untuk pegangan guru")
+    import os as _os
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for nama, wajib in (("QUIZ_ARCHIVE.md", ["KUNCI JAWABAN", "Bab 1", "Bab 4"]),
+                        ("TKA_ARCHIVE.md", ["Ringkasan Kunci Jawaban", "tka25_01",
+                                            "TKA Matriks 2025.pdf"])):
+        path = _os.path.join(_root, "content", nama)
+        ada = _os.path.exists(path)
+        teks = open(path, encoding="utf-8").read() if ada else ""
+        record(f"Arsip {nama} tersedia di content/", ada, path)
+        record(f"Arsip {nama} memuat kunci jawabannya",
+               all(w in teks for w in wajib), f"{nama}: {len(teks)} karakter")
 
 
 def main():

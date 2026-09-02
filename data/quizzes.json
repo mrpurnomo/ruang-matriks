@@ -8,8 +8,8 @@
     },
     {
       "id": "simulasi_tka",
-      "label": "Simulasi TKA",
-      "description": "10 soal acak lintas-bab dengan format seperti ujian sesungguhnya."
+      "label": "Latihan Soal TKA",
+      "description": "10 soal bergaya ujian sesungguhnya — empat di antaranya soal asli TKA 2025."
     }
   ],
   "banks": {
@@ -366,7 +366,7 @@
       {
         "id": "b4_04",
         "input_type": "single_choice",
-        "subtopic": "spltv_matriks",
+        "subtopic": "ekstraksi_elemen",
         "prompt": "Sistem $\\begin{cases} x + y + z = 6 \\\\ 2x + y = 5 \\\\ y + 3z = 11 \\end{cases}$ ditulis sebagai $AX = B$. Matriks koefisien $A$ yang benar adalah ....",
         "options": [
           {
@@ -386,22 +386,177 @@
         "explanation": "Variabel yang tidak muncul diberi koefisien **0**, bukan 1. Persamaan kedua tidak memuat $z$ (koefisien 0), dan persamaan ketiga tidak memuat $x$ (koefisien 0).",
         "toastWrong": "Belum tepat — perhatikan variabel yang TIDAK muncul di sebuah persamaan. Koefisiennya adalah 0, bukan 1, dan konstanta tidak masuk ke matriks $A$."
       }
+    ],
+    "tka_2025": [
+      {
+        "id": "tka25_01",
+        "input_type": "single_choice",
+        "source": "TKA 2025 · No. 1",
+        "subtopic": "invers_2x2",
+        "prompt": "Perhatikan matriks berikut!",
+        "tex": "F = \\begin{pmatrix} 2 & 0 \\\\ 0 & \\frac{1}{2} \\end{pmatrix}",
+        "options": [
+          {
+            "tex": "\\begin{pmatrix} 1 & 0 \\\\ 0 & 2 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} -1 & 0 \\\\ 0 & -2 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} 2 & 0 \\\\ 0 & 1 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} -\\frac{1}{2} & 0 \\\\ 0 & -2 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}"
+          }
+        ],
+        "answerIndex": 4,
+        "explanation": "$\\det(F) = (2)\\left(\\frac{1}{2}\\right) - (0)(0) = 1$. Adjoinnya: tukar diagonal utama menjadi $\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}$, diagonal sekundernya nol sehingga tandanya tidak berubah. Karena $\\frac{1}{\\det} = 1$, hasilnya tetap: $F^{-1} = \\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}$ — **opsi E**.",
+        "toastWrong": "Belum tepat. Untuk matriks diagonal, inversnya adalah kebalikan tiap elemen diagonalnya: $2 \\to \\frac{1}{2}$ dan $\\frac{1}{2} \\to 2$. Hitung $\\det(F)$ dulu — nilainya 1, jadi tidak ada pembagian tambahan."
+      },
+      {
+        "id": "tka25_02",
+        "input_type": "single_choice",
+        "source": "TKA 2025 · No. 2",
+        "subtopic": "spldv_matriks",
+        "prompt": "Pak Andi memiliki beberapa sapi dan kambing. Semua hewan ternaknya selalu diberikan pakan berupa campuran rumput gajah dan rumput gamal. Setiap hari, ia selalu menyediakan **38 kg rumput gajah** dan **34 kg rumput gamal** untuk seluruh kambing dan sapi miliknya tanpa sisa.\n\nSetiap **sapi** menghabiskan 10 kg rumput gajah dan 10 kg rumput gamal. Setiap **kambing** menghabiskan 2 kg rumput gajah dan 1 kg rumput gamal.\n\nJika banyaknya sapi dan kambing yang dipelihara Pak Andi berturut-turut adalah $x$ dan $y$, maka $\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\ldots$",
+        "options": [
+          {
+            "tex": "\\begin{pmatrix} -1 & 1 \\\\ 10 & -5 \\end{pmatrix}\\begin{pmatrix} 19 \\\\ 34 \\end{pmatrix} = \\begin{pmatrix} 15 \\\\ 20 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} 10 & -10 \\\\ -1 & 2 \\end{pmatrix}\\begin{pmatrix} 38 \\\\ 34 \\end{pmatrix} = \\begin{pmatrix} 4 \\\\ 3 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} -\\frac{1}{10} & \\frac{2}{10} \\\\ 1 & -1 \\end{pmatrix}\\begin{pmatrix} 34 \\\\ 38 \\end{pmatrix} = \\begin{pmatrix} 4 \\\\ 3 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} -1 & 2 \\\\ 10 & -10 \\end{pmatrix}\\begin{pmatrix} 38 \\\\ 34 \\end{pmatrix} = \\begin{pmatrix} 3 \\\\ 4 \\end{pmatrix}"
+          },
+          {
+            "tex": "\\begin{pmatrix} -\\frac{1}{5} & \\frac{1}{5} \\\\ 2 & -1 \\end{pmatrix}\\begin{pmatrix} 19 \\\\ 34 \\end{pmatrix} = \\begin{pmatrix} 3 \\\\ 4 \\end{pmatrix}"
+          }
+        ],
+        "answerIndex": 4,
+        "explanation": "Modelnya: $10x + 2y = 38$ dan $10x + y = 34$. Persamaan pertama boleh disederhanakan (bagi 2) menjadi $5x + y = 19$, sehingga $A = \\begin{pmatrix} 5 & 1 \\\\ 10 & 1 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 19 \\\\ 34 \\end{pmatrix}$.\n\n$\\det(A) = (5)(1) - (1)(10) = -5$, sehingga $A^{-1} = \\frac{1}{-5}\\begin{pmatrix} 1 & -1 \\\\ -10 & 5 \\end{pmatrix} = \\begin{pmatrix} -\\frac{1}{5} & \\frac{1}{5} \\\\ 2 & -1 \\end{pmatrix}$.\n\nHasilnya $\\begin{pmatrix} 3 \\\\ 4 \\end{pmatrix}$: **3 sapi dan 4 kambing** — cocokkan: $10(3) + 2(4) = 38$ dan $10(3) + 1(4) = 34$. Jadi **opsi E**.",
+        "toastWrong": "Belum tepat. Susun dulu sistemnya: $10x + 2y = 38$ (gajah) dan $10x + y = 34$ (gamal). Perhatikan bahwa beberapa opsi menyederhanakan persamaan pertama lebih dulu — periksa apakah matriks konstantanya ikut disesuaikan."
+      },
+      {
+        "id": "tka25_03",
+        "input_type": "single_choice",
+        "source": "TKA 2025 · No. 3",
+        "subtopic": "ekstraksi_elemen",
+        "prompt": "Sebuah pabrik minuman tradisional memproduksi tiga jenis minuman yaitu wedang jahe (WJ), beras kencur (BK), dan kunir asem (KA). Dalam proses produksinya digunakan tiga bahan utama: jahe (J) dalam gram, gula merah (GM) dalam gram, dan air (A) dalam mililiter. Setiap botol minuman memerlukan bahan sebagai berikut.\n\n$\\begin{matrix} & J & GM & A \\end{matrix}$ $\\begin{pmatrix} 20 & 15 & 50 \\\\ 10 & 25 & 40 \\\\ 12 & 8 & k \\end{pmatrix}$ (baris berturut-turut: WJ, BK, KA)\n\nPada suatu hari pabrik menerima pesanan WJ 100 botol, BK 120 botol, dan KA 80 botol. Jumlah bahan baku yang digunakan adalah $J = 4360$ g, $GM = 4960$ g, dan $A = 13000$ ml.\n\nBanyak air yang dibutuhkan untuk memproduksi **satu botol kunir asem** adalah ....",
+        "options": [
+          {
+            "label": "30 ml"
+          },
+          {
+            "label": "35 ml"
+          },
+          {
+            "label": "40 ml"
+          },
+          {
+            "label": "45 ml"
+          },
+          {
+            "label": "50 ml"
+          }
+        ],
+        "answerIndex": 2,
+        "explanation": "Pakai **Aturan Sniper**: nilai $k$ hanya ditentukan oleh kolom air, jadi cukup satu persamaan.\n\n$50(100) + 40(120) + k(80) = 13000$\n\n$5000 + 4800 + 80k = 13000 \\Rightarrow 80k = 3200 \\Rightarrow k = 40$. Jadi **opsi C**.\n\n**Catatan jujur:** pada naskah aslinya, total $J$ dan $GM$ tidak konsisten dengan matriksnya ($20(100)+10(120)+12(80) = 4160$, bukan 4360; $15(100)+25(120)+8(80) = 5140$, bukan 4960). Justru di sinilah teknik sniper menyelamatkanmu: kamu tidak pernah menyentuh kedua baris itu.",
+        "toastWrong": "Belum tepat. Jangan hitung seluruh matriksnya. Nilai $k$ hanya muncul di kolom **air**: $50(100) + 40(120) + k(80) = 13000$. Selesaikan persamaan itu saja."
+      },
+      {
+        "id": "tka25_04",
+        "input_type": "multi_select",
+        "source": "TKA 2025 · No. 4",
+        "subtopic": "analisis_multi_kondisi",
+        "prompt": "Seorang pemilik hotel mengelola 3 hotel di kota yang berbeda. Ketiganya memiliki konsep dan tipe kamar yang sama: Standard Room, Deluxe Room, dan Suite Room, dengan kapasitas dan harga per malam sebagai berikut.",
+        "options": [
+          {
+            "label": "Pendapatan Hotel A dan Hotel C sama besar."
+          },
+          {
+            "label": "Pendapatan Hotel B lebih besar daripada Hotel A."
+          },
+          {
+            "label": "Pendapatan paling besar diperoleh dari Hotel C."
+          },
+          {
+            "label": "Masing-masing hotel memiliki selisih pendapatan yang sama besar."
+          },
+          {
+            "label": "Pendapatan yang diperoleh dari ketiga hotel tersebut lebih dari Rp20.000.000."
+          }
+        ],
+        "answerIndices": [
+          2,
+          4
+        ],
+        "perOptionFeedback": [
+          "Salah — Hotel A = Rp7.350.000 dan Hotel C = Rp7.550.000, berbeda Rp200.000.",
+          "Salah — Hotel B = Rp6.400.000, justru **lebih kecil** daripada Hotel A (Rp7.350.000).",
+          "Benar — Hotel C = Rp7.550.000, tertinggi di antara ketiganya.",
+          "Salah — selisih A−B = Rp950.000 sedangkan C−A = Rp200.000, jadi tidak sama besar.",
+          "Benar — totalnya Rp7.350.000 + Rp6.400.000 + Rp7.550.000 = **Rp21.300.000**, lebih dari Rp20.000.000."
+        ],
+        "explanation": "Pendapatan = (baris harga) × (matriks kapasitas):\n\n$\\begin{pmatrix} 150000 & 500000 & 1000000 \\end{pmatrix}\\begin{pmatrix} 9 & 6 & 7 \\\\ 6 & 7 & 5 \\\\ 3 & 2 & 4 \\end{pmatrix} = \\begin{pmatrix} 7350000 & 6400000 & 7550000 \\end{pmatrix}$\n\nHotel A = Rp7.350.000 · Hotel B = Rp6.400.000 · Hotel C = Rp7.550.000, total Rp21.300.000. Yang benar: pernyataan **C** dan **E**.",
+        "toastWrong": "Belum tepat. Hitung dulu ketiga pendapatannya sekaligus lewat perkalian matriks, lalu bandingkan tiap pernyataan dengan angka yang sudah kamu dapat — jangan menghitung ulang per pernyataan.",
+        "table": {
+          "headers": [
+            "Tipe Kamar",
+            "Hotel A",
+            "Hotel B",
+            "Hotel C",
+            "Harga/malam"
+          ],
+          "rows": [
+            [
+              "Standard Room",
+              "9",
+              "6",
+              "7",
+              "Rp150.000"
+            ],
+            [
+              "Deluxe Room",
+              "6",
+              "7",
+              "5",
+              "Rp500.000"
+            ],
+            [
+              "Suite Room",
+              "3",
+              "2",
+              "4",
+              "Rp1.000.000"
+            ]
+          ]
+        },
+        "after": "Bagaimana kondisi pendapatan ketiga hotel tersebut dalam 1 hari jika semua tipe kamar terisi penuh? **Pilih semua jawaban yang benar.**"
+      }
     ]
   },
   "tkaSimulation": {
+    "title": "Latihan Soal TKA",
     "questionCount": 10,
-    "timerSeconds": 900,
-    "drawFrom": [
-      "01_konsep_dasar",
-      "02_operasi_aljabar",
-      "03_determinan_invers",
-      "04_pemodelan_tka"
+    "questionOrder": [
+      "tka25_01",
+      "tka25_02",
+      "tka25_03",
+      "tka25_04",
+      "b2_05",
+      "b3_03",
+      "b3_06",
+      "b3_05",
+      "b4_04",
+      "b1_03"
     ],
-    "weight": {
-      "01_konsep_dasar": 2,
-      "02_operasi_aljabar": 3,
-      "03_determinan_invers": 3,
-      "04_pemodelan_tka": 2
-    }
+    "note": "Empat soal pertama adalah soal asli TKA Matematika Lanjut 2025; enam sisanya dipilih tangan sebagai penutup bergaya HOTS."
   }
 }

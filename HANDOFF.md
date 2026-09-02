@@ -1,7 +1,12 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **1 September 2026**, menutup Fase 17.
-> Status: **fase 1–17 selesai, seluruh pengujian otomatis hijau (21/21 + 569/569).**
+> Dokumen serah-terima antar sesi. Diperbarui **3 September 2026**, menutup Fase 18.
+> Status: **fase 1–18 selesai, seluruh pengujian otomatis hijau (21/21 + 611/611).**
+>
+> ✅ **FASE 18 SELESAI.** Mode Kuis jadi **simulator CBT**: tata letak dua kolom,
+> navigasi bebas, umpan balik **tertunda**, riwayat percobaan tak terbatas, dan
+> **Latihan Soal TKA** berisi 10 soal tetap — empat di antaranya soal asli TKA
+> 2025. Arsip cetak soal ikut dibangkitkan. Rinciannya di **§000000**.
 >
 > ✅ **FASE 17 SELESAI.** Bab 4 ditulis ulang jadi masterclass TKA: **Translasi &
 > Aturan Domino**, **Model Invers SPLDV gaya UTBK**, **Ekstraksi Elemen (Sniper)**,
@@ -49,20 +54,20 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **1 September 2026**, sesaat setelah Fase 16 ditutup:
+Keadaan per **3 September 2026**, sesaat setelah Fase 18 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 17 — Masterclass Pemodelan TKA** (§00000). Selesai, teruji, sudah di-commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **569/569** |
-| Git | **2 commit di depan `origin/main`**: Fase 16 dan Fase 17. Keduanya sengaja belum di-push (§1A) |
-| Pekerjaan tertunda | **Tidak ada.** Fase 17 tuntas; keempat bab kini lengkap dari konsep dasar sampai strategi TKA |
+| Pekerjaan terakhir | **Fase 18 — Mesin Ujian CBT & Arsip Soal** (§000000). Selesai, teruji, sudah di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **611/611** |
+| Git | **3 commit di depan `origin/main`**: Fase 16, 17, dan 18. Semuanya sengaja belum di-push (§1A) |
+| Pekerjaan tertunda | **Tidak ada.** Fase 18 tuntas; aplikasi lengkap dari konsep dasar sampai simulator ujian |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
 1. **Jangan `git push`.** Aplikasi ini dipakai siswa secara langsung dan remote
    tersambung ke hosting. Push selalu butuh izin baru — lihat **§1A**.
-2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase17.css`), karena
+2. **Perbaikan CSS masuk ke berkas fase tertinggi** (`css/phase18.css`), karena
    `index.html` memuatnya paling akhir dan yang belakangan menimpa yang duluan.
 3. **Ukur di peramban, jangan menyimpulkan dari kode.** Daftar panjang jebakan
    yang sudah menggigit ada di §6 dan §000 — hampir semuanya tak terlihat dari
@@ -70,6 +75,154 @@ Keadaan per **1 September 2026**, sesaat setelah Fase 16 ditutup:
 
 `smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
 menggantung.
+
+---
+
+## 000000. FASE 18 — MESIN UJIAN CBT & ARSIP SOAL (SELESAI)
+
+Mode Kuis mandiri berubah dari "slider soal dengan umpan balik langsung"
+menjadi **simulator CBT** bergaya UTBK/SNBT: tata letak dua kolom, navigasi
+bebas, jawaban tertunda, dan penilaian serentak saat dikumpulkan.
+
+### Dua kelas, dua kontrak — `QuizEngine` TIDAK disentuh
+
+| | `QuizEngine` (lama) | `ExamEngine` (baru) |
+|---|---|---|
+| Dipakai | Mini Kuis di dalam sub-topik | Mode Kuis mandiri `#/kuis/:mode/:bank` |
+| Umpan balik | **Langsung** — "Periksa Jawaban" | **Tertunda** — sampai dikumpulkan |
+| Navigasi | Terkunci berurutan | **Bebas**, semua soal selalu terbuka |
+| Filosofi | *Mastery learning* | Simulasi ruang ujian |
+
+Menyatukan keduanya akan membuat setiap cabang `if` di dalamnya berarti dua
+hal sekaligus. Mini Kuis memang HARUS memberi umpan balik langsung — siswa
+perlu menjawab benar untuk membuka sub-topik berikutnya.
+
+### 1. Tata letak CBT dua kolom
+
+Arsitektur Sidebar & Stage yang sama dengan mode Belajar (kontrak §5 butir 21),
+terukur **27,9% / 72,1%**. Kolom kiri memegang info ujian, riwayat percobaan,
+dan **kisi navigasi soal** (tombol 1..N, masing-masing 48×44px). Panggung
+kanan hanya berisi soalnya.
+
+### 2. Umpan balik tertunda
+
+`this.answers` menyimpan satu slot per soal (`null` = belum dijawab), dan
+bentuknya mengikuti tipe soal: string · indeks · array indeks · matriks string.
+Kisi navigasi membaca slot itu untuk menandai *terisi/kosong*.
+
+> **Isian matriks punya DUA penyimpanan.** `drafts` menampung isian setengah
+> jadi supaya angka yang sudah diketik tidak hilang saat siswa melompat ke soal
+> lain; `answers` hanya terisi kalau SELURUH selnya penuh. Matriks separuh
+> bukan jawaban, dan kisi navigasi tidak boleh menandainya "terisi".
+
+Pengumpulan dikonfirmasi lewat **Modal** (kontrak §5 butir 1) yang menyebut
+berapa soal masih kosong dan menyatakan terus terang bahwa kosong dihitung
+salah.
+
+### 3. Riwayat percobaan tak terbatas
+
+Skor disimpan lewat `saveQuizResult()` yang sudah ada (`localStorage`,
+`quizHistory`, kapasitas 50). `attemptsFor(mode, bankId)` menyaring dan
+**menomori ulang** hasilnya — tanpa itu, "Percobaan 1" pada Bab 3 bisa berarti
+percobaan ke-9 secara keseluruhan.
+
+> ⚠️ Riwayat DIBACA ULANG tiap kali panel digambar (`options.getHistory`),
+> bukan disalin sekali saat konstruksi. Percobaan yang baru dikumpulkan
+> disimpan lewat `onFinish` dan panelnya digambar ulang tepat sesudahnya —
+> dengan daftar statis, nilai yang baru diperoleh siswa tidak pernah muncul
+> di riwayatnya sendiri (terukur: panelnya kosong padahal skornya tersimpan).
+
+### 4. Latihan Soal TKA — 10 soal, urutan TETAP
+
+"Simulasi TKA" berganti nama jadi **"Latihan Soal TKA"** (id rute
+`simulasi_tka` sengaja dipertahankan supaya tautan lama tidak mati).
+
+Setnya **tidak lagi diundi**. `tkaSimulation.questionOrder` memuat sepuluh id
+soal berurutan; `buildTkaSet()` merangkainya dari seluruh bank. Alasannya:
+empat soal pertama adalah **soal asli TKA 2025** dan harus selalu muncul —
+mengundinya berarti sebagian siswa tidak pernah menemuinya. Jalur undian lama
+tetap didukung untuk konfigurasi tanpa `questionOrder`.
+
+| No | Soal | Tipe | Kunci |
+|---|---|---|---|
+| 1 | Invers matriks $F$ (TKA 2025 no. 1) | A–E | **E** |
+| 2 | Sapi & kambing, SPLDV (no. 2) | A–E | **E** |
+| 3 | Pabrik minuman WJ/BK/KA (no. 3) | A–E | **C** |
+| 4 | Kapasitas hotel (no. 4) | pilih semua | **C, E** |
+| 5–10 | Enam HOTS pilihan dari bank bab | campuran | lihat `TKA_ARCHIVE.md` |
+
+> ⚠️ **Naskah asli soal no. 3 tidak konsisten, dan itu dibiarkan apa adanya.**
+> Total $J$ dan $GM$ pada naskahnya tidak cocok dengan matriksnya
+> ($20(100)+10(120)+12(80) = 4160$, bukan 4360; $15(100)+25(120)+8(80) = 5140$,
+> bukan 4960). Baris **air** konsisten dan memberi $k = 40$ — jawaban C.
+> Soal ditranskrip verbatim karena memang begitulah yang dihadapi siswa di
+> ujian, dan pembahasannya menyebut ketidakcocokan itu terus terang. Justru di
+> sinilah teknik Sniper (Fase 17) menyelamatkan: baris yang tidak konsisten
+> tidak pernah disentuh.
+
+### 5. Arsip soal — DIBANGKITKAN, bukan ditulis tangan
+
+`content/QUIZ_ARCHIVE.md` (20 soal per bab) dan `content/TKA_ARCHIVE.md`
+(10 soal + tabel ringkasan kunci) dibangun oleh
+**`python tests/archive_soal.py`** dari `data/quizzes.json`.
+
+Jangan menyuntingnya langsung — suntingannya hilang pada pembangkitan
+berikutnya. Ubah JSON-nya lalu jalankan ulang skripnya. Dengan begitu arsip
+guru tidak akan pernah menyimpang dari soal yang benar-benar dilihat siswa,
+dan itulah satu-satunya cara arsip cetak tetap bisa dipercaya.
+
+### Hasil QA seluruh bank soal
+
+Kedua puluh soal lama diverifikasi ulang secara matematis dengan
+`js/engine/matrix.js` (bukan dicocokkan dengan kunci yang sudah ada):
+**semuanya valid**. Satu temuan nyata:
+
+- **`b4_04` menunjuk sub-topik `spltv_matriks`** yang dicabut di Fase 17.
+  Tautan remedial dari layar hasil kuis akan mendarat di rute mati. Dialihkan
+  ke `ekstraksi_elemen`, dan `SUBTOPIC_LABELS` di `quizResult.js` ikut
+  diselaraskan dengan judul Bab 4 yang baru.
+
+### Jebakan yang sudah digigit (jangan diulang)
+
+1. **`renderMixed()` tidak mengenal tabel markdown.** Soal hotel sempat
+   menampilkan pipa mentah `| Tipe Kamar | Hotel A | …` di layar. Tabel
+   ditulis sebagai DATA (`q.table = {headers, rows}`) dan dibangun sebagai
+   node DOM, memakai `.data-table` yang sama dengan Bab 4. Field `q.after`
+   menampung kalimat pertanyaan yang harus berdiri SESUDAH tabel — kalau ia
+   ikut di `prompt`, siswa membaca pertanyaannya sebelum melihat datanya.
+2. **Kurung matriks nyaris menyentuh kotak isian.** Kurung digambar sebagai
+   `::before`/`::after` selebar 9px di tepi `.matrix__bracket`, dan padding
+   bawaan menyisakan jarak yang terlalu tipis untuk kotak `.numfield` yang
+   besar. Sekarang: padding kurung diperlebar khusus mode isian, grid pakai
+   gap sendiri, dan wadahnya menggulir mendatar bila layarnya benar-benar
+   sempit. Terukur jarak **20px** di 1280×860 maupun 844×390.
+3. **`multi_select` menyala-mati.** Skrip pengujian yang mengetuk opsi yang
+   SUDAH tercentang justru mematikannya — terukur membuat skor terbaca 60
+   alih-alih 70, dan menuduh aplikasinya keliru padahal yang salah
+   pengujiannya. Helper `pilih(i)` di bagian 110–113 memastikan idempoten.
+
+### Kontrak §5 butir 28 diberi pengecualian
+
+**Mode ujian sengaja TIDAK melanjutkan sesi.** Butir 28 ("posisi siswa
+diingat") berlaku untuk mode Belajar dan Mini Kuis. Di ujian ia justru salah:
+ujian yang bisa ditinggal lalu dilanjutkan membuat siswa bebas mencari jawaban
+di antara dua sesi, dan itu meniadakan seluruh gunanya. Yang WAJIB ada sebagai
+gantinya, dan diuji: peringatan jujur sebelum keluar, plus percobaan baru yang
+bersih. Riwayat skor tetap tersimpan permanen.
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/modules/kuis/examEngine.js` | **BARU** — mesin ujian CBT: dua kolom, kisi navigasi, jawaban tertunda, penilaian serentak, pembahasan |
+| `css/phase18.css` | **BARU — DIMUAT PALING AKHIR**: tata letak ujian, kisi navigasi, riwayat, perbaikan isian matriks |
+| `js/app.js` | Sesi kuis memakai `ExamEngine`; `buildTkaSet()` urutan tetap; helper `attemptsFor()`/`attemptChips()`; penamaan "Latihan Soal TKA" |
+| `js/modules/kuis/quizResult.js` | Label sub-topik Bab 4 diselaraskan dengan Fase 17 |
+| `data/quizzes.json` | Bank `tka_2025` (4 soal asli); `questionOrder` 10 soal; QA sub-topik |
+| `tests/archive_soal.py` | **BARU** — pembangkit arsip soal |
+| `content/QUIZ_ARCHIVE.md`, `content/TKA_ARCHIVE.md` | **BARU** — arsip cetak (dibangkitkan) |
+| `index.html` | Memuat `css/phase18.css` |
+| `tests/smoke.py` | Bagian **110–113** baru; bagian 11, 53, dan 68 ditulis ulang mengikuti UI ujian |
 
 ---
 
@@ -918,7 +1071,7 @@ Sembilan temuan QA manual, semuanya tertutup.
 | Cabang | `main` (satu-satunya cabang lokal) |
 | Remote | `origin` → `https://github.com/mrpurnomo/ruang-matriks.git` |
 | `origin/main` | `ccfc7d7` — Fase 15.5 (poles papan coret). **Inilah versi yang dipakai siswa sekarang** |
-| `main` lokal | **2 commit di depan remote**: Fase 16 (invers & persamaan) dan Fase 17 (masterclass TKA) |
+| `main` lokal | **3 commit di depan remote**: Fase 16 (invers & persamaan), Fase 17 (masterclass TKA), dan Fase 18 (mesin ujian CBT) |
 | Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh commit**, terverifikasi |
 | Tanda tangan AI | **nol.** `git log --format=%B | grep -i claude` tidak menemukan apa pun |
 
@@ -987,7 +1140,12 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **569/569 lolos** |
+| `python tests/smoke.py` | **611/611 lolos** |
+
+Fase 18 menambah bagian 110–113: tata letak CBT dua kolom, umpan balik
+tertunda beserta navigasi bebasnya, isian matriks yang tidak berhimpit di dua
+viewport, pengumpulan & penilaian serentak, riwayat percobaan, dan keberadaan
+arsip soal. Bagian 11, 53, dan 68 ditulis ulang mengikuti UI ujian yang baru.
 
 Fase 17 menambah bagian 106–109: translasi cerita & Aturan Domino, SPLDV
 gaya UTBK beserta pengecoh-pengecohnya, ekstraksi sniper (peredupan, jalur
@@ -1086,9 +1244,12 @@ matriks-lab-interaktif/
 │   ├── phase16.css                    Invers & persamaan
 │   │                                    (slot skalar, cap air kofaktor,
 │   │                                    panel minor, balok persamaan)
-│   └── phase17.css                    ← DIMUAT TERAKHIR: masterclass TKA
-│                                        (narasi ber-angka, Aturan Domino,
-│                                        opsi UTBK, peredupan sniper)
+│   ├── phase17.css                    Masterclass TKA
+│   │                                    (narasi ber-angka, Aturan Domino,
+│   │                                    opsi UTBK, peredupan sniper)
+│   └── phase18.css                    ← DIMUAT TERAKHIR: mesin ujian CBT
+│                                        (kisi navigasi, riwayat percobaan,
+│                                        isian matriks yang tidak berhimpit)
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -1133,7 +1294,8 @@ matriks-lab-interaktif/
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    └── smoke.py                       569 pengujian Playwright, 109 bagian
+    ├── smoke.py                       611 pengujian Playwright, 113 bagian
+    └── archive_soal.py                Pembangkit arsip soal (Fase 18)
 ```
 
 ---
@@ -1307,6 +1469,16 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 69. **Panel yang baru muncul harus dibawa ke pandangan.** Alur bertahap yang tumbuh ke bawah bisa menaruh pertanyaan di luar layar; panggung boleh menggulir, tetapi siswa tidak boleh harus mencarinya. (Fase 17, bagian uji 107 & 109.)
 
 70. **Sub-topik yang isinya berganti total mendapat ID BARU.** Mempertahankan id lama akan menandai siswa sudah menyelesaikan sesuatu yang tidak pernah ia kerjakan. (Fase 17: `spltv_matriks` → `ekstraksi_elemen`.)
+
+71. **Mode ujian TIDAK memberi umpan balik langsung, dan TIDAK melanjutkan sesi.** Butir 28 ("posisi siswa diingat") berlaku untuk Belajar dan Mini Kuis; di ujian ia justru salah — ujian yang bisa ditinggal lalu dilanjutkan membuat siswa bebas mencari jawaban di antara dua sesi. Gantinya WAJIB ada: peringatan jujur sebelum keluar, percobaan baru yang bersih, dan riwayat skor yang tetap tersimpan. (Fase 18, bagian uji 53 & 110.)
+
+72. **Mini Kuis dan Ujian adalah DUA mesin, bukan dua mode dari satu mesin.** `QuizEngine` (umpan balik langsung, navigasi terkunci, mastery learning) dan `ExamEngine` (tertunda, navigasi bebas, penilaian serentak) punya kontrak yang berlawanan; menyatukannya membuat tiap cabang `if` berarti dua hal. (Fase 18.)
+
+73. **Arsip soal DIBANGKITKAN dari JSON, tidak pernah ditulis tangan.** `python tests/archive_soal.py` membangun `QUIZ_ARCHIVE.md` dan `TKA_ARCHIVE.md`. Arsip cetak yang disunting manual akan menyimpang dari soal yang benar-benar dilihat siswa, dan arsip yang menyimpang lebih berbahaya daripada tidak ada arsip. (Fase 18, bagian uji 113.)
+
+74. **Data tabel ditulis sebagai DATA, bukan markdown di dalam prompt.** `renderMixed()` tidak mengenal sintaks tabel — pipanya tampil mentah di layar. Pakai `q.table = {headers, rows}`, dan `q.after` untuk kalimat pertanyaan yang harus berdiri sesudah tabelnya. (Fase 18, bagian uji 110.)
+
+75. **Kotak isian tidak boleh menyentuh garis kurung matriks.** Kurung digambar `::before`/`::after` selebar 9px di tepi `.matrix__bracket`; isian kuis jauh lebih besar daripada sel biasa dan butuh padding sendiri. Kalau layarnya benar-benar sempit, WADAHNYA yang menggulir — bukan isinya yang dimampatkan sampai berhimpit. (Fase 18, bagian uji 111.)
 
 ---
 
@@ -1611,7 +1783,7 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Commit Fase 16 dan 17 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); keduanya hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
+6. **Commit Fase 16, 17, dan 18 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); ketiganya hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
 
 ---
 
@@ -1622,7 +1794,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **569** justru karena itu (300 → 346 → 383 → 403 → 409 → 425 → 451 → 469 → 513 → 569 di fase 11–17).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **611** justru karena itu (300 → … → 513 → 569 → 611 di fase 11–18).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.
