@@ -23,6 +23,8 @@ Perhatikan matriks berikut!
 
 $$ F = \begin{pmatrix} 2 & 0 \\ 0 & \frac{1}{2} \end{pmatrix} $$
 
+**Tentukan invers dari matriks $F$.**
+
 A. $\begin{pmatrix} 1 & 0 \\ 0 & 2 \end{pmatrix}$
 B. $\begin{pmatrix} -1 & 0 \\ 0 & -2 \end{pmatrix}$
 C. $\begin{pmatrix} 2 & 0 \\ 0 & 1 \end{pmatrix}$
@@ -41,11 +43,14 @@ E. $\begin{pmatrix} \frac{1}{2} & 0 \\ 0 & 2 \end{pmatrix}$
 - **Tipe:** Pilihan ganda (satu jawaban benar)
 - **Sub-topik:** `spldv_matriks`
 
-Pak Andi memiliki beberapa sapi dan kambing. Semua hewan ternaknya selalu diberikan pakan berupa campuran rumput gajah dan rumput gamal. Setiap hari, ia selalu menyediakan **38 kg rumput gajah** dan **34 kg rumput gamal** untuk seluruh kambing dan sapi miliknya tanpa sisa.
+Pak Andi memiliki beberapa sapi dan kambing. Semua hewan ternaknya selalu diberikan pakan berupa campuran rumput gajah dan rumput gamal. Setiap hari ia menyediakan **38 kg rumput gajah** dan **34 kg rumput gamal** untuk seluruh kambing dan sapi miliknya tanpa sisa.
 
-Setiap **sapi** menghabiskan 10 kg rumput gajah dan 10 kg rumput gamal. Setiap **kambing** menghabiskan 2 kg rumput gajah dan 1 kg rumput gamal.
+| Hewan | Rumput Gajah | Rumput Gamal |
+|---|---|---|
+| Sapi | 10 kg | 10 kg |
+| Kambing | 2 kg | 1 kg |
 
-Jika banyaknya sapi dan kambing yang dipelihara Pak Andi berturut-turut adalah $x$ dan $y$, maka $\begin{pmatrix} x \\ y \end{pmatrix} = \ldots$
+Jika banyaknya **sapi** dan **kambing** yang dipelihara Pak Andi berturut-turut adalah $x$ dan $y$, **tentukan bentuk $\begin{pmatrix} x \\ y \end{pmatrix}$ yang benar.**
 
 A. $\begin{pmatrix} -1 & 1 \\ 10 & -5 \end{pmatrix}\begin{pmatrix} 19 \\ 34 \end{pmatrix} = \begin{pmatrix} 15 \\ 20 \end{pmatrix}$
 B. $\begin{pmatrix} 10 & -10 \\ -1 & 2 \end{pmatrix}\begin{pmatrix} 38 \\ 34 \end{pmatrix} = \begin{pmatrix} 4 \\ 3 \end{pmatrix}$
@@ -65,13 +70,13 @@ E. $\begin{pmatrix} -\frac{1}{5} & \frac{1}{5} \\ 2 & -1 \end{pmatrix}\begin{pma
 - **Tipe:** Pilihan ganda (satu jawaban benar)
 - **Sub-topik:** `ekstraksi_elemen`
 
-Sebuah pabrik minuman tradisional memproduksi tiga jenis minuman yaitu wedang jahe (WJ), beras kencur (BK), dan kunir asem (KA). Dalam proses produksinya digunakan tiga bahan utama: jahe (J) dalam gram, gula merah (GM) dalam gram, dan air (A) dalam mililiter. Setiap botol minuman memerlukan bahan sebagai berikut.
+Sebuah pabrik minuman tradisional memproduksi tiga jenis minuman: wedang jahe (WJ), beras kencur (BK), dan kunir asem (KA). Dalam proses produksinya digunakan tiga bahan utama, yaitu jahe (J) dalam gram, gula merah (GM) dalam gram, dan air (A) dalam mililiter. Kebutuhan bahan **setiap botol** adalah sebagai berikut (baris berturut-turut: WJ, BK, KA).
 
-$\begin{matrix} & J & GM & A \end{matrix}$ $\begin{pmatrix} 20 & 15 & 50 \\ 10 & 25 & 40 \\ 12 & 8 & k \end{pmatrix}$ (baris berturut-turut: WJ, BK, KA)
+$$ \begin{matrix} & \ \ J & GM & \ A \ \end{matrix} \\[-2pt] \begin{pmatrix} 20 & 15 & 50 \\ 10 & 25 & 40 \\ 12 & 8 & k \end{pmatrix} $$
 
-Pada suatu hari pabrik menerima pesanan WJ 100 botol, BK 120 botol, dan KA 80 botol. Jumlah bahan baku yang digunakan adalah $J = 4360$ g, $GM = 4960$ g, dan $A = 13000$ ml.
+Pada suatu hari pabrik menerima pesanan $\begin{matrix} WJ \\ BK \\ KA \end{matrix}\begin{pmatrix} 100 \\ 120 \\ 80 \end{pmatrix}$ botol, dan jumlah bahan baku yang terpakai adalah $\begin{matrix} J \\ GM \\ A \end{matrix}\begin{pmatrix} 4360 \\ 4960 \\ 13000 \end{pmatrix}$.
 
-Banyak air yang dibutuhkan untuk memproduksi **satu botol kunir asem** adalah ....
+**Banyak air yang dibutuhkan untuk memproduksi satu botol kunir asem adalah ....**
 
 A. 30 ml
 B. 35 ml
@@ -99,7 +104,7 @@ Seorang pemilik hotel mengelola 3 hotel di kota yang berbeda. Ketiganya memiliki
 | Deluxe Room | 6 | 7 | 5 | Rp500.000 |
 | Suite Room | 3 | 2 | 4 | Rp1.000.000 |
 
-Bagaimana kondisi pendapatan ketiga hotel tersebut dalam 1 hari jika semua tipe kamar terisi penuh? **Pilih semua jawaban yang benar.**
+**Bagaimana kondisi pendapatan ketiga hotel tersebut dalam 1 hari jika semua tipe kamar terisi penuh?** Pilih **semua** jawaban yang benar.
 
 A. Pendapatan Hotel A dan Hotel C sama besar.
 B. Pendapatan Hotel B lebih besar daripada Hotel A.

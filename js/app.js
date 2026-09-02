@@ -15,10 +15,10 @@ import { renderQuizResult } from './modules/kuis/quizResult.js';
 import {
   touchSession, getOverallProgress, getChapterProgress, getSubtopicProgress,
   isSubtopicUnlocked, getLastVisited, saveQuizResult, getQuizHistory, getState,
-  isStorageAvailable, resetAll, getBadges, getSettings, updateSettings,
+  isStorageAvailable, resetAll, getSettings, updateSettings,
 } from './state/progressStore.js';
 import { quizKey, clearAllResume } from './state/sessionState.js';
-import { attachMathpad } from './ui/mathpad.js';
+import { attachMathpad, closeMathpad } from './ui/mathpad.js';
 import { killAllMotion } from './interactions/motion.js';
 
 /* ------------------------------------------------------------
@@ -160,6 +160,15 @@ async function loadQuizzes() {
    ------------------------------------------------------------ */
 function mountScreen(builder, { isBack = false } = {}) {
   clearToasts();
+
+  /**
+   * Papan angka hidup di `document.body`, bukan di dalam layar — jadi
+   * berpindah layar TIDAK membongkarnya, dan ia akan mengambang di atas
+   * layar berikutnya. Ditutup di sini, dan ditutup dengan MENYIMPAN:
+   * angka yang sudah diketik siswa tidak boleh hilang hanya karena
+   * layarnya berganti.
+   */
+  closeMathpad();
 
   // Tambatan toast milik layar sebelumnya ikut dilepas; layar yang punya
   // kolom panggung akan memasangnya kembali saat ia dirender.
@@ -538,7 +547,18 @@ async function renderMenu(params, options) {
     [
       { value: `${overall.percent}%`, label: 'Kurikulum dikuasai', color: 'var(--brand-primary)' },
       { value: `${overall.completed}/${overall.total}`, label: 'Sub-topik selesai', color: 'var(--success)' },
-      { value: String(getBadges().length), label: 'Lencana terbuka', color: 'var(--accent-amber)' },
+      /**
+       * Dulu di sini ada "N Lencana terbuka" — dan itu MENIPU: sistem
+       * lencananya tidak pernah ada. `unlockBadge()` memang menyimpan
+       * penanda, tetapi tidak ada satu pun layar yang menampilkan lencana,
+       * menjelaskan apa artinya, atau bisa dibuka siswa dengan sengaja.
+       * Angka yang tidak bisa ditelusuri lebih buruk daripada tidak ada
+       * angka sama sekali.
+       *
+       * Gantinya angka yang benar-benar berarti dan bisa dikejar: nilai
+       * TERBAIK dari seluruh percobaan Latihan Soal TKA.
+       */
+      { value: skorTkaTertinggi(), label: 'Skor TKA tertinggi', color: 'var(--accent-amber)' },
     ].forEach((s) => {
       const box = el('div', 'hero-stat');
       box.style.setProperty('--stat-color', s.color);
@@ -862,6 +882,19 @@ function renderQuizMenu(params, options) {
  * setelah disaring — tanpa itu, "Percobaan 1" pada Bab 3 bisa berarti
  * percobaan ke-9 secara keseluruhan.
  */
+/**
+ * Nilai TERBAIK dari seluruh percobaan Latihan Soal TKA.
+ *
+ * Dibaca dari riwayat kuis di `localStorage`. Belum pernah mencoba berarti
+ * belum punya skor — dan itu dikatakan apa adanya, bukan disamarkan jadi "0"
+ * yang terbaca seperti nilai nol.
+ */
+function skorTkaTertinggi() {
+  const list = attemptsFor('simulasi_tka', 'all');
+  if (!list.length) return 'Belum ada';
+  return String(Math.max(...list.map((a) => a.score)));
+}
+
 function attemptsFor(mode, bankId) {
   const semua = getQuizHistory(50)
     .filter((h) => h.mode === mode && (h.chapter || 'all') === (bankId || 'all'))
@@ -964,6 +997,18 @@ function renderQuizSession(params, options) {
      * baru terjadi setelah dikumpulkan.
      */
     const run = () => {
+      /**
+       * Sesi lama DIBONGKAR lebih dulu, bukan cuma ditimpa `innerHTML`.
+       *
+       * Mesin ujian memasang papan coret, dan papan itu memegang
+       * `ResizeObserver` serta listener di `window` (kontrak §5 butir 31:
+       * pembongkaran harus menyentuh state tingkat-MODUL, bukan hanya DOM).
+       * Menekan "Ulangi Ujian" tanpa membongkar akan menumpuk satu papan
+       * beserta pengamatnya pada setiap percobaan.
+       */
+      if (state.activeView && typeof state.activeView.destroy === 'function') {
+        state.activeView.destroy();
+      }
       container.innerHTML = '';
       const startedAt = new Date().toISOString();
 
@@ -987,6 +1032,9 @@ function renderQuizSession(params, options) {
         },
       });
       engine.start();
+      // Didaftarkan supaya `mountScreen()` ikut membongkarnya saat siswa
+      // berpindah layar.
+      state.activeView = engine;
     };
 
     run();

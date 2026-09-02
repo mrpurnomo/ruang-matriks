@@ -476,6 +476,177 @@ PAPAN_RUTE_BARU = """() => new Promise(resolve => {
     }, 500);
 })"""
 # ============================================================
+# Skrip peramban untuk bagian regresi Fase 18.5 (114-116).
+# ============================================================
+
+F185_ALAT = """
+    const tap = (n) => n.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    const nav = (i) => document.querySelectorAll('.exam-nav__item')[i];
+    const ke = async (i) => { tap(nav(i)); await tunggu(800); };
+    const pd = (n) => n.dispatchEvent(new PointerEvent('pointerdown',
+        { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
+    const padPress = (l) => pd([...document.querySelector('.mathpad .mathpad__grid')
+        .querySelectorAll('button')].find(b => b.getAttribute('aria-label') === l));
+    const klikLuarPad = () => document.querySelector('.mathpad-scrim').dispatchEvent(
+        new PointerEvent('pointerdown',
+            { bubbles: true, cancelable: true, pointerId: 9, isPrimary: true }));
+"""
+
+# --- Teks soal & markdown ---
+F185_TEKS = """async () => {
+    """ + F185_ALAT + """
+    const out = { soal: [] };
+    for (let i = 0; i < 4; i++) {
+        await ke(i);
+        const after = document.querySelector('.quiz__after');
+        out.soal.push({
+            nomor: i + 1,
+            adaPertanyaan: !!after,
+            teks: after ? after.textContent.replace(/\\s+/g, ' ').trim() : '',
+            // Kalimat pertanyaan WAJIB berdiri di ATAS pilihan, bukan di
+            // tengah cerita — siswa tidak boleh menebak apa yang ditanya.
+            diAtasOpsi: !!(after && document.querySelector('.options')
+                && after.compareDocumentPosition(document.querySelector('.options'))
+                   & Node.DOCUMENT_POSITION_FOLLOWING),
+        });
+    }
+
+    await ke(3);
+    const hint = document.querySelector('.quiz__hint');
+    out.markdown = {
+        // `el()` menaruh argumennya sebagai innerHTML MENTAH; teks
+        // ber-markdown wajib lewat `renderMixed()` lebih dulu.
+        adaStrong: !!(hint && hint.querySelector('strong')),
+        htmlHint: hint ? hint.innerHTML : '',
+        bintangMentah: document.body.textContent.includes('**'),
+    };
+    return out;
+}"""
+
+# --- Mathpad: simpan otomatis, batal yang jujur ---
+F185_MATHPAD = """async () => {
+    """ + F185_ALAT + """
+    const out = {};
+
+    // Soal 6 bertipe isian angka.
+    await ke(5);
+    let inp = document.querySelector('.quiz__answer input');
+    out.awal = inp.value;
+
+    // (1) Ketik lalu KLIK DI LUAR pad — tanpa menekan centang sama sekali.
+    pd(inp); await tunggu(750);
+    padPress('Bersihkan isian');
+    padPress('1'); padPress('6');
+    await tunggu(250);
+    out.previewSaatMengetik = document.querySelector('.mathpad__preview').textContent;
+    klikLuarPad();
+    await tunggu(850);
+    out.klikLuar = {
+        padTertutup: document.querySelector('.mathpad').dataset.open === 'false',
+        nilai: document.querySelector('.quiz__answer input').value,
+        nav: nav(5).dataset.state,
+    };
+
+    // (2) Berpindah soal lalu kembali — angkanya harus MASIH ada.
+    await ke(0);
+    await ke(5);
+    out.setelahBolakBalik = document.querySelector('.quiz__answer input').value;
+
+    // (3) Buka lalu tutup TANPA mengetik: tidak boleh mengubah apa pun.
+    inp = document.querySelector('.quiz__answer input');
+    pd(inp); await tunggu(750);
+    klikLuarPad();
+    await tunggu(750);
+    out.bukaTutupTanpaKetik = document.querySelector('.quiz__answer input').value;
+
+    /**
+     * (4) Escape TETAP membatalkan — dan kotaknya ikut kembali.
+     *
+     * ⚠️ Mathpad membatasi 2 digit, jadi mengetik "9" "9" di atas "16" yang
+     * sudah ada tidak akan berefek sama sekali. Isian dibersihkan dulu,
+     * kalau tidak pengujiannya menguji ketiadaan.
+     */
+    inp = document.querySelector('.quiz__answer input');
+    pd(inp); await tunggu(750);
+    padPress('Bersihkan isian');
+    padPress('9'); padPress('9');
+    await tunggu(250);
+    out.fieldSaatMengetik = document.querySelector('.quiz__answer input').value;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tunggu(850);
+    out.setelahEscape = {
+        nilai: document.querySelector('.quiz__answer input').value,
+        nav: nav(5).dataset.state,
+    };
+
+    // (5) Sel matriks juga ikut tersimpan otomatis.
+    await ke(7);
+    const sel = [...document.querySelectorAll('.numfield--cell')];
+    pd(sel[0]); await tunggu(750);
+    padPress('7');
+    klikLuarPad();
+    await tunggu(850);
+    out.selMatriks = [...document.querySelectorAll('.numfield--cell')].map(c => c.value);
+    return out;
+}"""
+
+# --- Papan coret di mode ujian ---
+F185_PAPAN = """async () => {
+    """ + F185_ALAT + """
+    const out = {};
+    out.fabAda = !!document.querySelector('.ws-stage .pad-fab');
+    out.tertutupDiAwal = document.querySelector('.pad').hidden === true;
+
+    document.querySelector('.pad-fab').click();
+    await tunggu(850);
+
+    const cv = document.querySelector('.pad__canvas');
+    const ctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const r = cv.getBoundingClientRect();
+    out.bufferBenar = cv.width === Math.round(r.width * dpr)
+                   && cv.height === Math.round(r.height * dpr);
+
+    const ink = () => { const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n; };
+    const pe = (x, y, t) => new PointerEvent(t, { bubbles: true, cancelable: true,
+        clientX: r.left + x, clientY: r.top + y, pointerId: 1, pointerType: 'pen',
+        isPrimary: true, button: 0, buttons: 1 });
+
+    out.tintaAwal = ink();
+    cv.dispatchEvent(pe(90, 110, 'pointerdown'));
+    for (let x = 110; x <= 320; x += 15) cv.dispatchEvent(pe(x, 110, 'pointermove'));
+    cv.dispatchEvent(pe(320, 110, 'pointerup'));
+    await tunggu(450);
+    out.tintaSetelahGambar = ink();
+
+    const sim = () => window.__matriksLab.state.activeView.scratchpad.state;
+    out.goresan = sim().strokes;
+
+    // Berpindah soal TIDAK boleh menghapus coretan: di ujian, melompat ke
+    // soal lain lalu kembali adalah hal yang biasa.
+    await ke(5);
+    out.setelahPindahSoal = {
+        goresan: sim().strokes,
+        tinta: ink(),
+        masihTerbuka: document.querySelector('.pad').hidden === false,
+        jumlahPad: document.querySelectorAll('.pad').length,
+        jumlahFab: document.querySelectorAll('.pad-fab').length,
+    };
+    return out;
+}"""
+
+# --- Dasbor: kartu skor TKA menggantikan lencana ---
+F185_DASBOR = """() => ({
+    label: [...document.querySelectorAll('.hero-stat__label')].map(n => n.textContent),
+    nilai: [...document.querySelectorAll('.hero-stat__value')].map(n => n.textContent),
+    // Sistem lencananya tidak pernah ada; angkanya menipu.
+    adaLencana: document.body.textContent.includes('Lencana'),
+})"""
+
+
+# ============================================================
 # Skrip peramban untuk bagian regresi Fase 18 (110-112).
 # ============================================================
 
@@ -5772,6 +5943,89 @@ def run(page, errors):
         record(f"Arsip {nama} tersedia di content/", ada, path)
         record(f"Arsip {nama} memuat kunci jawabannya",
                all(w in teks for w in wajib), f"{nama}: {len(teks)} karakter")
+
+    # ==========================================================
+    # FASE 18.5 — POLES AKHIR
+    # ==========================================================
+
+    print("\n114. Fase 18.5 - Teks soal lengkap & markdown ter-render")
+    page.evaluate("""() => { try {
+        const raw = localStorage.getItem('matriksLab.v1');
+        if (raw) { const d = JSON.parse(raw); d.quizHistory = [];
+                   localStorage.setItem('matriksLab.v1', JSON.stringify(d)); }
+    } catch (e) {} }""")
+    open_fresh(page, "#/kuis/simulasi_tka/all")
+    page.wait_for_selector(".exam-nav__item", timeout=10000)
+    page.wait_for_timeout(800)
+
+    teks = page.evaluate(F185_TEKS)
+    tk = json.dumps(teks, ensure_ascii=False)[:400]
+    # Soal 1 dulu berhenti di "Perhatikan matriks berikut!" lalu langsung
+    # menampilkan lima matriks — siswa harus MENEBAK apa yang ditanyakan.
+    record("Keempat soal TKA punya kalimat pertanyaan eksplisit",
+           all(x["adaPertanyaan"] for x in teks["soal"]), tk)
+    record("Kalimat pertanyaan berdiri tepat di atas pilihan",
+           all(x["diAtasOpsi"] for x in teks["soal"]), tk)
+    record("Soal 1 menanyakan invers matriks F secara tersurat",
+           "invers dari matriks" in teks["soal"][0]["teks"], tk)
+    record("Soal 3 menanyakan banyak air untuk satu botol kunir asem",
+           "kunir asem" in teks["soal"][2]["teks"], tk)
+    # `el()` menaruh argumennya sebagai innerHTML MENTAH.
+    record("Markdown **tebal** dirender jadi <strong>, bukan bintang",
+           teks["markdown"]["adaStrong"] is True, tk)
+    record("Tidak ada bintang markdown mentah di layar ujian",
+           teks["markdown"]["bintangMentah"] is False, tk)
+
+    print("\n115. Fase 18.5 - Mathpad menyimpan otomatis, membatalkan dengan jujur")
+    mp = page.evaluate(F185_MATHPAD)
+    m = json.dumps(mp, ensure_ascii=False)[:400]
+    # Inti keluhan QA: angka hilang kalau siswa mengetuk di luar pad.
+    record("Klik di luar pad MENYIMPAN angka yang sudah diketik",
+           mp["klikLuar"]["nilai"] == "16" and mp["klikLuar"]["padTertutup"] is True, m)
+    record("Jawaban tercatat di kisi navigasi tanpa menekan centang",
+           mp["klikLuar"]["nav"] == "answered", m)
+    record("Angka bertahan saat berpindah soal dan kembali",
+           mp["setelahBolakBalik"] == "16", m)
+    record("Membuka lalu menutup pad tanpa mengetik tidak mengubah apa pun",
+           mp["bukaTutupTanpaKetik"] == "16", m)
+    # Escape adalah satu-satunya gestur yang benar-benar membatalkan — dan
+    # kotaknya WAJIB ikut kembali, kalau tidak layar berbohong.
+    record("Escape membatalkan dan mengembalikan isi kotak",
+           mp["fieldSaatMengetik"] == "99" and mp["setelahEscape"]["nilai"] == "16", m)
+    record("Pembatalan tidak mengubah status jawaban",
+           mp["setelahEscape"]["nav"] == "answered", m)
+    record("Sel isian matriks ikut tersimpan otomatis",
+           mp["selMatriks"][0] == "7", m)
+
+    print("\n116. Fase 18.5 - Papan coret hidup di mode ujian")
+    papan = page.evaluate(F185_PAPAN)
+    p185 = json.dumps(papan)[:340]
+    record("Tombol papan coret tersedia di panggung ujian",
+           papan["fabAda"] is True and papan["tertutupDiAwal"] is True, p185)
+    record("Kanvas papan terukur benar di tata letak dua kolom",
+           papan["bufferBenar"] is True, p185)
+    record("Menggambar di papan coret meninggalkan tinta",
+           papan["tintaAwal"] == 0 and papan["tintaSetelahGambar"] > 200
+           and papan["goresan"] == 1, p185)
+    # Melompat antar soal lalu kembali adalah hal biasa di ujian.
+    record("Coretan bertahan saat berpindah soal",
+           papan["setelahPindahSoal"]["goresan"] == 1
+           and papan["setelahPindahSoal"]["tinta"] > 200, p185)
+    record("Tidak ada papan atau tombol yang menumpuk",
+           papan["setelahPindahSoal"]["jumlahPad"] == 1
+           and papan["setelahPindahSoal"]["jumlahFab"] == 1, p185)
+
+    open_fresh(page, "#/")
+    page.wait_for_timeout(900)
+    dash = page.evaluate(F185_DASBOR)
+    d185 = json.dumps(dash, ensure_ascii=False)[:300]
+    # Kartu "Lencana terbuka" menipu: sistem lencananya tidak pernah ada.
+    record("Kartu 'Lencana' dicabut dari dasbor",
+           dash["adaLencana"] is False, d185)
+    record("Digantikan kartu Skor TKA tertinggi",
+           "Skor TKA tertinggi" in dash["label"], d185)
+    record("Tanpa riwayat, skornya berbunyi 'Belum ada' bukan angka nol",
+           dash["nilai"][2] == "Belum ada", d185)
 
 
 def main():

@@ -414,14 +414,15 @@
         ],
         "answerIndex": 4,
         "explanation": "$\\det(F) = (2)\\left(\\frac{1}{2}\\right) - (0)(0) = 1$. Adjoinnya: tukar diagonal utama menjadi $\\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}$, diagonal sekundernya nol sehingga tandanya tidak berubah. Karena $\\frac{1}{\\det} = 1$, hasilnya tetap: $F^{-1} = \\begin{pmatrix} \\frac{1}{2} & 0 \\\\ 0 & 2 \\end{pmatrix}$ — **opsi E**.",
-        "toastWrong": "Belum tepat. Untuk matriks diagonal, inversnya adalah kebalikan tiap elemen diagonalnya: $2 \\to \\frac{1}{2}$ dan $\\frac{1}{2} \\to 2$. Hitung $\\det(F)$ dulu — nilainya 1, jadi tidak ada pembagian tambahan."
+        "toastWrong": "Belum tepat. Untuk matriks diagonal, inversnya adalah kebalikan tiap elemen diagonalnya: $2 \\to \\frac{1}{2}$ dan $\\frac{1}{2} \\to 2$. Hitung $\\det(F)$ dulu — nilainya 1, jadi tidak ada pembagian tambahan.",
+        "after": "**Tentukan invers dari matriks $F$.**"
       },
       {
         "id": "tka25_02",
         "input_type": "single_choice",
         "source": "TKA 2025 · No. 2",
         "subtopic": "spldv_matriks",
-        "prompt": "Pak Andi memiliki beberapa sapi dan kambing. Semua hewan ternaknya selalu diberikan pakan berupa campuran rumput gajah dan rumput gamal. Setiap hari, ia selalu menyediakan **38 kg rumput gajah** dan **34 kg rumput gamal** untuk seluruh kambing dan sapi miliknya tanpa sisa.\n\nSetiap **sapi** menghabiskan 10 kg rumput gajah dan 10 kg rumput gamal. Setiap **kambing** menghabiskan 2 kg rumput gajah dan 1 kg rumput gamal.\n\nJika banyaknya sapi dan kambing yang dipelihara Pak Andi berturut-turut adalah $x$ dan $y$, maka $\\begin{pmatrix} x \\\\ y \\end{pmatrix} = \\ldots$",
+        "prompt": "Pak Andi memiliki beberapa sapi dan kambing. Semua hewan ternaknya selalu diberikan pakan berupa campuran rumput gajah dan rumput gamal. Setiap hari ia menyediakan **38 kg rumput gajah** dan **34 kg rumput gamal** untuk seluruh kambing dan sapi miliknya tanpa sisa.",
         "options": [
           {
             "tex": "\\begin{pmatrix} -1 & 1 \\\\ 10 & -5 \\end{pmatrix}\\begin{pmatrix} 19 \\\\ 34 \\end{pmatrix} = \\begin{pmatrix} 15 \\\\ 20 \\end{pmatrix}"
@@ -441,14 +442,34 @@
         ],
         "answerIndex": 4,
         "explanation": "Modelnya: $10x + 2y = 38$ dan $10x + y = 34$. Persamaan pertama boleh disederhanakan (bagi 2) menjadi $5x + y = 19$, sehingga $A = \\begin{pmatrix} 5 & 1 \\\\ 10 & 1 \\end{pmatrix}$ dan $B = \\begin{pmatrix} 19 \\\\ 34 \\end{pmatrix}$.\n\n$\\det(A) = (5)(1) - (1)(10) = -5$, sehingga $A^{-1} = \\frac{1}{-5}\\begin{pmatrix} 1 & -1 \\\\ -10 & 5 \\end{pmatrix} = \\begin{pmatrix} -\\frac{1}{5} & \\frac{1}{5} \\\\ 2 & -1 \\end{pmatrix}$.\n\nHasilnya $\\begin{pmatrix} 3 \\\\ 4 \\end{pmatrix}$: **3 sapi dan 4 kambing** — cocokkan: $10(3) + 2(4) = 38$ dan $10(3) + 1(4) = 34$. Jadi **opsi E**.",
-        "toastWrong": "Belum tepat. Susun dulu sistemnya: $10x + 2y = 38$ (gajah) dan $10x + y = 34$ (gamal). Perhatikan bahwa beberapa opsi menyederhanakan persamaan pertama lebih dulu — periksa apakah matriks konstantanya ikut disesuaikan."
+        "toastWrong": "Belum tepat. Susun dulu sistemnya: $10x + 2y = 38$ (gajah) dan $10x + y = 34$ (gamal). Perhatikan bahwa beberapa opsi menyederhanakan persamaan pertama lebih dulu — periksa apakah matriks konstantanya ikut disesuaikan.",
+        "table": {
+          "headers": [
+            "Hewan",
+            "Rumput Gajah",
+            "Rumput Gamal"
+          ],
+          "rows": [
+            [
+              "Sapi",
+              "10 kg",
+              "10 kg"
+            ],
+            [
+              "Kambing",
+              "2 kg",
+              "1 kg"
+            ]
+          ]
+        },
+        "after": "Jika banyaknya **sapi** dan **kambing** yang dipelihara Pak Andi berturut-turut adalah $x$ dan $y$, **tentukan bentuk $\\begin{pmatrix} x \\\\ y \\end{pmatrix}$ yang benar.**"
       },
       {
         "id": "tka25_03",
         "input_type": "single_choice",
         "source": "TKA 2025 · No. 3",
         "subtopic": "ekstraksi_elemen",
-        "prompt": "Sebuah pabrik minuman tradisional memproduksi tiga jenis minuman yaitu wedang jahe (WJ), beras kencur (BK), dan kunir asem (KA). Dalam proses produksinya digunakan tiga bahan utama: jahe (J) dalam gram, gula merah (GM) dalam gram, dan air (A) dalam mililiter. Setiap botol minuman memerlukan bahan sebagai berikut.\n\n$\\begin{matrix} & J & GM & A \\end{matrix}$ $\\begin{pmatrix} 20 & 15 & 50 \\\\ 10 & 25 & 40 \\\\ 12 & 8 & k \\end{pmatrix}$ (baris berturut-turut: WJ, BK, KA)\n\nPada suatu hari pabrik menerima pesanan WJ 100 botol, BK 120 botol, dan KA 80 botol. Jumlah bahan baku yang digunakan adalah $J = 4360$ g, $GM = 4960$ g, dan $A = 13000$ ml.\n\nBanyak air yang dibutuhkan untuk memproduksi **satu botol kunir asem** adalah ....",
+        "prompt": "Sebuah pabrik minuman tradisional memproduksi tiga jenis minuman: wedang jahe (WJ), beras kencur (BK), dan kunir asem (KA). Dalam proses produksinya digunakan tiga bahan utama, yaitu jahe (J) dalam gram, gula merah (GM) dalam gram, dan air (A) dalam mililiter. Kebutuhan bahan **setiap botol** adalah sebagai berikut (baris berturut-turut: WJ, BK, KA).",
         "options": [
           {
             "label": "30 ml"
@@ -468,7 +489,9 @@
         ],
         "answerIndex": 2,
         "explanation": "Pakai **Aturan Sniper**: nilai $k$ hanya ditentukan oleh kolom air, jadi cukup satu persamaan.\n\n$50(100) + 40(120) + k(80) = 13000$\n\n$5000 + 4800 + 80k = 13000 \\Rightarrow 80k = 3200 \\Rightarrow k = 40$. Jadi **opsi C**.\n\n**Catatan jujur:** pada naskah aslinya, total $J$ dan $GM$ tidak konsisten dengan matriksnya ($20(100)+10(120)+12(80) = 4160$, bukan 4360; $15(100)+25(120)+8(80) = 5140$, bukan 4960). Justru di sinilah teknik sniper menyelamatkanmu: kamu tidak pernah menyentuh kedua baris itu.",
-        "toastWrong": "Belum tepat. Jangan hitung seluruh matriksnya. Nilai $k$ hanya muncul di kolom **air**: $50(100) + 40(120) + k(80) = 13000$. Selesaikan persamaan itu saja."
+        "toastWrong": "Belum tepat. Jangan hitung seluruh matriksnya. Nilai $k$ hanya muncul di kolom **air**: $50(100) + 40(120) + k(80) = 13000$. Selesaikan persamaan itu saja.",
+        "tex": "\\begin{matrix} & \\ \\ J & GM & \\ A \\ \\end{matrix} \\\\[-2pt] \\begin{pmatrix} 20 & 15 & 50 \\\\ 10 & 25 & 40 \\\\ 12 & 8 & k \\end{pmatrix}",
+        "after": "Pada suatu hari pabrik menerima pesanan $\\begin{matrix} WJ \\\\ BK \\\\ KA \\end{matrix}\\begin{pmatrix} 100 \\\\ 120 \\\\ 80 \\end{pmatrix}$ botol, dan jumlah bahan baku yang terpakai adalah $\\begin{matrix} J \\\\ GM \\\\ A \\end{matrix}\\begin{pmatrix} 4360 \\\\ 4960 \\\\ 13000 \\end{pmatrix}$.\n\n**Banyak air yang dibutuhkan untuk memproduksi satu botol kunir asem adalah ....**"
       },
       {
         "id": "tka25_04",
@@ -538,7 +561,7 @@
             ]
           ]
         },
-        "after": "Bagaimana kondisi pendapatan ketiga hotel tersebut dalam 1 hari jika semua tipe kamar terisi penuh? **Pilih semua jawaban yang benar.**"
+        "after": "**Bagaimana kondisi pendapatan ketiga hotel tersebut dalam 1 hari jika semua tipe kamar terisi penuh?** Pilih **semua** jawaban yang benar."
       }
     ]
   },

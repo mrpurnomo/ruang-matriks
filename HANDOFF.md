@@ -1,7 +1,12 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **3 September 2026**, menutup Fase 18.
-> Status: **fase 1–18 selesai, seluruh pengujian otomatis hijau (21/21 + 611/611).**
+> Dokumen serah-terima antar sesi. Diperbarui **3 September 2026**, menutup Fase 18.5.
+> Status: **fase 1–18.5 selesai, seluruh pengujian otomatis hijau (21/21 + 632/632).**
+>
+> ✅ **FASE 18.5 SELESAI.** Lima temuan UAT: kalimat pertanyaan TKA yang belum
+> ada, markdown mentah di layar, Mathpad yang membuang angka, kartu "Lencana"
+> yang menipu, dan **papan coret yang hilang di mode ujian**. Rinciannya di
+> **§0000000**.
 >
 > ✅ **FASE 18 SELESAI.** Mode Kuis jadi **simulator CBT**: tata letak dua kolom,
 > navigasi bebas, umpan balik **tertunda**, riwayat percobaan tak terbatas, dan
@@ -54,14 +59,14 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **3 September 2026**, sesaat setelah Fase 18 ditutup:
+Keadaan per **3 September 2026**, sesaat setelah Fase 18.5 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 18 — Mesin Ujian CBT & Arsip Soal** (§000000). Selesai, teruji, sudah di-commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **611/611** |
-| Git | **3 commit di depan `origin/main`**: Fase 16, 17, dan 18. Semuanya sengaja belum di-push (§1A) |
-| Pekerjaan tertunda | **Tidak ada.** Fase 18 tuntas; aplikasi lengkap dari konsep dasar sampai simulator ujian |
+| Pekerjaan terakhir | **Fase 18.5 — Poles Akhir** (§0000000). Selesai, teruji, sudah di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **632/632** |
+| Git | **4 commit di depan `origin/main`**: Fase 16, 17, 18, dan 18.5. Semuanya sengaja belum di-push (§1A) |
+| Pekerjaan tertunda | **Tidak ada.** Fase 18.5 tuntas; aplikasi siap dipakai siswa |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
@@ -75,6 +80,120 @@ Keadaan per **3 September 2026**, sesaat setelah Fase 18 ditutup:
 
 `smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
 menggantung.
+
+---
+
+## 0000000. FASE 18.5 — POLES AKHIR (SELESAI)
+
+Lima temuan UAT ditutup. Tidak ada arsitektur yang berubah; semuanya
+perbaikan yang membuat aplikasi berhenti membohongi siswa.
+
+### 1. Soal TKA berhenti sebelum bertanya
+
+Soal 1 berbunyi *"Perhatikan matriks berikut!"*, menampilkan matriks $F$,
+lalu langsung menyodorkan lima pilihan — **pertanyaannya tidak pernah
+ditulis.** Siswa harus menebak apa yang diminta.
+
+Keempat soal TKA kini berbentuk seragam:
+
+| Bagian | Isi |
+|---|---|
+| `prompt` | konteks / cerita |
+| `tex` atau `table` | data (matriks atau tabel) |
+| `after` | **kalimat pertanyaannya**, berdiri tepat di atas pilihan |
+
+Soal 2 dan 3 pertanyaannya sebelumnya terkubur di ekor cerita; keduanya
+dipindah ke `after`. Soal 2 juga mendapat tabel kebutuhan pakan (sebelumnya
+prosa) supaya datanya bisa dibaca sekilas. `TKA_ARCHIVE.md` dibangkitkan ulang.
+
+### 2. Markdown mentah — dan `renderMixed()` TIDAK bersalah
+
+Layar menampilkan `**lebih dari satu**` beserta bintangnya. Sempat terbaca
+seperti kelemahan `renderMixed()`, padahal fungsi itu sudah lama menangani
+`**tebal**` dengan benar (`applyLightMarkdown` di `katexRenderer.js`).
+
+> ⚠️ Yang keliru: `examEngine.js` menaruh teks ber-markdown langsung ke
+> `el(tag, cls, html)`, dan argumen ketiga itu masuk sebagai **`innerHTML`
+> mentah**. Teks apa pun yang memuat markdown WAJIB melewati `renderMixed()`
+> lebih dulu. Memperbaiki `renderMixed` untuk kasus ini akan menambal
+> fungsi yang sehat dan meninggalkan penyebabnya utuh.
+
+### 3. Mathpad membuang angka yang sudah diketik
+
+Mengetuk di luar pad memanggil `close(true)` — jalur pembatalan yang sama
+dengan Escape — sehingga angka yang sudah diketik lenyap. Di isian matriks
+berisi empat sampai sembilan sel, satu jari yang meleset berarti mengulang
+seluruh pengetikan.
+
+`close()` kini menerima opsi, dan ketiga jalurnya punya arti berbeda:
+
+| Gestur | Perilaku |
+|---|---|
+| Centang / Enter | commit, lalu tutup |
+| **Ketuk di luar pad** | **commit otomatis**, lalu tutup |
+| **Escape** | batal — dan **kotaknya dikembalikan** ke nilai semula |
+| Pindah layar (`closeMathpad()`) | commit otomatis |
+
+> ⚠️ **Auto-simpan TIDAK boleh dipasang di tiap ketukan tombol.** Sebagian
+> pemakai menilai jawaban tepat saat `onCommit` (mis. berburu kofaktor di
+> Fase 16); mengirim per digit akan menyalahkan "1" sebelum siswa sempat
+> mengetik "16". Karena itu penyimpanannya terjadi saat pad DITUTUP, dengan
+> dua penjagaan: isian kosong tidak pernah dikirim (ia akan menimpa nilai
+> lama dengan kekosongan), dan isian yang **tidak berubah** juga tidak —
+> membuka lalu menutup pad tanpa mengetik apa pun bukan sebuah jawaban.
+
+> ⚠️ **Escape wajib mengembalikan isi kotaknya.** `sync()` menulis tiap
+> ketukan langsung ke field sebagai pratinjau berjalan, jadi membatalkan
+> tanpa memulihkan meninggalkan angka yang TERLIHAT di kotak padahal tidak
+> pernah tersimpan — layar mengatakan "99" sementara ujian mencatat soal itu
+> masih kosong. Kotak yang berbohong lebih berbahaya daripada kotak kosong.
+
+`mountScreen()` kini juga memanggil `closeMathpad()`. Pad hidup di
+`document.body`, jadi tanpa itu ia tetap mengambang di atas layar berikutnya
+— cacat yang sudah ada sejak lama dan baru ketahuan sekarang.
+
+### 4. Kartu "Lencana" menipu
+
+Dasbor menampilkan "N Lencana terbuka", padahal **sistem lencananya tidak
+pernah ada**: `unlockBadge()` memang menyimpan penanda, tetapi tidak ada satu
+layar pun yang menampilkan lencana, menjelaskan artinya, atau bisa dibuka
+siswa dengan sengaja. Angka yang tidak bisa ditelusuri lebih buruk daripada
+tidak ada angka.
+
+Diganti **"Skor TKA tertinggi"**, dibaca dari riwayat percobaan di
+`localStorage`. Belum pernah mencoba berarti **"Belum ada"** — bukan "0",
+yang akan terbaca seperti nilai nol.
+
+### 5. Papan coret di mode ujian (KRITIS)
+
+Soal TKA menuntut hitungan panjang, dan mode ujian sama sekali tidak punya
+tempat mencoret — siswa harus mengambil kertas, dan begitu matanya turun ke
+kertas, konteks soalnya hilang. Itu persis alasan papan ini dibuat di Fase 15.
+
+`ExamEngine.buildLayout()` menambatkannya ke `.ws-stage`, sama seperti mode
+Belajar, sehingga **seluruh CSS papan berlaku apa adanya** — tidak satu baris
+gaya baru pun ditambahkan.
+
+> ⚠️ Papan dibuat **sekali per sesi ujian**, bukan per soal: coretan hitungan
+> harus bertahan saat siswa melompat antar soal, dan di ujian melompat lalu
+> kembali adalah hal yang biasa. Terukur: goresan dan tintanya utuh setelah
+> berpindah soal, dan tetap satu papan / satu tombol.
+>
+> `ExamEngine` karena itu mendapat `destroy()`, didaftarkan sebagai
+> `state.activeView`, dan **dibongkar juga sebelum "Ulangi Ujian"** —
+> papan memegang `ResizeObserver` dan listener di `window` yang tidak ikut
+> mati oleh `innerHTML = ''` (kontrak §5 butir 31).
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/ui/mathpad.js` | `close()` berbasis opsi; auto-simpan saat ditutup dari luar; pemulihan kotak saat dibatalkan |
+| `js/modules/kuis/examEngine.js` | Papan coret + `destroy()`; petunjuk ber-markdown lewat `renderMixed()` |
+| `js/app.js` | `closeMathpad()` di `mountScreen()`; kartu Skor TKA tertinggi + `skorTkaTertinggi()`; pembongkaran sesi sebelum mengulang |
+| `data/quizzes.json` | Kalimat pertanyaan keempat soal TKA; tabel pakan soal 2 |
+| `content/TKA_ARCHIVE.md`, `content/QUIZ_ARCHIVE.md` | Dibangkitkan ulang |
+| `tests/smoke.py` | Bagian **114–116** baru |
 
 ---
 
@@ -1071,7 +1190,7 @@ Sembilan temuan QA manual, semuanya tertutup.
 | Cabang | `main` (satu-satunya cabang lokal) |
 | Remote | `origin` → `https://github.com/mrpurnomo/ruang-matriks.git` |
 | `origin/main` | `ccfc7d7` — Fase 15.5 (poles papan coret). **Inilah versi yang dipakai siswa sekarang** |
-| `main` lokal | **3 commit di depan remote**: Fase 16 (invers & persamaan), Fase 17 (masterclass TKA), dan Fase 18 (mesin ujian CBT) |
+| `main` lokal | **4 commit di depan remote**: Fase 16 (invers & persamaan), Fase 17 (masterclass TKA), Fase 18 (mesin ujian CBT), dan Fase 18.5 (poles akhir) |
 | Identitas commit | `Penta Putra Purnomo <penta.putra73@guru.sma.belajar.id>` — **seluruh commit**, terverifikasi |
 | Tanda tangan AI | **nol.** `git log --format=%B | grep -i claude` tidak menemukan apa pun |
 
@@ -1140,7 +1259,11 @@ pip install playwright && playwright install chromium
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **611/611 lolos** |
+| `python tests/smoke.py` | **632/632 lolos** |
+
+Fase 18.5 menambah bagian 114–116: kelengkapan kalimat soal TKA, markdown
+yang benar-benar ter-render, auto-simpan Mathpad beserta pembatalannya yang
+jujur, papan coret di mode ujian, dan kartu skor TKA di dasbor.
 
 Fase 18 menambah bagian 110–113: tata letak CBT dua kolom, umpan balik
 tertunda beserta navigasi bebasnya, isian matriks yang tidak berhimpit di dua
@@ -1294,7 +1417,7 @@ matriks-lab-interaktif/
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    ├── smoke.py                       611 pengujian Playwright, 113 bagian
+    ├── smoke.py                       632 pengujian Playwright, 116 bagian
     └── archive_soal.py                Pembangkit arsip soal (Fase 18)
 ```
 
@@ -1479,6 +1602,16 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 74. **Data tabel ditulis sebagai DATA, bukan markdown di dalam prompt.** `renderMixed()` tidak mengenal sintaks tabel — pipanya tampil mentah di layar. Pakai `q.table = {headers, rows}`, dan `q.after` untuk kalimat pertanyaan yang harus berdiri sesudah tabelnya. (Fase 18, bagian uji 110.)
 
 75. **Kotak isian tidak boleh menyentuh garis kurung matriks.** Kurung digambar `::before`/`::after` selebar 9px di tepi `.matrix__bracket`; isian kuis jauh lebih besar daripada sel biasa dan butuh padding sendiri. Kalau layarnya benar-benar sempit, WADAHNYA yang menggulir — bukan isinya yang dimampatkan sampai berhimpit. (Fase 18, bagian uji 111.)
+
+76. **Menutup Mathpad dari luar MENYIMPAN; hanya Escape yang membatalkan — dan pembatalan wajib mengembalikan isi kotaknya.** `sync()` menulis tiap ketukan langsung ke field sebagai pratinjau, jadi membatalkan tanpa memulihkan meninggalkan angka yang terlihat padahal tidak tersimpan. Auto-simpan terjadi saat pad DITUTUP, bukan per ketukan: sebagian pemakai menilai jawaban di `onCommit`, dan pengiriman per digit akan menyalahkan jawaban yang belum selesai diketik. (Fase 18.5, bagian uji 115.)
+
+77. **Teks ber-markdown WAJIB lewat `renderMixed()`.** `el(tag, cls, html)` menaruh argumen ketiganya sebagai `innerHTML` mentah; `**tebal**` akan tampil beserta bintangnya. `renderMixed()` sendiri sudah lama benar — yang keliru adalah tidak memanggilnya. (Fase 18.5, bagian uji 114.)
+
+78. **Setiap soal WAJIB menuliskan pertanyaannya, tepat di atas pilihan.** Konteks di `prompt`, data di `tex`/`table`, dan kalimat pertanyaannya di `after`. Soal yang berhenti di "Perhatikan matriks berikut!" memaksa siswa menebak apa yang diminta. (Fase 18.5, bagian uji 114.)
+
+79. **Papan coret hidup di mode ujian, dibuat SEKALI per sesi.** Soal TKA menuntut hitungan panjang; tanpa tempat mencoret siswa kehilangan konteks soalnya ke kertas. Coretan wajib bertahan saat berpindah soal, dan `destroy()` wajib dipanggil sebelum sesi diulang — papan memegang `ResizeObserver` dan listener `window` yang selamat dari `innerHTML = ''` (butir 31). (Fase 18.5, bagian uji 116.)
+
+80. **Jangan pernah menampilkan angka yang tidak bisa ditelusuri siswa.** Kartu "N Lencana terbuka" bertahan berfase-fase padahal sistem lencananya tidak pernah ada. Angka di dasbor harus merujuk sesuatu yang bisa dilihat, dikejar, dan dinaikkan. (Fase 18.5, bagian uji 116.)
 
 ---
 
@@ -1783,7 +1916,7 @@ Sisanya murni catatan jujur, **bukan agenda** — kerjakan hanya bila diminta.
 3. **Tidak ada fallback offline.** KaTeX, GSAP, dan Google Fonts semuanya dari CDN. Bila jaringan sekolah memblokir jsdelivr, aplikasi tidak akan tampil benar.
 4. **Ruang kosong di bawah kartu Lab Maya** pada layar desktop tinggi. Terlihat lega, bukan rusak.
 5. **`js/engine/matrix.js` dan `js/engine/rational.js` sedikit tumpang tindih** — `matrix.js` punya `toFractionText()` sendiri, terpisah dari `toText()` milik `rational.js`.
-6. **Commit Fase 16, 17, dan 18 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); ketiganya hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
+6. **Commit Fase 16 s/d 18.5 belum di-push.** `origin/main` ada di `ccfc7d7` (Fase 15.5 — versi yang dipakai siswa sekarang); keempatnya hanya ada di mesin ini. Lihat **§1A** sebelum memutuskan push.
 
 ---
 
@@ -1794,7 +1927,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **611** justru karena itu (300 → … → 513 → 569 → 611 di fase 11–18).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **632** justru karena itu (300 → … → 513 → 569 → 611 → 632 di fase 11–18.5).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.

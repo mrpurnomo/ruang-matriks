@@ -37,7 +37,16 @@ function build() {
 
   scrimEl = document.createElement('div');
   scrimEl.className = 'mathpad-scrim hidden';
-  scrimEl.addEventListener('pointerdown', () => close(true));
+  /**
+   * Mengetuk di luar pad menutupnya dengan MENYIMPAN, bukan membuang.
+   *
+   * Sebelumnya ia memanggil `close(true)` — jalur pembatalan yang sama
+   * dengan Escape — sehingga angka yang sudah diketik siswa lenyap tanpa
+   * jejak hanya karena jarinya meleset ke luar kotak. Di isian matriks
+   * yang punya empat sampai sembilan sel, itu berarti mengulang seluruh
+   * pengetikan.
+   */
+  scrimEl.addEventListener('pointerdown', () => close({ simpan: true }));
 
   padEl = document.createElement('div');
   padEl.className = 'mathpad';
@@ -431,8 +440,30 @@ function currentValue() {
 }
 
 function commit() {
-  if (!session || typeof session.onCommit !== 'function') return;
+  if (!session) return;
+  // Ditandai lebih dulu: `close()` memakai penanda ini untuk memastikan
+  // satu penutupan tidak pernah mengirim dua kali.
+  session.committed = true;
+  if (typeof session.onCommit !== 'function') return;
   session.onCommit(currentValue(), displayValue());
+}
+
+/**
+ * Apakah ada yang PANTAS disimpan otomatis?
+ *
+ * Dua penjagaan, dan keduanya perlu:
+ *   · isian kosong tidak pernah dikirim — ia akan menimpa nilai lama
+ *     dengan kekosongan;
+ *   · isian yang TIDAK BERUBAH juga tidak dikirim — beberapa pemakai
+ *     (mis. berburu kofaktor di Fase 16) menilai jawaban tepat saat
+ *     `onCommit`, dan membuka pad lalu menutupnya tanpa mengetik apa pun
+ *     tidak boleh dihitung sebagai jawaban yang keliru.
+ */
+function layakDisimpanOtomatis() {
+  if (!session || session.committed) return false;
+  const tampil = displayValue();
+  if (tampil === '' || tampil == null) return false;
+  return String(tampil) !== String(session.initialDisplay || '');
 }
 
 /**
@@ -499,6 +530,9 @@ export function openMathpad(field, options = {}) {
     denominator: isFraction ? initial.split('/')[1] : '',
     mode: textMode ? 'text' : (options.mode || (isFraction ? 'fraction' : isLetter ? 'letter' : 'decimal')),
     activeSlot: 'num',
+    committed: false,
+    // Pembanding untuk auto-simpan: hanya yang BERUBAH yang dikirim.
+    initialDisplay: initial,
     onInput: options.onInput,
     onCommit: options.onCommit,
     onClose: options.onClose,
@@ -554,7 +588,8 @@ function onGlobalKey(event) {
 
   if (event.key === 'Escape') {
     event.preventDefault();
-    close(true);
+    // Escape adalah SATU-SATUNYA gestur yang benar-benar membatalkan.
+    close({ batal: true });
     return;
   }
   if (event.key === 'Enter') {
@@ -584,12 +619,48 @@ function onGlobalKey(event) {
   }
 }
 
+/**
+ * Tutup pad dari luar — dipakai `mountScreen()` saat layar berganti.
+ *
+ * Bawaannya MENYIMPAN: pindah layar sambil membawa angka yang sudah
+ * diketik jauh lebih masuk akal daripada membuangnya diam-diam. Pad
+ * sendiri hidup di `document.body`, jadi tanpa pemanggilan ini ia akan
+ * tetap mengambang di atas layar yang baru.
+ */
 export function closeMathpad(cancelled = false) {
-  close(cancelled);
+  close(cancelled ? { batal: true } : { simpan: true });
 }
 
-function close(cancelled = false) {
+/**
+ * Tutup pad.
+ *
+ * @param {object} opt
+ *   simpan — kirim dulu apa yang sudah diketik lewat `onCommit`
+ *            (klik di luar, atau pindah layar)
+ *   batal  — siswa memang membatalkan (Escape); tidak ada yang disimpan
+ *
+ * Menerima `true` juga demi pemanggil lama, dan itu berarti BATAL.
+ */
+function close(opt = {}) {
   if (!padEl) return;
+
+  const { simpan = false, batal = false } = (opt === true ? { batal: true } : opt);
+
+  // Simpan SEBELUM sesinya dilepas — `currentValue()` membaca dari sesi itu.
+  if (simpan && layakDisimpanOtomatis()) commit();
+
+  /**
+   * Membatalkan berarti KOTAKNYA ikut kembali seperti semula.
+   *
+   * `sync()` menulis tiap ketukan langsung ke field sebagai pratinjau
+   * berjalan. Tanpa pemulihan ini, menekan Escape meninggalkan angka yang
+   * terlihat di kotak padahal tidak pernah tersimpan — layar mengatakan
+   * "99" sementara ujiannya mencatat soal itu masih kosong. Kotak yang
+   * berbohong lebih berbahaya daripada kotak yang kosong.
+   */
+  if (batal && session && session.field) {
+    session.field.value = session.initialDisplay || '';
+  }
 
   document.removeEventListener('keydown', onGlobalKey);
   window.removeEventListener('resize', onReposition);
@@ -599,7 +670,7 @@ function close(cancelled = false) {
 
   if (session) {
     if (session.field) delete session.field.dataset.active;
-    if (typeof session.onClose === 'function') session.onClose(cancelled, currentValue(), displayValue());
+    if (typeof session.onClose === 'function') session.onClose(batal, currentValue(), displayValue());
   }
   session = null;
 }

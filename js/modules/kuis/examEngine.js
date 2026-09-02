@@ -29,6 +29,7 @@ import { icon } from '../../ui/icons.js';
 import { confirmAction } from '../../ui/modal.js';
 import toast from '../../ui/toast.js';
 import { celebrate } from '../../interactions/flyToAnimation.js';
+import { createScratchpad } from '../../ui/scratchpad.js';
 
 function el(tag, className, html) {
   const node = document.createElement(tag);
@@ -131,6 +132,33 @@ export class ExamEngine {
     workspace.appendChild(stage);
 
     this.container.appendChild(workspace);
+
+    /**
+     * PAPAN CORET — di ujian ini bukan pelengkap, melainkan alat kerja.
+     *
+     * Soal TKA menuntut hitungan panjang (determinan, kofaktor, perkalian
+     * baris x kolom), dan tanpa tempat mencoret siswa harus mengambil
+     * kertas — begitu matanya turun ke kertas, konteks soalnya hilang.
+     * Itulah alasan papan ini dibuat di Fase 15, dan alasan yang sama
+     * berlaku di sini.
+     *
+     * Ditambatkan ke `.ws-stage`, sama seperti di mode Belajar, sehingga
+     * seluruh CSS papan (FAB di sudut, kanvas, bilah alat, Mengintip)
+     * berlaku apa adanya tanpa satu baris pun gaya baru.
+     *
+     * WAJIB dibuat SEKALI per sesi ujian, bukan per soal: coretan hitungan
+     * harus bertahan saat siswa berpindah antar soal — di ujian, melompat
+     * ke soal lain lalu kembali adalah hal yang biasa.
+     */
+    this.scratchpad = createScratchpad(stage);
+  }
+
+  /** Bongkar papan coret saat sesi ujian ditinggalkan. */
+  destroy() {
+    if (this.scratchpad) {
+      this.scratchpad.destroy();
+      this.scratchpad = null;
+    }
   }
 
   /* ============================================================
@@ -347,8 +375,8 @@ export class ExamEngine {
     row.appendChild(input);
 
     this.answerHost.appendChild(row);
-    this.answerHost.appendChild(el('p', 'quiz__hint',
-      'Ketuk kolom di atas untuk membuka papan angka.'));
+    this.answerHost.appendChild(el('p', 'quiz__hint', renderMixed(
+      'Ketuk kolom di atas untuk membuka papan angka.')));
   }
 
   /* ---------------- pilihan A–E ---------------- */
@@ -399,8 +427,16 @@ export class ExamEngine {
     this.optionNodes = [...list.querySelectorAll('.option')];
 
     if (multi) {
-      this.answerHost.appendChild(el('p', 'quiz__hint',
-        'Jawaban benar **lebih dari satu** — centang semua yang menurutmu benar.'));
+      /**
+       * ⚠️ Teks yang memuat markdown WAJIB lewat `renderMixed()`.
+       *
+       * `el()` menaruh argumen ketiganya sebagai `innerHTML` mentah, jadi
+       * `**lebih dari satu**` tampil apa adanya beserta bintang-bintangnya.
+       * `renderMixed()` sendiri sudah lama menangani `**tebal**` dengan
+       * benar — yang keliru adalah tidak memanggilnya.
+       */
+      this.answerHost.appendChild(el('p', 'quiz__hint', renderMixed(
+        'Jawaban benar **lebih dari satu** — centang semua yang menurutmu benar.')));
     }
   }
 
@@ -464,8 +500,8 @@ export class ExamEngine {
     const host = el('div', 'matrix-input-host');
     host.appendChild(wrap);
     this.answerHost.appendChild(host);
-    this.answerHost.appendChild(el('p', 'quiz__hint',
-      'Ketuk tiap sel untuk membuka papan angka. Semua sel harus terisi.'));
+    this.answerHost.appendChild(el('p', 'quiz__hint', renderMixed(
+      'Ketuk tiap sel untuk membuka papan angka. **Semua sel** harus terisi.')));
   }
 
   freezeInput(input) {
