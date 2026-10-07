@@ -54,6 +54,12 @@ const PATHS = {
   'undo': '<polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
   'redo': '<polyline points="15 14 20 9 15 4"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>',
   'minimize': '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>',
+
+  /* --- Tata letak papan coret (Fase 19) --- */
+  'layout-split': '<rect x="3" y="4" width="18" height="16" rx="2.5"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="15" y1="9" x2="18" y2="9"/><line x1="15" y1="12.5" x2="17" y2="12.5"/>',
+  'layout-full': '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7.5 14.5c1.2-2.6 2.6-3.9 4.1-3.9 1.4 0 1.6 2.4 3 2.4.9 0 1.6-.7 2-1.4"/>',
+  'layout-trace': '<rect x="3" y="6" width="13" height="13" rx="2"/><rect x="8" y="3" width="13" height="13" rx="2" stroke-dasharray="2.4 2.2"/>',
+  'grip': '<circle cx="9" cy="7" r=".9"/><circle cx="15" cy="7" r=".9"/><circle cx="9" cy="12" r=".9"/><circle cx="15" cy="12" r=".9"/><circle cx="9" cy="17" r=".9"/><circle cx="15" cy="17" r=".9"/>',
 };
 
 /**

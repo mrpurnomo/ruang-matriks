@@ -201,6 +201,35 @@ yang sebelumnya hilang.
 
 ---
 
+## Papan Coret Berdampingan (Fase 19)
+
+Tombol **"Coret"** di sudut kanan-bawah panggung membuka kertas coretan.
+Bawaannya **berdampingan**: kertas di kanan, soal mengalir ulang di kiri dan
+tetap bisa dijawab — siswa tidak perlu menutup papan atau menahan tombol apa
+pun untuk membaca ulang angka matriks.
+
+| Tata letak | Kapan dipakai |
+|---|---|
+| **Berdampingan** (bawaan) | Hampir semua hitungan; soal & kertas terlihat bersamaan |
+| **Kertas penuh** | Hitungan sangat panjang; tahan ikon mata untuk melihat soal |
+| **Kalkir** | Menandai soalnya langsung (kertas tembus pandang) |
+
+Lebar kertas diatur lewat pembatas di antara soal dan kertas: **seret**, atau
+**ketuk** untuk berganti 40% → 50% → 60%. Pilihan tata letak diingat per
+perangkat. Di layar sempit (lanskap ponsel) papan otomatis tampil sebagai
+kertas penuh.
+
+## Sistem Visual "Presisi Tenang" (Fase 19)
+
+Penyegaran tampilan untuk belajar berjam-jam: bidang luas netral dan
+bersuhu rendah, saturasi merek hanya untuk sinyal (aksi utama, posisi aktif,
+status), garis rambut + bayangan berlapis alih-alih garis tebal, judul
+Montserrat 800, teks bacaan bertinta lunak, dan angka tabular. Palet merek
+TRANSFORMASI tetap sama — yang dimurnikan adalah cara memakainya. Seluruh
+gayanya ada di `css/phase18.css` (§19.A dan §19.B).
+
+---
+
 ## Arsitektur "Sidebar & Stage" (Fase 10)
 
 Layar belajar dibelah dua kolom, bukan ditumpuk vertikal:
@@ -368,7 +397,7 @@ node tests/engine.test.mjs
 python tests/smoke.py --serve
 ```
 
-300 pengujian end-to-end (Playwright) + 21 pengujian unit engine.
+656 pengujian end-to-end (Playwright) + 21 pengujian unit engine.
 
 `smoke.py` membutuhkan Playwright:
 

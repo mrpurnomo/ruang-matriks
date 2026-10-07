@@ -637,6 +637,215 @@ F185_PAPAN = """async () => {
     return out;
 }"""
 
+# ============================================================
+# Skrip peramban untuk bagian regresi Fase 19 (117-118).
+# ============================================================
+
+# Papan coret BERDAMPINGAN di mode ujian: soal dan kertas terlihat
+# bersamaan, soal tetap bisa dijawab, dan coretan tidak meregang saat
+# kertas berganti lebar.
+F19_PAPAN = """async () => {
+    """ + F185_ALAT + """
+    const out = {};
+    const pad = () => window.__matriksLab.state.activeView.scratchpad;
+    const kotak = (s) => document.querySelector(s).getBoundingClientRect();
+    const cv = document.querySelector('.pad__canvas');
+    const ctx = cv.getContext('2d');
+    const tinta = () => { const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n; };
+    const pe = (x, y, t) => { const r = cv.getBoundingClientRect();
+        return new PointerEvent(t, { bubbles: true, cancelable: true,
+            clientX: r.left + x, clientY: r.top + y, pointerId: 1, pointerType: 'pen',
+            isPrimary: true, button: 0, buttons: 1 }); };
+    const tampak = (s) => { const n = document.querySelector(s);
+        return !!n && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0; };
+    /**
+     * Bentang mendatar tinta, dalam piksel CSS.
+     *
+     * Jumlah piksel tinta TIDAK dipakai untuk membuktikan "tidak meregang":
+     * goresan hidup digambar per ruas sedangkan gambar ulang menggambar satu
+     * path utuh, dan anti-aliasing keduanya berbeda beberapa persen (lihat
+     * bagian 102). Yang benar-benar membedakan koordinat piksel dari
+     * koordinat 0..1 adalah BENTANGNYA: dengan 0..1, coretan selebar 200px di
+     * kertas 435px akan membentang ±400px di kertas 869px.
+     */
+    const bentang = () => {
+        const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        let min = Infinity, max = -1;
+        for (let y = 0; y < cv.height; y += 2) for (let x = 0; x < cv.width; x++) {
+            if (d[(y * cv.width + x) * 4 + 3] > 0) { if (x < min) min = x; if (x > max) max = x; }
+        }
+        return max < 0 ? 0 : Math.round((max - min) / (window.devicePixelRatio || 1));
+    };
+
+    document.querySelector('.pad-fab').click();
+    await tunggu(700);
+
+    // --- 1. Tata letak bawaan: berdampingan, tanpa tumpang-tindih ---
+    const body = kotak('.ws-stage > .workspace__body');
+    const kertas = kotak('.pad');
+    out.bawaan = {
+        layout: pad().state.layout,
+        efektif: pad().state.effectiveLayout,
+        // Tepi kanan soal TIDAK boleh masuk ke bawah kertas.
+        tanpaTumpang: body.right <= kertas.left + 1,
+        lebarSoal: Math.round(body.width),
+        lebarKertas: Math.round(kertas.width),
+        intipTersembunyi: !tampak('.pad__peek'),
+        pembatasTampak: tampak('.pad__grip'),
+        fabMenyingkir: getComputedStyle(document.querySelector('.pad-fab')).visibility === 'hidden',
+    };
+
+    // --- 2. Soal tetap HIDUP: memilih jawaban tanpa menutup papan ---
+    const opsi = document.querySelectorAll('.option')[1];
+    tap(opsi);
+    await tunggu(350);
+    out.jawabSambilMencoret = {
+        terpilih: opsi.getAttribute('aria-checked') === 'true',
+        navTerisi: nav(0).dataset.state === 'answered',
+        papanMasihTerbuka: pad().state.open,
+    };
+
+    // --- 3. Coretan tidak meregang saat lebar kertas berubah ---
+    cv.dispatchEvent(pe(60, 120, 'pointerdown'));
+    for (let x = 80; x <= 260; x += 12) cv.dispatchEvent(pe(x, 120 + Math.sin(x / 20) * 16, 'pointermove'));
+    cv.dispatchEvent(pe(260, 120, 'pointerup'));
+    await tunggu(200);
+    const tintaSempit = tinta();
+    const bentangSempit = bentang();
+    pad().setLayout('full');
+    await tunggu(500);
+    const kertasPenuh = kotak('.pad');
+    out.penuh = {
+        efektif: pad().state.effectiveLayout,
+        lebarKertas: Math.round(kertasPenuh.width),
+        // Kertas penuh = selebar panggung lagi, soal kembali selebar semula.
+        soalPulih: Math.round(kotak('.ws-stage > .workspace__body').width) > out.bawaan.lebarSoal + 200,
+        intipTampak: tampak('.pad__peek'),
+        tinta: tinta(),
+        tintaSempit,
+        bentang: bentang(),
+        bentangSempit,
+        goresan: pad().state.strokes,
+    };
+    pad().setLayout('trace');
+    await tunggu(400);
+    out.kalkir = {
+        latar: getComputedStyle(cv).backgroundColor,
+        tinta: tinta(),
+    };
+    pad().setLayout('split');
+    await tunggu(500);
+
+    // --- 4. Pembatas: KETUK berganti lebar, SERET mengatur lebar ---
+    const grip = document.querySelector('.pad__grip');
+    const g = grip.getBoundingClientRect();
+    const gp = (x, t) => new PointerEvent(t, { bubbles: true, cancelable: true,
+        clientX: x, clientY: g.top + g.height / 2, pointerId: 3, isPrimary: true, button: 0 });
+    const rasio0 = pad().state.ratio;
+    grip.dispatchEvent(gp(g.left + 10, 'pointerdown'));
+    grip.dispatchEvent(gp(g.left + 10, 'pointerup'));
+    await tunggu(300);
+    out.ketukPembatas = { sebelum: rasio0, sesudah: pad().state.ratio,
+        lebarKertas: Math.round(kotak('.pad').width) };
+
+    grip.dispatchEvent(gp(g.left + 10, 'pointerdown'));
+    for (let dx = 0; dx <= 120; dx += 20) grip.dispatchEvent(gp(g.left + 10 + dx, 'pointermove'));
+    grip.dispatchEvent(gp(g.left + 130, 'pointerup'));
+    await tunggu(300);
+    out.seretPembatas = { rasio: pad().state.ratio };
+    // Seret jauh ke kanan: lebarnya tetap terkunci di batas bawah.
+    grip.dispatchEvent(gp(g.left + 10, 'pointerdown'));
+    grip.dispatchEvent(gp(g.left + 900, 'pointermove'));
+    grip.dispatchEvent(gp(g.left + 900, 'pointerup'));
+    await tunggu(300);
+    // Rasionya berhenti di 36%, dan LEBARNYA dijaga minimal 400px supaya
+    // bilah alat tidak pernah terpaksa membungkus dua baris.
+    out.batasBawah = { rasio: pad().state.ratio,
+        lebar: Math.round(kotak('.pad').width),
+        bilahSatuBaris: new Set([...document.querySelectorAll('.pad__group')]
+            .map(q => { const b = q.getBoundingClientRect();
+                        return Math.round(b.top + b.height / 2); })).size === 1 };
+
+    // --- 5. Bilah RINGKAS: warna terlipat ke baki ---
+    const pemicu = document.querySelector('[aria-label="Pilih warna tinta"]');
+    out.ringkas = { compact: document.querySelector('.pad').dataset.compact,
+                    pemicuTampak: tampak('[aria-label="Pilih warna tinta"]'),
+                    bakiTertutup: !tampak('.pad__group[aria-label="Warna"] .pad__tray') };
+    pemicu.click();
+    await tunggu(250);
+    out.ringkas.bakiTerbuka = tampak('.pad__group[aria-label="Warna"] .pad__tray');
+    document.querySelector('[aria-label="Warna Merah"]').click();
+    await tunggu(250);
+    out.ringkas.warnaBaru = pad().state.color;
+    out.ringkas.bakiMenutupSendiri = !tampak('.pad__group[aria-label="Warna"] .pad__tray');
+
+    // --- 6. Menu tata letak berlabel & Escape bertahap ---
+    document.querySelector('[aria-label="Tata letak papan"]').click();
+    await tunggu(250);
+    out.menu = { opsi: [...document.querySelectorAll('.pad__layout')]
+        .filter(b => b.getBoundingClientRect().width > 0).length };
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tunggu(200);
+    out.menu.escTutupMenu = !tampak('.pad__tray--menu') && pad().state.open;
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tunggu(300);
+    out.menu.escTutupPapan = pad().state.open === false
+        && !document.querySelector('.ws-stage').dataset.padLayout;
+    out.menu.soalPulihSaatTutup =
+        Math.round(kotak('.ws-stage > .workspace__body').width) > out.bawaan.lebarSoal + 200;
+
+    // --- 7. Mathpad di soal SAMBIL papan terbuka: Escape milik Mathpad ---
+    // Hanya mungkin sejak berdampingan — dulu kertas menutupi isiannya.
+    document.querySelector('.pad-fab').click();
+    await tunggu(500);
+    await ke(5);                                   // soal 6: isian angka
+    const isian = document.querySelector('.quiz__answer input');
+    pd(isian); await tunggu(700);
+    out.mathpad = { padAngkaTerbuka:
+        document.querySelector('.mathpad').dataset.open === 'true' };
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true,
+                                                         cancelable: true }));
+    await tunggu(600);
+    out.mathpad.padAngkaTertutup = document.querySelector('.mathpad').dataset.open !== 'true';
+    out.mathpad.papanCoretBertahan = pad().state.open === true;
+
+    // --- 8. Pilihan siswa diingat per perangkat ---
+    pad().setLayout('full');
+    try { out.disimpan = JSON.parse(localStorage.getItem('matriksLab.scratchpad.v1')); }
+    catch (e) { out.disimpan = null; }
+    return out;
+}"""
+
+# Pilihan tata letak terbawa ke papan BERIKUTNYA, lalu dikembalikan.
+F19_INGATAN = """async () => {
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    const pad = () => window.__matriksLab.state.activeView.scratchpad;
+    document.querySelector('.pad-fab').click();
+    await tunggu(600);
+    const out = { layout: pad().state.layout, efektif: pad().state.effectiveLayout };
+    pad().setLayout('split');
+    localStorage.removeItem('matriksLab.scratchpad.v1');
+    return out;
+}"""
+
+# Panggung terlalu sempit untuk berdampingan: jatuh ke kertas penuh,
+# tanpa mengubah pilihan siswa.
+F19_SEMPIT = """async () => {
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    const pad = () => window.__matriksLab.state.activeView.scratchpad;
+    document.querySelector('.pad-fab').click();
+    await tunggu(600);
+    const st = pad().state;
+    const opsi = document.querySelector('.pad__layout[data-layout="split"]');
+    return { layout: st.layout, efektif: st.effectiveLayout,
+             opsiNonaktif: opsi.disabled,
+             bilahSatuBaris: new Set([...document.querySelectorAll('.pad__group')]
+                .map(g => { const q = g.getBoundingClientRect();
+                            return Math.round(q.top + q.height / 2); })).size === 1,
+             tanpaLuapan: document.documentElement.scrollWidth <= innerWidth + 1 };
+}"""
+
 # --- Dasbor: kartu skor TKA menggantikan lencana ---
 F185_DASBOR = """() => ({
     label: [...document.querySelectorAll('.hero-stat__label')].map(n => n.textContent),
@@ -6026,6 +6235,101 @@ def run(page, errors):
            "Skor TKA tertinggi" in dash["label"], d185)
     record("Tanpa riwayat, skornya berbunyi 'Belum ada' bukan angka nol",
            dash["nilai"][2] == "Belum ada", d185)
+
+    # ==========================================================
+    # FASE 19 — PAPAN CORET BERDAMPINGAN & PRESISI TENANG
+    # ==========================================================
+
+    print("\n117. Fase 19 - Papan coret berdampingan: soal & kertas terlihat bersamaan")
+    page.evaluate("() => { try { localStorage.removeItem('matriksLab.scratchpad.v1'); } catch (e) {} }")
+    open_fresh(page, "#/kuis/simulasi_tka/all")
+    page.wait_for_selector(".exam-nav__item", timeout=10000)
+    page.wait_for_timeout(800)
+    f19 = page.evaluate(F19_PAPAN)
+    j19 = json.dumps(f19, ensure_ascii=False)[:420]
+    b19 = f19["bawaan"]
+    # Inti keluhan siswa: soal hilang di balik kertas. Bawaannya kini berdampingan.
+    record("Tata letak bawaan papan coret: berdampingan",
+           b19["layout"] == "split" and b19["efektif"] == "split", j19)
+    record("Soal mengalir ulang di kiri, tidak tertutup kertas",
+           b19["tanpaTumpang"] is True and b19["lebarSoal"] >= 300, j19)
+    record("Kertas cukup lebar untuk menghitung (>= 380px)",
+           b19["lebarKertas"] >= 380, j19)
+    record("Tombol mata disembunyikan saat tidak ada yang perlu diintip",
+           b19["intipTersembunyi"] is True, j19)
+    record("Pembatas soal|kertas tampil, tombol pembuka menyingkir",
+           b19["pembatasTampak"] is True and b19["fabMenyingkir"] is True, j19)
+    jw = f19["jawabSambilMencoret"]
+    record("Soal bisa DIJAWAB tanpa menutup papan coret",
+           jw["terpilih"] is True and jw["navTerisi"] is True and jw["papanMasihTerbuka"] is True, j19)
+    pn = f19["penuh"]
+    # Koordinat piksel: berganti lebar kertas TIDAK meregangkan tulisan.
+    # Tinta dibandingkan dengan toleransi (anti-aliasing per-ruas vs satu
+    # path, lihat bagian 102); bentangnya harus sama persis ±2px.
+    record("Berganti ke kertas penuh: coretan utuh, tidak meregang",
+           pn["goresan"] == 1 and pn["tintaSempit"] > 200
+           and abs(pn["tinta"] - pn["tintaSempit"]) / pn["tintaSempit"] < 0.08
+           and pn["bentangSempit"] > 150
+           and abs(pn["bentang"] - pn["bentangSempit"]) <= 2, j19)
+    record("Kertas penuh selebar panggung, soal kembali selebar semula",
+           pn["efektif"] == "full" and pn["lebarKertas"] > b19["lebarKertas"] + 300
+           and pn["soalPulih"] is True, j19)
+    record("Mengintip tersedia lagi di kertas penuh",
+           pn["intipTampak"] is True, j19)
+    record("Kalkir: kertas tembus pandang, coretan tetap ada",
+           f19["kalkir"]["latar"].startswith("rgba(") and f19["kalkir"]["tinta"] > 200, j19)
+    kp = f19["ketukPembatas"]
+    record("Ketukan pada pembatas berganti ke lebar berikutnya (jalur ketuk)",
+           kp["sebelum"] == 0.5 and kp["sesudah"] == 0.6
+           and kp["lebarKertas"] > b19["lebarKertas"], j19)
+    record("Menyeret pembatas mengatur lebar kertas (jalur seret)",
+           0.36 <= f19["seretPembatas"]["rasio"] < 0.55, j19)
+    bb = f19["batasBawah"]
+    record("Lebar kertas terkunci di batas bawah (36%, minimal 400px)",
+           bb["rasio"] == 0.36 and bb["lebar"] >= 400, j19)
+    record("Di lebar minimum pun bilah alat tetap satu baris",
+           bb["bilahSatuBaris"] is True, j19)
+
+    print("\n118. Fase 19 - Bilah ringkas, Escape bertahap, ingatan tata letak")
+    rk = f19["ringkas"]
+    record("Kertas sempit: warna terlipat ke balik satu tombol",
+           rk["compact"] == "true" and rk["pemicuTampak"] is True and rk["bakiTertutup"] is True, j19)
+    record("Baki warna terbuka saat diketuk dan menutup setelah memilih",
+           rk["bakiTerbuka"] is True and rk["warnaBaru"] == "#E5484D"
+           and rk["bakiMenutupSendiri"] is True, j19)
+    mn = f19["menu"]
+    record("Menu tata letak berlabel: tiga pilihan",
+           mn["opsi"] == 3, j19)
+    record("Escape menutup menu lebih dulu, papan tetap terbuka",
+           mn["escTutupMenu"] is True, j19)
+    record("Escape berikutnya menutup papan dan soal kembali selebar penuh",
+           mn["escTutupPapan"] is True and mn["soalPulihSaatTutup"] is True, j19)
+    mp19 = f19["mathpad"]
+    # Hanya mungkin sejak berdampingan: isian soal terbuka di sebelah kertas.
+    record("Escape saat Mathpad terbuka hanya menutup Mathpad, bukan papan",
+           mp19["padAngkaTerbuka"] is True and mp19["padAngkaTertutup"] is True
+           and mp19["papanCoretBertahan"] is True, j19)
+    record("Pilihan tata letak disimpan per perangkat",
+           (f19["disimpan"] or {}).get("layout") == "full", j19)
+
+    open_fresh(page, "#/belajar/03_determinan_invers/determinan_3x3")
+    page.wait_for_selector(".ws-stage", timeout=10000)
+    ingat = page.evaluate(F19_INGATAN)
+    record("Papan berikutnya memakai tata letak yang terakhir dipilih",
+           ingat["layout"] == "full" and ingat["efektif"] == "full", json.dumps(ingat))
+
+    # Panggung sempit (lanskap ponsel): berdampingan tidak masuk akal.
+    page.set_viewport_size({"width": 844, "height": 390})
+    open_fresh(page, "#/belajar/03_determinan_invers/determinan_3x3")
+    page.wait_for_selector(".ws-stage", timeout=10000)
+    sempit = page.evaluate(F19_SEMPIT)
+    page.set_viewport_size({"width": 1280, "height": 860})
+    page.wait_for_timeout(400)
+    record("Lanskap sempit: jatuh ke kertas penuh tanpa mengubah pilihan siswa",
+           sempit["layout"] == "split" and sempit["efektif"] == "full"
+           and sempit["opsiNonaktif"] is True, json.dumps(sempit))
+    record("Lanskap sempit: bilah alat satu baris, tanpa luapan mendatar",
+           sempit["bilahSatuBaris"] is True and sempit["tanpaLuapan"] is True, json.dumps(sempit))
 
 
 def main():

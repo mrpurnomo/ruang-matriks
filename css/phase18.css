@@ -387,3 +387,973 @@
 @media (prefers-reduced-motion: reduce) {
   .exam-nav__item { transition: none; }
 }
+
+
+/* ################################################################
+   ################################################################
+
+   FASE 19 — "PRESISI TENANG" & PAPAN CORET BERDAMPINGAN
+
+   Seluruh gaya Fase 19 hidup di sini, di berkas yang dimuat PALING
+   AKHIR, supaya tidak terinjak aturan fase-fase lama.
+
+   ################################################################
+   ################################################################ */
+
+
+/* ================================================================
+   19.A  PAPAN CORET BERDAMPINGAN
+
+   Masalah yang diselesaikan (umpan balik siswa): kertas yang PADAT
+   menutupi soal, sehingga setiap angka yang ingin dibaca ulang
+   menuntut satu tahanan tombol mata atau menutup-buka papan.
+
+   Bawaan baru: tata letak BERDAMPINGAN. Kertas menempati sisi kanan
+   panggung dan `.workspace__body` diberi margin kanan selebar kertas,
+   sehingga soal MENGALIR ULANG di kiri — tetap terbaca, dan tetap bisa
+   dijawab. Lebarnya disalurkan JS lewat `--pad-w` pada `.ws-stage`.
+   ================================================================ */
+
+/* ---- Tombol pembuka: pil bertinta, bukan sekadar ikon ----
+   Label "Coret" membuat fiturnya ditemukan tanpa perlu ditebak dari
+   ikon pensil — di mode ujian, inilah alat yang paling penting. */
+.pad-fab {
+  width: auto;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 18px 0 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .8rem;
+  letter-spacing: .02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14),
+              0 14px 30px -12px rgba(10, 27, 69, .62);
+  transition: transform var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              opacity var(--dur-base) var(--ease-out),
+              visibility var(--dur-base);
+}
+
+.pad-fab svg { flex: 0 0 auto; }
+
+.pad-fab:hover,
+.pad-fab:focus-visible {
+  background: var(--royal);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Saat papan terbuka, kepala kertas sudah punya tombol tutup sendiri.
+   FAB menyingkir supaya tidak menutupi sudut kertas tempat siswa menulis. */
+.ws-stage[data-pad-open="true"] > .pad-fab {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+
+/* ---- Lembar kertas ---- */
+.pad {
+  --pad-head: 44px;
+  overflow: visible;                 /* baki & pembatas boleh keluar tepi */
+  border-radius: var(--r-lg);
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(15, 40, 100, .10),
+              0 2px 6px rgba(15, 32, 77, .05),
+              0 26px 60px -28px rgba(15, 32, 77, .38);
+  animation: padSheetIn .26s var(--ease-out) both;
+}
+
+/* Hanya opacity & geser — TANPA skala: kanvas diukur saat dibuka, dan
+   skala akan membuat ukurannya terbaca keliru selama animasi. */
+@keyframes padSheetIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Kepala kertas: identitas + keterangan tata letak + tutup. */
+.pad__head {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--pad-head);
+  padding: 0 6px 0 12px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: #FBFCFE;
+  border-bottom: 1px solid rgba(15, 40, 100, .08);
+  transition: opacity .2s ease-in-out;
+}
+
+.pad__head-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--blue-50);
+  color: var(--royal);
+}
+
+.pad__head-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pad__head-title {
+  flex: 0 0 auto;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .78rem;
+  letter-spacing: .01em;
+  color: var(--ink);
+}
+
+.pad__head-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .72rem;
+  color: var(--ink-3);
+}
+
+.pad__close { flex: 0 0 auto; }
+
+/* Kanvas di bawah kepala. Ukurannya DEFINIT (absolut), bukan tinggi
+   otomatis: tinggi otomatis pada elemen terganti seperti <canvas>
+   mengikuti ukuran buffer-nya sendiri — dan buffer itu dihitung dari
+   kotaknya, sebuah lingkaran yang tidak pernah berhenti. */
+.pad__canvas {
+  top: var(--pad-head);
+  height: calc(100% - var(--pad-head));
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  background-image: radial-gradient(circle,
+    rgba(10, 27, 69, .085) 1px, transparent 1.3px);
+  background-size: 24px 24px;
+  background-position: 11px 11px;
+}
+
+/* Peek ikut memudarkan kepala kertas, dan bayangan lembarnya. */
+.pad[data-peek="true"] { box-shadow: none; }
+.pad[data-peek="true"] .pad__head { opacity: 0; pointer-events: none; }
+
+/* ---- Tata letak BERDAMPINGAN ---- */
+.pad[data-layout="split"] {
+  left: auto;
+  width: var(--pad-w, 50%);
+}
+
+/* Soal mengalir ulang di sisi kiri. Celah 18px menampung pembatas. */
+.ws-stage[data-pad-open="true"][data-pad-layout="split"] > .workspace__body {
+  margin-right: calc(var(--pad-w, 50%) + var(--sp-5) + 18px);
+  padding-right: var(--sp-3);
+}
+
+/* Mengintip tidak punya arti di sini: soalnya memang sudah terlihat. */
+.pad[data-layout="split"] .pad__peek { display: none; }
+
+/* ---- Pembatas soal | kertas: seret atau ketuk ---- */
+.pad__grip {
+  display: none;
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  left: -23px;
+  width: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pad[data-layout="split"] .pad__grip { display: grid; place-items: center; }
+
+.pad__grip-knob {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 56px;
+  border-radius: var(--r-pill);
+  background: var(--white);
+  border: 1px solid rgba(15, 40, 100, .16);
+  box-shadow: 0 4px 12px -4px rgba(15, 32, 77, .25);
+  color: var(--ink-3);
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out),
+              height var(--dur-base) var(--ease-out);
+}
+
+.pad__grip-knob svg { width: 12px; height: 12px; }
+
+.pad__grip:hover .pad__grip-knob,
+.pad__grip:focus-visible .pad__grip-knob,
+.pad[data-resizing="true"] .pad__grip-knob {
+  height: 76px;
+  background: var(--royal);
+  border-color: var(--royal);
+  color: #fff;
+}
+
+.pad__grip:focus-visible { box-shadow: none; }
+
+/* Selama menyeret, teks soal di sebelah tidak ikut terseleksi. */
+.ws-stage:has(.pad[data-resizing="true"]) { user-select: none; cursor: col-resize; }
+
+/* ---- Tata letak KALKIR: kertas tembus pandang di atas soal ---- */
+.pad[data-layout="trace"] .pad__canvas {
+  background-color: rgba(255, 255, 255, .14);
+  background-image: none;
+}
+
+.pad[data-layout="trace"] {
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, .32),
+              0 26px 60px -28px rgba(15, 32, 77, .30);
+}
+
+.pad[data-layout="trace"] .pad__head {
+  background: rgba(251, 252, 254, .82);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+}
+
+/* ---- Bilah alat ---- */
+.pad__bar {
+  bottom: var(--sp-3);
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .96);
+  border: 1px solid rgba(15, 40, 100, .12);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .06),
+              0 18px 40px -18px rgba(15, 32, 77, .40);
+}
+
+.pad__group {
+  position: relative;
+  gap: 3px;
+  padding-right: 6px;
+  border-right-color: rgba(15, 40, 100, .10);
+}
+
+.pad__btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  color: var(--ink-2);
+}
+
+.pad__btn.is-on {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.pad__peek.is-on,
+.pad__peek:active { background: var(--ink); }
+
+/* Tombol pemicu baki: hanya tampil saat bilahnya RINGKAS (dan selalu
+   untuk tata letak, yang memang berupa menu berlabel). */
+.pad__pick {
+  display: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.pad__pick:hover,
+.pad__pick:focus-visible,
+.pad__group[data-open="true"] > .pad__pick { background: var(--blue-50); color: var(--royal); }
+
+.pad__pick--layout,
+.pad[data-compact="true"] .pad__pick { display: grid; }
+
+.pad__pick-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch, var(--ink));
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px rgba(15, 40, 100, .28);
+}
+
+.pad__pick-line {
+  width: 20px;
+  height: var(--line, 4px);
+  border-radius: var(--r-pill);
+  background: var(--ink-2);
+}
+
+/* Baki: tampil langsung di bilah yang lebar... */
+.pad__tray {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ...dan jadi popover kecil di bilah yang ringkas. Dipusatkan dengan
+   properti `translate` + `width: max-content`, BUKAN `left:50%` saja —
+   tanpa max-content, lebar yang tersedia ikut terpotong separuh dan
+   deretnya membungkus jadi kolom (jebakan §000 butir 1). */
+.pad[data-compact="true"] .pad__tray,
+.pad__tray--menu {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  padding: 8px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(15, 40, 100, .12);
+  box-shadow: 0 2px 6px rgba(15, 32, 77, .06),
+              0 22px 44px -20px rgba(15, 32, 77, .45);
+  animation: padTrayIn .16s var(--ease-out) both;
+}
+
+.pad[data-compact="true"] .pad__group[data-open="true"] > .pad__tray,
+.pad__group[data-open="true"] > .pad__tray--menu { display: flex; }
+
+@keyframes padTrayIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pad[data-compact="true"] .pad__tray .pad__swatch { width: 30px; height: 30px; }
+.pad[data-compact="true"] .pad__tray .pad__width { width: 38px; height: 38px; }
+
+/* Menu tata letak: berlabel, karena tiga ikon tata letak tanpa nama
+   hanya akan ditebak-tebak. Ditambatkan ke tepi KANAN supaya tidak
+   keluar dari kertas (grup Tampilan selalu paling kanan).
+   Selektornya sengaja diperberat: aturan baki RINGKAS di atas
+   (`.pad[data-compact] .pad__tray`, 0-3-0) akan memusatkannya lagi. */
+.pad .pad__tray.pad__tray--menu {
+  left: auto;
+  right: -10px;
+  translate: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 264px;
+}
+
+.pad__menu-title {
+  padding: 4px 10px 6px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.pad__layout {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.pad__layout:hover:not(:disabled) { background: var(--blue-50); }
+
+.pad__layout-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #F3F6FC;
+  color: var(--ink-2);
+}
+
+.pad__layout-text { display: grid; gap: 1px; min-width: 0; }
+.pad__layout-text b { font-family: var(--display); font-weight: 800; font-size: .8rem; color: var(--ink); }
+.pad__layout-text small { font-size: .7rem; line-height: 1.35; color: var(--ink-3); }
+
+.pad__layout.is-on { background: var(--blue-50); border-color: rgba(29, 78, 216, .22); }
+.pad__layout.is-on .pad__layout-icon { background: var(--royal); color: #fff; }
+
+.pad__layout:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Warna & ketebalan versi lebar: sedikit lebih lega dari Fase 15. */
+.pad__swatch { width: 24px; height: 24px; }
+.pad__swatch.is-on { border-color: #fff; box-shadow: 0 0 0 2px var(--ink); transform: none; }
+.pad__width { border-radius: 11px; }
+.pad__width.is-on { background: var(--ink); }
+
+/* ---- Lanskap pendek ---- */
+@media (orientation: landscape) and (max-height: 560px) {
+  .pad { --pad-head: 36px; }
+  .pad__head-note { display: none; }
+  .pad__bar { padding: 4px 6px; bottom: var(--sp-2); }
+  .pad__btn, .pad__pick { width: 32px; height: 32px; }
+  .pad-fab { height: 42px; padding: 0 14px 0 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad, .pad__tray, .pad__tray--menu { animation: none; }
+  .pad-fab, .pad__head, .pad__grip-knob { transition: none; }
+}
+
+
+/* ================================================================
+   19.B  SISTEM VISUAL "PRESISI TENANG"
+
+   Filosofi: matematika lanjut menuntut mata yang tenang untuk
+   membaca kurung, indeks a_ij, dan pecahan berjam-jam. Maka:
+
+   1. WARNA ADALAH SINYAL, BUKAN DEKORASI. Bidang luas (latar, kartu,
+      panel) netral dan bersuhu rendah; saturasi merek disimpan untuk
+      hal kecil yang BERMAKNA — aksi utama, posisi aktif, status.
+      Mata tidak lagi dipaksa menyaring cahaya kuning-biru di latar.
+   2. KEDALAMAN DARI CAHAYA, BUKAN GARIS TEBAL. Garis rambut 1px
+      bertinta rendah + bayangan berlapis (ambien + kunci) memisahkan
+      bidang tanpa menambah kontras tepi yang melelahkan.
+   3. TIPOGRAFI BERJENJANG. Montserrat 800 (bukan 900) untuk judul
+      supaya tidak "berteriak"; Roboto untuk bacaan dengan tinta yang
+      sedikit dilunakkan (±12:1, bukan 16:1) — tetap jauh di atas AA,
+      tetapi tidak menyilaukan di layar putih. Angka selalu tabular.
+   4. PRESISI GEOMETRIS. Satu skala radius (12 · 16 · 20), satu
+      ritme jarak (4/8), dan sudut tombol yang tegas (14px) alih-alih
+      pil — lebih dekat ke karakter "terukur" materi ini.
+
+   ⚠️ Token SUMBER (`--paper`, `--royal`, `--cyan`, `--yellow`,
+   `--magenta`, `--ink`, Montserrat/Roboto) TIDAK diubah: itu
+   identitas merek yang dipatok pengujian §6/§16. Yang dimurnikan
+   adalah cara token itu DIPAKAI.
+   ================================================================ */
+
+:root {
+  /* Garis rambut & bayangan berlapis. */
+  --hair: rgba(15, 40, 100, .085);
+  --hair-strong: rgba(15, 40, 100, .14);
+  --border-soft: rgba(15, 40, 100, .10);
+  --border-strong: rgba(15, 40, 100, .18);
+
+  --sh-1: 0 1px 2px rgba(15, 32, 77, .05), 0 2px 8px -3px rgba(15, 32, 77, .07);
+  --sh-2: 0 1px 2px rgba(15, 32, 77, .04), 0 14px 34px -18px rgba(15, 32, 77, .26);
+  --sh-3: 0 2px 6px rgba(15, 32, 77, .05), 0 30px 64px -26px rgba(15, 32, 77, .34);
+  --shadow-2: var(--sh-1);
+  --shadow-3: var(--sh-2);
+  --shadow-4: var(--sh-3);
+  --shadow-float: var(--sh-2);
+
+  /* Tinta bacaan: navy yang dilunakkan untuk teks panjang. */
+  --ink-read: #21325C;
+
+  /* Permukaan sekunder bersuhu rendah (pengganti biru-50 di bidang luas). */
+  --surface-quiet: #F6F8FC;
+  --surface-sunk: #F1F4FA;
+
+  --ring-focus: 0 0 0 3px rgba(29, 78, 216, .24);
+  --r-btn: 14px;
+}
+
+/* ---------------- Latar: kertas yang tenang ---------------- */
+.backdrop {
+  background:
+    radial-gradient(1200px 700px at 8% -10%, rgba(29, 78, 216, .07), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(6, 182, 212, .05), transparent 60%),
+    linear-gradient(180deg, #F4F7FC 0%, #EEF2F9 100%);
+}
+
+/* Blob tetap tiga (identitas TRANSFORMASI), tetapi kini cahaya
+   ambien yang nyaris tak terasa — bukan bidang warna yang bergerak. */
+.blob { filter: blur(90px); opacity: .55; }
+.blob--1 { background: rgba(37, 99, 235, .13); animation-duration: 60s; }
+.blob--2 { background: rgba(6, 182, 212, .10); animation-duration: 72s; }
+.blob--3 { background: rgba(255, 200, 0, .07); animation-duration: 66s; }
+
+.backdrop::after {
+  background-image: radial-gradient(rgba(15, 40, 100, .075) 1.1px, transparent 1.3px);
+  background-size: 26px 26px;
+}
+
+/* ---------------- Header kaca ---------------- */
+.app-header {
+  background: rgba(250, 252, 255, .72);
+  -webkit-backdrop-filter: saturate(1.5) blur(18px);
+          backdrop-filter: saturate(1.5) blur(18px);
+  border-bottom: 1px solid var(--hair);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset;
+}
+
+.brand__mark {
+  border-radius: 11px;
+  background: linear-gradient(160deg, #2F63E6 0%, var(--royal) 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25),
+              0 6px 16px -8px rgba(29, 78, 216, .7);
+}
+
+.brand__mark:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25),
+              0 10px 22px -10px rgba(29, 78, 216, .8);
+}
+
+.brand__title {
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+.brand__sub { color: var(--ink-3); letter-spacing: .01em; }
+
+.progress-ring__track { stroke: #E6ECF7; }
+
+/* Layar penuh: aksi SEKUNDER, jadi tampil sebagai kaca bertinta, bukan
+   pil gradien yang bersaing dengan tombol aksi utama. */
+.fs-btn {
+  color: var(--ink-2);
+  background: rgba(255, 255, 255, .82);
+  border: 1px solid var(--hair-strong);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .05), 0 8px 20px -14px rgba(15, 32, 77, .35);
+  -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+.fs-btn:hover,
+.fs-btn:focus-visible {
+  color: var(--royal);
+  border-color: rgba(29, 78, 216, .3);
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .05), 0 12px 24px -14px rgba(29, 78, 216, .5);
+}
+
+.app-footer {
+  background: rgba(250, 252, 255, .7);
+  border-top: 1px solid var(--hair);
+  color: var(--ink-3);
+}
+
+/* ---------------- Tanda tangan di sapaan menu ----------------
+   Matriks identitas I₂ yang samar di sisi kanan sapaan: kesan pertama
+   aplikasi ini adalah MATEMATIKA-nya, bukan ilustrasi generik. Ia
+   dekoratif murni — pointer-events mati, tinta 14%, dan disembunyikan
+   di lanskap pendek tempat setiap piksel tinggi lebih berharga.
+   Kurungnya digambar persis seperti `.matrix__bracket`: garis tegak
+   dengan kait atas-bawah. */
+.menu__head { position: relative; }
+
+.menu__head::after {
+  --mk: rgba(29, 78, 216, .15);
+  content: "1\2002\2002 0\A 0\2002\2002 1";
+  white-space: pre;
+  position: absolute;
+  right: clamp(8px, 3vw, 48px);
+  top: 50%;
+  translate: 0 -50%;
+  padding: 4px 18px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: clamp(1.4rem, 2.6vw, 2.2rem);
+  line-height: 1.3;
+  color: var(--mk);
+  border-inline: 2px solid var(--mk);
+  background:
+    linear-gradient(var(--mk), var(--mk)) left top / 9px 2px no-repeat,
+    linear-gradient(var(--mk), var(--mk)) left bottom / 9px 2px no-repeat,
+    linear-gradient(var(--mk), var(--mk)) right top / 9px 2px no-repeat,
+    linear-gradient(var(--mk), var(--mk)) right bottom / 9px 2px no-repeat;
+  pointer-events: none;
+}
+
+@media (orientation: landscape) and (max-height: 560px), (max-width: 760px) {
+  .menu__head::after { display: none; }
+}
+
+/* ---------------- Tipografi berjenjang ---------------- */
+h1, h2, h3, h4, h5,
+.menu__title, .workspace__title, .hero__title {
+  font-weight: 800;
+  letter-spacing: -.022em;
+}
+
+/* Teks bacaan panjang: tinta dilunakkan, baris lega. */
+.materi,
+.hero__snippet,
+.ws-hint__text,
+.quiz__hint {
+  color: var(--ink-read);
+}
+
+.materi { line-height: 1.72; }
+.materi strong, .materi b { color: var(--ink); }
+
+/* Semua angka berbaris rapi — kolom matriks dan skor tidak "menari". */
+.cell, .numfield, .exam-nav__item, .hero-stat__value,
+.exam-score__value, .progress-ring__label, .matrix__ordo {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ---------------- Permukaan: kartu & panel ---------------- */
+.content-card,
+.quiz__card,
+.ws-side,
+.hero__panel,
+.mode-card,
+.chapter-item,
+.subtopic-item {
+  border-color: var(--hair-strong);
+}
+
+.content-card,
+.quiz__card {
+  border-radius: 20px;
+  box-shadow: var(--sh-2);
+}
+
+.ws-side {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: var(--sh-2);
+}
+
+/* Tanda registrasi sudut (identitas Fase 7) dipertahankan, tetapi kini
+   sebagai bisikan: pada opacity .55 ia terbaca seperti cacat render
+   di sudut kartu, bukan sebagai tanda. */
+.content-card::before,
+.content-card::after,
+.hero__panel::after,
+.quiz__card::before { opacity: .28; }
+
+.hero__panel {
+  border-radius: 22px;
+  box-shadow: var(--sh-2);
+}
+
+/* Kilau sudut diganti cahaya yang jauh lebih lembut. */
+.hero__panel::before { opacity: .55; }
+.hero__panel--next::before {
+  background: radial-gradient(closest-side, rgba(255, 200, 0, .10), transparent);
+}
+
+.hero__eyebrow { letter-spacing: .14em; font-size: .68rem; }
+
+.hero__snippet {
+  background: var(--surface-quiet);
+  border-color: var(--hair);
+  border-left-color: var(--royal);
+}
+
+.hero__snippet::after { background: linear-gradient(transparent, var(--surface-quiet)); }
+
+.hero-stat {
+  background: var(--surface-quiet);
+  border-color: var(--hair);
+  border-radius: 14px;
+}
+
+.hero-stat__label { color: var(--ink-3); letter-spacing: .01em; }
+
+/* Tiga kartu statistik di kisi dua kolom menyisakan satu lubang yang
+   terbaca seperti kartu yang hilang. Kartu ketiga (Skor TKA) kini
+   membentang penuh — sekaligus memberi skor ujian bobot yang pantas. */
+.hero__stats > .hero-stat:nth-child(3):last-child { grid-column: 1 / -1; }
+
+/* Kotak keterangan (definisi, tips, peringatan): warnanya hanya di
+   GARIS dan IKON. Bidang merah muda pekat selebar kartu materi adalah
+   cahaya paling menyilaukan di layar bacaan — sementara pesannya sudah
+   cukup tersampaikan lewat aksen kiri dan judul berwarna. */
+.callout {
+  background: color-mix(in srgb, var(--co-bg) 38%, #fff);
+  border-color: color-mix(in srgb, var(--co-line) 70%, transparent);
+  border-radius: 14px;
+}
+
+.callout__text { color: var(--ink-read); }
+
+.mode-card,
+.chapter-item,
+.subtopic-item {
+  box-shadow: var(--sh-1);
+}
+
+.mode-card:hover,
+.chapter-item:hover:not([disabled]),
+.subtopic-item:hover:not([disabled]) {
+  box-shadow: var(--sh-2);
+  border-color: rgba(29, 78, 216, .26);
+}
+
+.chapter-item:hover:not([disabled]),
+.subtopic-item:hover:not([disabled]) { transform: translateY(-2px); }
+
+/* Menu kuis: label bagian kedua ("Latihan per Bab") dulu menempel ke
+   kartu TKA di atasnya — label kelompok harus lebih dekat ke kelompok
+   yang DIA beri nama daripada ke kelompok sebelumnya. */
+.workspace__body > .chapter-item + .panel__label { margin-top: var(--sp-4); }
+
+.chapter-item__num {
+  border-radius: 14px;
+  background: var(--surface-quiet);
+  border-color: var(--hair-strong);
+  color: var(--royal);
+}
+
+/* ---------------- Tombol: tegas, bukan pil ---------------- */
+.btn {
+  border-radius: var(--r-btn);
+  letter-spacing: .005em;
+}
+
+.btn--icon { border-radius: 12px; }
+
+.btn:hover:not([disabled]) { transform: translateY(-1px); }
+.btn:active:not([disabled]) { transform: translateY(0) scale(.98); }
+
+/* Aksi utama: satu warna merek yang PADAT dengan kilau atas tipis.
+   Gradien royal→cyan yang bergeser saat disorot terlalu ramai untuk
+   tombol yang ditekan puluhan kali per sesi. */
+:root[data-theme] .btn--primary,
+.btn--primary {
+  color: #fff;
+  background: linear-gradient(180deg, #2A5CE4 0%, var(--royal) 100%);
+  background-size: 100% 100%;
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22),
+              0 1px 2px rgba(15, 32, 77, .12),
+              0 10px 22px -12px rgba(29, 78, 216, .75);
+}
+
+:root[data-theme] .btn--primary:hover:not([disabled]),
+.btn--primary:hover:not([disabled]) {
+  background: linear-gradient(180deg, #3366EA 0%, #1C49CC 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22),
+              0 1px 2px rgba(15, 32, 77, .12),
+              0 14px 28px -14px rgba(29, 78, 216, .85);
+}
+
+:root[data-theme] .btn--success,
+.btn--success {
+  color: #fff;
+  background: linear-gradient(180deg, #12A877 0%, #0B8A61 100%);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2),
+              0 1px 2px rgba(15, 32, 77, .12),
+              0 10px 22px -12px rgba(14, 159, 110, .75);
+}
+
+/* Kuning merek tetap milik "Latihan Soal TKA", tetapi lebih matang:
+   kuning madu yang padat, bukan gradien neon. */
+:root[data-theme] .btn--amber,
+.btn--amber {
+  color: #2A1D00;
+  background: linear-gradient(180deg, #FFD23A 0%, #F5BE00 100%);
+  border-color: rgba(160, 120, 0, .25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45),
+              0 1px 2px rgba(15, 32, 77, .10),
+              0 10px 22px -14px rgba(185, 134, 0, .8);
+}
+
+:root[data-theme] .btn--amber:hover:not([disabled]),
+.btn--amber:hover:not([disabled]) {
+  color: #2A1D00;
+  background: linear-gradient(180deg, #FFD84F 0%, #FFC800 100%);
+}
+
+.btn--ghost,
+.btn--quiet {
+  background: #fff;
+  border-color: var(--hair-strong);
+  color: var(--ink-2);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .05);
+}
+
+.btn--ghost:hover:not([disabled]),
+.btn--quiet:hover:not([disabled]) {
+  background: var(--surface-quiet);
+  border-color: rgba(29, 78, 216, .28);
+  color: var(--royal);
+}
+
+.btn[disabled] { filter: saturate(.35); opacity: .55; }
+
+.btn--switch { border-color: var(--hair-strong); }
+
+/* ---------------- Panel kendali: tab langkah ---------------- */
+.ws-side .steps {
+  background: var(--surface-sunk);
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  padding: 3px;
+}
+
+.ws-side .steps__item { border-radius: 11px; }
+
+:root[data-theme] .steps__item[data-state="active"],
+.steps__item[data-state="active"] {
+  background: #fff;
+  color: var(--royal);
+  border-color: var(--hair-strong);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .08), 0 4px 10px -6px rgba(15, 32, 77, .3);
+}
+
+.steps__item[data-state="active"] .steps__num { background: var(--royal); color: #fff; }
+
+.steps__item[data-state="done"] {
+  background: transparent;
+  color: var(--success);
+  border-color: transparent;
+}
+
+.steps__item[data-state="done"] .steps__num { background: var(--success-soft); }
+
+.ws-side__hint .sim__prompt {
+  border-radius: 14px;
+  border-color: var(--hair-strong);
+  box-shadow: var(--sh-1);
+}
+
+.exam-info { background: var(--surface-quiet); border-color: var(--hair); }
+
+/* ---------------- Panggung simulasi ---------------- */
+/* Panggung duduk DI DALAM kartu, jadi ia tidak butuh bayangan sendiri:
+   kartu-dalam-kartu yang sama-sama melayang membuat dua tepi bersaing.
+   Ia tampil sebagai pelat — latar sedikit lebih dingin, garis rambut. */
+.ws-stage .stage {
+  background: #FBFCFE;
+  border-color: var(--hair);
+  border-radius: 16px;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+}
+
+.cell {
+  border-color: var(--hair-strong);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .06);
+}
+
+.matrix__bracket::before,
+.matrix__bracket::after { border-color: #4A5E8E; }
+
+/* ---------------- Kuis & ujian ---------------- */
+.quiz__prompt { letter-spacing: -.005em; }
+
+/* Hierarki soal berkalimat-tanya (kontrak §5 butir 78): bila soal punya
+   `after`, maka `prompt` hanyalah KONTEKS — cerita pabrik, tabel pakan.
+   Paragraf panjang dalam Montserrat tebal melelahkan dibaca; konteks kini
+   tampil sebagai teks bacaan, dan hanya kalimat PERTANYAAN-nya yang tegas.
+   Mata langsung tahu mana yang dibaca santai dan mana yang ditanyakan. */
+.quiz__card:has(> .quiz__after) > .quiz__prompt:not(.quiz__after) {
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: var(--ink-read);
+}
+
+.quiz__after {
+  margin-top: var(--sp-3);
+  padding-left: 12px;
+  border-left: 3px solid var(--royal);
+  color: var(--ink);
+}
+
+.option {
+  background: #fff;
+  border-width: 1.5px;
+  border-color: var(--hair-strong);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .04);
+}
+
+.option:hover:not(.option--locked) {
+  border-color: rgba(29, 78, 216, .55);
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .05), 0 10px 22px -16px rgba(29, 78, 216, .55);
+  transform: translateY(-1px);
+}
+
+.option[aria-checked="true"] {
+  background: #F2F6FF;
+  border-color: var(--royal);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, .10);
+}
+
+.option__letter {
+  background: var(--surface-quiet);
+  border-color: var(--hair-strong);
+  color: var(--ink-2);
+  font-family: var(--display);
+}
+
+.exam-nav__item {
+  border-width: 1.5px;
+  border-color: var(--hair-strong);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 32, 77, .05);
+}
+
+.exam-nav__item:hover { border-color: var(--royal); }
+
+.exam-nav__item[aria-current="true"] {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(255, 200, 0, .55);
+}
+
+.exam-nav__title,
+.exam-history__title { letter-spacing: .12em; }
+
+.exam-history__chip { border-color: var(--hair); background: var(--surface-quiet); }
+
+/* ---------------- Lapisan mengambang ---------------- */
+.mathpad,
+.modal__panel {
+  border-color: var(--hair-strong);
+  box-shadow: 0 2px 6px rgba(15, 32, 77, .06), 0 36px 80px -30px rgba(15, 32, 77, .45);
+}
+
+.mathpad__preview { background: var(--surface-sunk); border-color: var(--hair); }
+
+.toast {
+  border-color: var(--hair-strong);
+  border-left-width: 3px;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(15, 32, 77, .06), 0 24px 50px -24px rgba(15, 32, 77, .45);
+}
+
+.modal-scrim {
+  background: rgba(16, 28, 60, .28);
+  -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+}
+
+/* ---------------- Fokus papan ketik: satu cincin yang sama ---------------- */
+:focus-visible { box-shadow: var(--ring-focus); }
+
+/* ---------------- Layar muat & pengunci orientasi ---------------- */
+.boot { background: linear-gradient(180deg, #F4F7FC 0%, #EEF2F9 100%); }
+.rotate-lock__panel { border: 1px solid var(--hair-strong); }

@@ -1,7 +1,13 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **3 September 2026**, menutup Fase 18.5.
-> Status: **fase 1–18.5 selesai, seluruh pengujian otomatis hijau (21/21 + 632/632).**
+> Dokumen serah-terima antar sesi. Diperbarui **7 Oktober 2026**, menutup Fase 19.
+> Status: **fase 1–19 selesai, seluruh pengujian otomatis hijau (21/21 + 656/656).**
+>
+> 🟡 **FASE 19 SELESAI — MENUNGGU AUDIT QA LEAD ARCHITECT.** Dua pekerjaan:
+> (1) **papan coret BERDAMPINGAN** — soal dan kertas terlihat bersamaan, soal
+> tetap bisa dijawab, tanpa tahan-tombol atau buka-tutup; (2) sistem visual
+> **"Presisi Tenang"** — perombakan tampilan yang menenangkan mata tanpa
+> mengubah identitas merek. Rinciannya di **§00000000**.
 >
 > ✅ **FASE 18.5 SELESAI.** Lima temuan UAT: kalimat pertanyaan TKA yang belum
 > ada, markdown mentah di layar, Mathpad yang membuang angka, kartu "Lencana"
@@ -59,14 +65,14 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **3 September 2026**, sesaat setelah Fase 18.5 ditutup:
+Keadaan per **7 Oktober 2026**, sesaat setelah Fase 19 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 18.5 — Poles Akhir** (§0000000). Selesai, teruji, sudah di-commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **632/632** |
-| Git | **4 commit di depan `origin/main`**: Fase 16, 17, 18, dan 18.5. Semuanya sengaja belum di-push (§1A) |
-| Pekerjaan tertunda | **Tidak ada.** Fase 18.5 tuntas; aplikasi siap dipakai siswa |
+| Pekerjaan terakhir | **Fase 19 — Papan Coret Berdampingan & "Presisi Tenang"** (§00000000). Selesai, teruji, di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **656/656** |
+| Git | Fase 19 = **1 commit lokal baru**, di atas `main` yang sudah 2 commit di depan `origin/main`. Belum di-push (§1A) |
+| Pekerjaan tertunda | **Audit QA oleh Lead Architect** atas Fase 19 sebelum dipakai siswa |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
@@ -80,6 +86,153 @@ Keadaan per **3 September 2026**, sesaat setelah Fase 18.5 ditutup:
 
 `smoke.py` berjalan ±12 menit. Jalankan di latar belakang, jangan dikira
 menggantung.
+
+---
+
+## 00000000. FASE 19 — PAPAN CORET BERDAMPINGAN & "PRESISI TENANG" (SELESAI)
+
+### 1. Masalah: papan coret menutupi soal
+
+Umpan balik siswa: *untuk melihat lagi angka matriks atau teks soal, mereka
+harus menutup papan lalu membukanya lagi, atau menahan tombol mata sambil
+menghitung.* Akar masalahnya sudah diramalkan di §000A ("Catatan pedagogis"):
+sejak kanvasnya PADAT, soal dan coretan tidak pernah bisa terlihat
+bersamaan, dan Mengintip berubah dari kemewahan menjadi jalur wajib.
+Memperbaiki mekanik Mengintip hanya meringankan gejala — setiap angka yang
+dibaca tetap butuh satu tahanan.
+
+### 2. Solusi: kertas DI SAMPING soal, bukan di atasnya
+
+Cara orang menghitung di dunia nyata: kertas buram ditaruh di sebelah buku
+soal. Papan coret kini punya tiga tata letak, dipilih lewat menu berlabel
+"Tata letak" di bilah alat:
+
+| Tata letak | Perilaku | Untuk |
+|---|---|---|
+| **Berdampingan** (BAWAAN) | Kertas di kanan panggung; `.workspace__body` diberi margin kanan selebar kertas sehingga soal **mengalir ulang** di kiri | Hampir semua hitungan |
+| **Kertas penuh** | Perilaku Fase 15.5: kertas selebar panggung + Mengintip | Hitungan yang sangat panjang |
+| **Kalkir** | Kertas tembus pandang di atas soal | Menandai soalnya sendiri: melingkari elemen, menarik diagonal Sarrus di matriks aslinya |
+
+Yang membuat berdampingan benar-benar *frictionless*: soal di kiri **tetap
+hidup**. Siswa bisa memilih jawaban, mengisi Mathpad, dan menjalankan simulasi
+tanpa menutup papan. Terukur di bagian uji 117: memilih opsi B saat papan
+terbuka → `aria-checked`, kisi navigasi "terisi", papan tetap terbuka.
+
+> Kalkir sengaja BUKAN bawaan. UAT Fase 15.5 menyebut lapisan tembus sebagai
+> beban kognitif bila ia satu-satunya pilihan; sebagai pilihan sadar untuk
+> menandai soal, ia justru berguna.
+
+**Pembatas soal | kertas** (`.pad__grip`, kontrak §5 butir 12): **seret**
+untuk lebar presisi, **ketuk** untuk berputar di antara 40% → 50% → 60%,
+panah kiri/kanan dari papan ketik. Lebarnya dijaga dua lapis: rasio
+36–64% (keinginan siswa) DAN piksel (kertas ≥ 400px, soal ≥ 300px).
+
+**Panggung sempit** (< 700px, mis. lanskap ponsel 844×390): berdampingan
+tidak masuk akal — kedua separuhnya terlalu sempit. Papan tampil sebagai
+kertas penuh, opsi "Berdampingan" di menu dinonaktifkan, tetapi **pilihan
+siswa tidak diubah**: begitu layarnya cukup lebar lagi, ia kembali
+berdampingan.
+
+**Ingatan per perangkat.** Tata letak dan rasio disimpan di `localStorage`
+(`matriksLab.scratchpad.v1`), dibungkus `try/catch` — mode privat tetap
+jalan tanpa ingatan. Siswa yang lebih suka kertas penuh tidak perlu
+memilihnya ulang di setiap sub-topik.
+
+**Bilah alat ringkas.** Di kertas < 620px, deret warna dan ketebalan dilipat
+ke balik satu tombol pemicu (menampilkan warna/tebal yang aktif); ketukan
+membuka baki kecil di atas bilah. Elemen `.pad__swatch` / `.pad__width` SAMA
+di kedua bentuk — yang berubah hanya CSS-nya, sehingga seluruh selektor dan
+pengujian Fase 15 tetap berlaku.
+
+**Detail lain:** kepala kertas ("Kertas Coretan" + keterangan tata letak +
+tombol tutup); tombol pembuka menjadi pil bertinta berlabel **"Coret"** dan
+menyingkir saat papan terbuka; tombol mata disembunyikan pada tata letak
+berdampingan (tidak ada yang perlu diintip — mesinnya tetap utuh).
+
+### 3. "Presisi Tenang" — sistem visual
+
+Prinsipnya ditulis lengkap di kepala §19.B `css/phase18.css`. Ringkasnya:
+
+1. **Warna adalah sinyal, bukan dekorasi.** Latar, kartu, panel netral dan
+   bersuhu rendah; saturasi merek hanya untuk aksi utama, posisi aktif, status.
+   Blob latar tetap tiga, tetapi kini cahaya ambien (alfa .07–.13, 60–72 detik).
+2. **Kedalaman dari cahaya, bukan garis tebal.** Garis rambut 1px + bayangan
+   berlapis (ambien + kunci) menggantikan bayangan biru tebal.
+3. **Tipografi berjenjang.** Judul Montserrat 800 (bukan 900); teks bacaan
+   panjang memakai `--ink-read` (#21325C, ±12:1 — tetap jauh di atas AA, tidak
+   menyilaukan); angka selalu `tabular-nums`.
+4. **Presisi geometris.** Tombol bersudut 14px (bukan pil), satu skala radius.
+
+Perubahan yang paling terasa:
+
+| Area | Sebelum | Sesudah |
+|---|---|---|
+| Soal ujian berkonteks | Seluruh paragraf Montserrat tebal | Konteks = teks bacaan Roboto; hanya **kalimat pertanyaan** (`after`) yang tegas, bergaris biru di kiri |
+| Kotak keterangan (`.callout`) | Bidang merah muda/biru pekat selebar kartu | Warna hanya di garis & ikon; bidangnya nyaris putih |
+| Tombol utama | Gradien royal→cyan yang bergeser saat disorot | Royal padat dengan kilau atas tipis |
+| Layar Penuh | Pil gradien yang bersaing dengan aksi utama | Kaca bertinta (aksi sekunder) |
+| Tab langkah | Pil biru pekat | Kontrol segmen: tab aktif = kartu putih |
+| Panggung simulasi | Kartu-dalam-kartu, dua bayangan | Pelat tanpa bayangan di dalam kartu |
+| Kartu statistik menu | 3 kartu di kisi 2 kolom → satu lubang | Skor TKA membentang penuh |
+| Menu kuis | Label "Latihan per Bab" menempel ke kartu TKA | Jarak kelompok yang benar |
+| Sapaan menu | — | Matriks identitas $I_2$ samar sebagai tanda tangan |
+
+> ⚠️ **Token SUMBER tidak diubah** (`--paper`, `--royal`, `--cyan`,
+> `--yellow`, `--magenta`, `--ink`, Montserrat/Roboto, tiga blob): itu
+> identitas merek dan dipatok pengujian §6/§16/§98. Yang dimurnikan adalah
+> token TURUNAN (`--sh-*`, `--border-*`, `--shadow-*`) dan cara komponen
+> memakainya. Kalau ingin mengganti merek, ubah pengujiannya dengan sadar.
+
+### Jebakan yang sudah digigit (jangan diulang)
+
+1. **Koordinat 0..1 MEREGANGKAN tulisan begitu lebar kertas bisa berganti.**
+   Selama kertas hanya satu ukuran, normalisasi Fase 15 tidak terasa. Dengan
+   tiga tata letak dan pembatas yang diseret, angka "8" yang ditulis di kertas
+   435px menjadi gepeng dua kali lipat di kertas 869px. Goresan kini disimpan
+   dalam **piksel CSS relatif sudut kiri-atas kertas**: kertas yang menyempit
+   hanya menyembunyikan bagian kanannya, dan tulisannya muncul lagi utuh saat
+   dilebarkan. Bagian uji 117 mengukur **bentang** tinta (±2px), bukan jumlah
+   pikselnya — lihat butir 6.
+2. **Spesifisitas baki ringkas menimpa menu tata letak.** Aturan
+   `.pad[data-compact] .pad__tray` (0-3-0) memusatkan ulang menu yang
+   seharusnya ditambatkan ke tepi kanan, dan menu meluap keluar layar.
+   Selektor menunya diperberat (`.pad .pad__tray.pad__tray--menu`).
+3. **Escape milik lapisan paling atas.** Sejak soal hidup di sebelah papan,
+   Mathpad bisa terbuka bersamaan. Pendengar Mathpad baru dipasang saat pad
+   angka dibuka, jadi pendengar papan coret menyala LEBIH DULU — tanpa
+   penjagaan, satu Escape membatalkan isian sekaligus menutup papan. Papan
+   kini mengalah bila `.mathpad[data-open="true"]` atau modal terbuka.
+4. **`setPointerCapture` MELEMPAR untuk pointer yang tidak aktif.** Di
+   pembatas ia dibungkus `try/catch`; seretan tetap jalan tanpa tangkapan.
+   (Pengujian sintetis memakai `pointerId: 1` — id tetikus Chrome yang selalu
+   aktif — karena itulah kanvas Fase 15 tidak pernah tersandung.)
+5. **Batas rasio saja tidak cukup.** 36% dari panggung 843px = 303px, dan
+   bilah ringkas (±367px) terpaksa membungkus dua baris. Rasio menyatakan
+   keinginan siswa; batas PIKSEL menjamin kedua sisi tetap bisa dipakai.
+6. **Jumlah piksel tinta bukan bukti "tidak meregang".** Goresan hidup
+   digambar per ruas, gambar ulang satu path — anti-aliasing berbeda ±4%
+   (kerabat catatan bagian 102). Yang membedakan koordinat piksel dari 0..1
+   adalah BENTANG mendatarnya.
+7. **Pane peramban yang tersembunyi memperlambat GSAP** (penegasan §000
+   butir 4). Kolom salinan Sarrus sempat tampak bertumpuk — padahal animasinya
+   hanya tersendat. Verifikasi visual Fase 19 memakai Playwright headless.
+
+### Kontrak yang TETAP dipenuhi
+
+Selektor `.pad`, `.pad-fab`, `.pad__canvas`, `.pad__bar`, `.pad__peek`,
+`.pad__group` (5 grup: Alat · Warna · Ketebalan · Tindakan · Tampilan),
+4 `.pad__swatch`, 3 `.pad__width`, label tombol, latar kanvas putih PADAT +
+petak, transisi Mengintip 0.2s ease-in-out, batas undo 20, penghapus
+per-goresan — semuanya utuh; bagian uji 101–104 dan 116 lolos tanpa diubah.
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/ui/scratchpad.js` | Tiga tata letak, pembatas seret/ketuk, baki lipat, kepala kertas, ingatan per perangkat, koordinat piksel, Escape berlapis |
+| `js/ui/icons.js` | Ikon `layout-split`, `layout-full`, `layout-trace`, `grip` |
+| `css/phase18.css` | **§19.A** papan coret berdampingan · **§19.B** sistem visual "Presisi Tenang" |
+| `tests/smoke.py` | Bagian **117–118** baru (24 pengujian) |
 
 ---
 
@@ -1254,12 +1407,19 @@ python tests/smoke.py
 pip install playwright && playwright install chromium
 ```
 
-### Status pengujian per 31 Agustus 2026 — **terverifikasi, bukan klaim**
+### Status pengujian per 7 Oktober 2026 — **terverifikasi, bukan klaim**
 
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **632/632 lolos** |
+| `python tests/smoke.py` | **656/656 lolos** |
+
+Fase 19 menambah bagian 117–118 (24 pengujian): papan berdampingan tanpa
+tumpang-tindih, soal yang tetap bisa dijawab saat papan terbuka, coretan yang
+tidak meregang saat berganti tata letak, pembatas seret/ketuk beserta batasnya,
+bilah ringkas & baki warna, Escape berlapis (termasuk Mathpad), ingatan tata
+letak per perangkat, dan jatuhnya berdampingan ke kertas penuh di lanskap
+sempit.
 
 Fase 18.5 menambah bagian 114–116: kelengkapan kalimat soal TKA, markdown
 yang benar-benar ter-render, auto-simpan Mathpad beserta pembatalannya yang
@@ -1373,6 +1533,9 @@ matriks-lab-interaktif/
 │   └── phase18.css                    ← DIMUAT TERAKHIR: mesin ujian CBT
 │                                        (kisi navigasi, riwayat percobaan,
 │                                        isian matriks yang tidak berhimpit)
+│                                        + FASE 19: §19.A papan coret
+│                                        berdampingan, §19.B sistem visual
+│                                        "Presisi Tenang"
 │
 ├── js/
 │   ├── app.js                    793  Bootstrap, menu utama, wiring layar
@@ -1394,8 +1557,9 @@ matriks-lab-interaktif/
 │   │                                     pembersihan gerak lintas-layar
 │   │
 │   ├── ui/
-│   │   ├── scratchpad.js              ← FASE 15/15.5: papan coret (vektor, penghapus
-│   │   │                                goresan, bilah alat, Mengintip)
+│   │   ├── scratchpad.js              ← FASE 15/15.5/19: papan coret (vektor berkoordinat
+│   │   │                                piksel, penghapus goresan, tiga tata letak,
+│   │   │                                pembatas seret/ketuk, baki lipat, Mengintip)
 │   │   ├── mathpad.js            490  SATU-SATUNYA jalur input angka
 │   │   ├── toast.js              136  Toast singleton
 │   │   ├── modal.js              165  Pengganti confirm()/prompt()
@@ -1417,7 +1581,7 @@ matriks-lab-interaktif/
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    ├── smoke.py                       632 pengujian Playwright, 116 bagian
+    ├── smoke.py                       656 pengujian Playwright, 118 bagian
     └── archive_soal.py                Pembangkit arsip soal (Fase 18)
 ```
 
@@ -1612,6 +1776,18 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 79. **Papan coret hidup di mode ujian, dibuat SEKALI per sesi.** Soal TKA menuntut hitungan panjang; tanpa tempat mencoret siswa kehilangan konteks soalnya ke kertas. Coretan wajib bertahan saat berpindah soal, dan `destroy()` wajib dipanggil sebelum sesi diulang — papan memegang `ResizeObserver` dan listener `window` yang selamat dari `innerHTML = ''` (butir 31). (Fase 18.5, bagian uji 116.)
 
 80. **Jangan pernah menampilkan angka yang tidak bisa ditelusuri siswa.** Kartu "N Lencana terbuka" bertahan berfase-fase padahal sistem lencananya tidak pernah ada. Angka di dasbor harus merujuk sesuatu yang bisa dilihat, dikejar, dan dinaikkan. (Fase 18.5, bagian uji 116.)
+
+81. **Papan coret bawaannya BERDAMPINGAN: soal dan kertas terlihat bersamaan, dan soal tetap bisa dijawab.** Kertas yang menutupi soal memaksa siswa bolak-balik; Mengintip hanya meringankan gejalanya. Kertas penuh dan kalkir tetap tersedia sebagai pilihan sadar. (Fase 19, bagian uji 117.)
+
+82. **Goresan papan coret berkoordinat PIKSEL relatif sudut kiri-atas kertas, bukan 0..1.** Begitu lebar kertas bisa berganti, koordinat ternormalisasi meregangkan tulisan siswa. Kertas yang menyempit cukup menyembunyikan bagian kanannya. (Fase 19, bagian uji 117.)
+
+83. **Lebar yang bisa diatur siswa dijaga dua lapis: rasio DAN piksel.** Rasio menyatakan keinginan; piksel menjamin kedua sisi tetap bisa dipakai (kertas ≥ 400px, soal ≥ 300px). Di panggung < 700px berdampingan jatuh ke kertas penuh TANPA mengubah pilihan siswa. (Fase 19, bagian uji 117–118.)
+
+84. **Escape milik lapisan yang paling atas.** Mathpad dan modal didahulukan; papan coret menutup bakinya dulu, baru dirinya. Satu tekanan tidak boleh menutup dua lapisan. (Fase 19, bagian uji 118.)
+
+85. **Elemen yang dilipat ke baki tetap elemen yang SAMA.** Bilah ringkas hanya mengubah CSS; selektor, label, dan pendengar `.pad__swatch`/`.pad__width` tidak diduplikasi. (Fase 19, bagian uji 101 & 118.)
+
+86. **Token merek SUMBER tidak disentuh perombakan visual.** `--paper`, `--royal`, `--cyan`, `--yellow`, `--magenta`, `--ink`, Montserrat/Roboto, dan tiga blob adalah identitas yang dipatok pengujian. Penyegaran tampilan bekerja di token TURUNAN dan di cara komponen memakainya. Teks konteks soal yang panjang tidak boleh berupa paragraf tebal — hanya kalimat pertanyaannya yang tegas. (Fase 19, bagian uji 6, 16, 98.)
 
 ---
 
@@ -1927,7 +2103,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **632** justru karena itu (300 → … → 513 → 569 → 611 → 632 di fase 11–18.5).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **656** justru karena itu (300 → … → 513 → 569 → 611 → 632 → 656 di fase 11–19).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.

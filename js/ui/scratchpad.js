@@ -1,36 +1,64 @@
 /**
- * ui/scratchpad.js — Papan Coret (Fase 15, dipoles di Fase 15.5)
+ * ui/scratchpad.js — Papan Coret (Fase 15, dipoles di Fase 15.5, ditata ulang di Fase 19)
  *
- * Kanvas coret-coret yang menempel di atas PANGGUNG, untuk siswa yang perlu
+ * Kanvas coret-coret yang menempel di PANGGUNG, untuk siswa yang perlu
  * menghitung determinan/invers 3×3 di samping soalnya. Sebelum ini, satu-satunya
  * cara adalah mengambil kertas — dan begitu mata siswa turun ke kertas, konteks
  * matriksnya hilang.
  *
  * ============================================================
+ * FASE 19 — KERTAS DI SAMPING SOAL, BUKAN DI ATASNYA
+ * ============================================================
+ *
+ * Umpan balik siswa: "untuk melihat lagi angka matriksnya, aku harus menutup
+ * papan lalu membukanya lagi, atau menahan tombol mata sambil menghitung."
+ * Akar masalahnya sudah dicatat di HANDOFF §000A: sejak kanvasnya PADAT,
+ * soal dan coretan tidak pernah bisa terlihat BERSAMAAN. Mengintip hanya
+ * meringankan gejalanya — setiap angka yang dibaca tetap butuh satu tahanan.
+ *
+ * Jawabannya meniru cara orang menghitung di dunia nyata: kertas buram
+ * ditaruh DI SEBELAH buku soal, bukan di atasnya. Tata letak bawaannya kini
+ * **Berdampingan** — panggung dibelah dua, soal mengalir ulang di kiri dan
+ * tetap HIDUP (pilihan jawaban, sel matriks, Mathpad semuanya bisa diketuk
+ * tanpa menutup papan), kertas di kanan. Nol tahanan, nol bolak-balik.
+ *
+ * Dua tata letak lain tetap tersedia lewat menu "Tata letak":
+ *
+ *   · **Kertas penuh** — perilaku lama: kertas selebar panggung untuk hitungan
+ *     yang benar-benar panjang, dengan mekanik Mengintip.
+ *   · **Kalkir** — kertas tembus pandang di atas soal, untuk MENANDAI soalnya
+ *     sendiri: melingkari elemen, menarik diagonal Sarrus di matriks aslinya.
+ *     Ini pilihan sadar, bukan bawaan: UAT Fase 15.5 menyebut lapisan tembus
+ *     sebagai beban kognitif bila ia satu-satunya pilihan.
+ *
+ * Pilihan tata letak dan lebar kertas diingat per perangkat (`localStorage`):
+ * siswa yang lebih suka kertas penuh tidak perlu memilihnya ulang di setiap
+ * sub-topik.
+ *
+ * ============================================================
  * KENAPA GORESAN DISIMPAN SEBAGAI VEKTOR, BUKAN toDataURL()
  * ============================================================
  *
- * Cara yang biasa dipakai (dan yang disebut di permintaan sebagai contoh)
- * adalah menyimpan cuplikan bitmap tiap goresan. Di aplikasi INI ia mahal:
- * panggung berukuran ±1000×600 CSS px, dan pada layar 2× kanvasnya menjadi
- * 2000×1200 piksel. Satu cuplikan `getImageData` = 2000 × 1200 × 4 byte
- * ≈ **9,6 MB**. Dua puluh cuplikan ≈ **190 MB** — di tablet kelas itu bukan
- * "mencegah pembengkakan memori", itu penyebabnya.
+ * Cara yang biasa dipakai adalah menyimpan cuplikan bitmap tiap goresan. Di
+ * aplikasi INI ia mahal: panggung berukuran ±1000×600 CSS px, dan pada layar
+ * 2× kanvasnya menjadi 2000×1200 piksel. Satu cuplikan `getImageData` =
+ * 2000 × 1200 × 4 byte ≈ **9,6 MB**. Dua puluh cuplikan ≈ **190 MB**.
  *
  * Satu goresan sebagai vektor berisi beberapa puluh titik: **±2 KB**. Seribu
  * kali lebih ringan, dan TIGA keuntungan mengikuti:
  *
  *   1. `ResizeObserver` bisa MENGGAMBAR ULANG dengan tajam pada ukuran baru.
- *      Cuplikan bitmap hanya bisa diregangkan, dan hasilnya buram.
  *   2. Undo/redo cuma memindahkan elemen antar-array — tidak ada dekode PNG.
- *   3. **Penghapus bisa bekerja per-GORESAN** (Fase 15.5): karena tiap goresan
- *      masih berupa daftar titik, jarak pointer ke ruas-ruasnya bisa dihitung,
- *      dan satu sapuan cukup untuk membuang satu simbol matematika utuh.
- *      Penghapus piksel tidak akan pernah bisa melakukan itu — bagi bitmap,
- *      "angka 7" hanyalah kumpulan piksel tanpa identitas.
+ *   3. **Penghapus bisa bekerja per-GORESAN** (Fase 15.5).
  *
- * Titiknya disimpan dalam koordinat TERNORMALISASI (0..1 terhadap kotak
- * kanvas), sehingga memutar perangkat tidak menggeser gambarnya.
+ * ⚠️ Titiknya disimpan dalam **piksel CSS relatif terhadap sudut kiri-atas
+ * kertas** — BUKAN lagi ternormalisasi 0..1 seperti Fase 15. Selama kertas
+ * hanya punya satu ukuran, normalisasi tidak terasa. Begitu lebarnya bisa
+ * berganti (berdampingan ↔ penuh, pembatas yang diseret), koordinat 0..1
+ * MEREGANGKAN tulisan siswa: angka "8" yang ditulis di kertas selebar 420px
+ * menjadi gepeng dua kali lipat di kertas 860px. Dengan piksel, kertas yang
+ * menyempit hanya MENYEMBUNYIKAN bagian kanannya — tulisannya utuh dan muncul
+ * lagi begitu kertasnya dilebarkan, persis kertas sungguhan yang dilipat.
  */
 
 import { icon } from './icons.js';
@@ -62,14 +90,82 @@ const WIDTHS = [
   { id: 'thick', label: 'Tebal', value: 8 },
 ];
 
+const LAYOUTS = [
+  {
+    id: 'split',
+    icon: 'layout-split',
+    label: 'Berdampingan',
+    note: 'Soal di kiri, kertas di kanan',
+    status: 'Soal tetap terlihat di kiri',
+  },
+  {
+    id: 'full',
+    icon: 'layout-full',
+    label: 'Kertas penuh',
+    note: 'Selebar panggung, untuk hitungan panjang',
+    status: 'Tahan ikon mata untuk melihat soal',
+  },
+  {
+    id: 'trace',
+    icon: 'layout-trace',
+    label: 'Kalkir',
+    note: 'Tembus pandang — coret langsung di atas soal',
+    status: 'Tembus pandang di atas soal',
+  },
+];
+
+/**
+ * Lebar kertas pada tata letak berdampingan, sebagai porsi panggung.
+ *
+ * Batasnya menjaga KEDUA sisi tetap berguna: di bawah ±36% kertasnya tidak
+ * cukup untuk satu baris hitungan determinan 3×3, di atas ±64% soalnya
+ * terlipat sampai matriks 3×3 harus menggulir. Ketukan pada pembatas
+ * berpindah di antara tiga lebar yang paling sering dibutuhkan.
+ */
+const RATIO_MIN = 0.36;
+const RATIO_MAX = 0.64;
+const RATIO_DEFAULT = 0.5;
+const RATIO_PRESETS = [0.4, 0.5, 0.6];
+
+/**
+ * Di bawah lebar panggung ini, berdampingan tidak lagi masuk akal: kedua
+ * separuhnya sama-sama terlalu sempit untuk dipakai. Papannya lalu tampil
+ * sebagai kertas penuh — pilihan siswa TIDAK diubah, sehingga begitu layarnya
+ * cukup lebar lagi (mis. keluar dari layar terpisah), ia kembali berdampingan.
+ */
+const SPLIT_MIN_STAGE = 700;
+
+/**
+ * Batas lebar dalam PIKSEL, di samping batas rasio di atas.
+ *
+ * Rasio saja tidak cukup: 36% dari panggung 840px hanya 302px, dan di lebar
+ * itu bilah alat yang paling ringkas pun terpaksa membungkus jadi dua baris.
+ * Sebaliknya di monitor lebar, 64% bisa menyisakan soal yang masih lega.
+ * Jadi rasio menyatakan KEINGINAN siswa, dan piksel menjamin kedua sisi
+ * tetap bisa dipakai (400px = lebar bilah alat ringkas ±367px + tepinya).
+ * `SPLIT_MIN_STAGE` (700) = 400 + 300, sehingga kedua
+ * batas ini tidak pernah saling bertabrakan.
+ */
+const MIN_PAPER_PX = 400;
+const MIN_QUESTION_PX = 300;
+
+/**
+ * Di bawah lebar kertas ini bilah alat masuk mode RINGKAS: deret warna dan
+ * ketebalan dilipat ke balik satu tombol masing-masing. Angkanya diukur dari
+ * lebar bilah alat lengkap (±560px) ditambah tepi kiri-kanannya.
+ */
+const COMPACT_BELOW = 620;
+
+const PREFS_KEY = 'matriksLab.scratchpad.v1';
+
 /**
  * Pasang papan coret pada sebuah kolom panggung.
  *
  * @param {HTMLElement} host  biasanya `.ws-stage`
- * @returns {{ destroy: Function, open: Function, close: Function }}
+ * @returns {{ destroy: Function, open: Function, close: Function, setLayout: Function }}
  */
 export function createScratchpad(host) {
-  if (!host) return { destroy() {}, open() {}, close() {} };
+  if (!host) return { destroy() {}, open() {}, close() {}, setLayout() {} };
 
   /* ---------------- State ---------------- */
   let strokes = [];          // goresan yang tampil, urut dari yang terlama
@@ -111,22 +207,61 @@ export function createScratchpad(host) {
   let cssW = 0;
   let cssH = 0;
 
+  const prefs = readPrefs();
+  let layout = prefs.layout;   // pilihan SISWA
+  let ratio = prefs.ratio;
+
   /* ---------------- DOM ---------------- */
   const fab = el('button', 'pad-fab');
   fab.type = 'button';
-  fab.innerHTML = icon('pencil', { size: 20 });
+  fab.innerHTML = `${icon('pencil', { size: 19 })}<span class="pad-fab__label">Coret</span>`;
   fab.setAttribute('aria-label', 'Buka papan coret');
-  fab.title = 'Papan coret — hitung manual di atas panggung';
+  fab.setAttribute('aria-expanded', 'false');
+  fab.title = 'Papan coret — hitung manual di samping soal';
 
   const root = el('div', 'pad');
   root.hidden = true;
+  root.setAttribute('role', 'region');
+  root.setAttribute('aria-label', 'Papan coret');
+
+  // --- Kepala kertas: identitas, keterangan tata letak, tombol tutup ---
+  const head = el('div', 'pad__head');
+  const headMark = el('span', 'pad__head-mark');
+  headMark.innerHTML = icon('pencil', { size: 14 });
+  const headText = el('div', 'pad__head-text');
+  const headTitle = el('span', 'pad__head-title');
+  headTitle.textContent = 'Kertas Coretan';
+  const headNote = el('span', 'pad__head-note');
+  headText.append(headTitle, headNote);
+  const closeBtn = iconButton('x', 'Tutup papan coret');
+  closeBtn.classList.add('pad__close');
+  head.append(headMark, headText, closeBtn);
+  root.appendChild(head);
 
   const canvas = document.createElement('canvas');
   canvas.className = 'pad__canvas';
-  canvas.setAttribute('aria-label', 'Papan coret');
+  canvas.setAttribute('aria-label', 'Kanvas coretan');
   root.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
+
+  /**
+   * Pembatas antara soal dan kertas (hanya pada tata letak berdampingan).
+   *
+   * Dua jalur, sesuai kontrak §5 butir 12: SERET untuk lebar yang presisi,
+   * KETUK untuk berpindah di antara tiga lebar siap pakai. Panah kiri/kanan
+   * menggesernya dari papan ketik.
+   */
+  const grip = el('button', 'pad__grip');
+  grip.type = 'button';
+  grip.innerHTML = `<span class="pad__grip-knob">${icon('grip', { size: 14, stroke: 2.6 })}</span>`;
+  grip.setAttribute('role', 'separator');
+  grip.setAttribute('aria-orientation', 'vertical');
+  grip.setAttribute('aria-valuemin', String(Math.round(RATIO_MIN * 100)));
+  grip.setAttribute('aria-valuemax', String(Math.round(RATIO_MAX * 100)));
+  grip.setAttribute('aria-label', 'Atur lebar kertas — seret, atau ketuk untuk berganti lebar');
+  grip.title = 'Seret untuk mengatur lebar · ketuk untuk berganti lebar';
+  root.appendChild(grip);
 
   const bar = el('div', 'pad__bar');
   bar.setAttribute('role', 'toolbar');
@@ -140,6 +275,8 @@ export function createScratchpad(host) {
   const toolBtns = {};
   const colorBtns = {};
   const widthBtns = {};
+  const layoutBtns = {};
+  const trays = [];
 
   const group = (label) => {
     const g = el('div', 'pad__group');
@@ -147,6 +284,32 @@ export function createScratchpad(host) {
     g.setAttribute('aria-label', label);
     bar.appendChild(g);
     return g;
+  };
+
+  /**
+   * Sebuah grup yang isinya bisa DILIPAT ke balik satu tombol.
+   *
+   * Di kertas yang lebar, deret pilihannya tampil langsung (satu ketukan
+   * untuk berganti warna). Di kertas yang sempit — terutama tata letak
+   * berdampingan — deret itu dilipat: tombol pemicunya menampilkan pilihan
+   * yang sedang aktif, dan ketukan membuka baki kecil di atas bilah.
+   * Elemen pilihannya SAMA di kedua bentuk; yang berubah hanya CSS-nya.
+   */
+  const foldable = (g, label, extraClass) => {
+    const trigger = el('button', 'pad__pick');
+    trigger.type = 'button';
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', label);
+    trigger.title = label;
+    const tray = el('div', `pad__tray${extraClass ? ` ${extraClass}` : ''}`);
+    g.append(trigger, tray);
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleTray(g);
+    });
+    trays.push({ g, trigger });
+    return { trigger, tray };
   };
 
   // --- Alat ---
@@ -160,28 +323,32 @@ export function createScratchpad(host) {
 
   // --- Warna ---
   const gColor = group('Warna');
+  const colorFold = foldable(gColor, 'Pilih warna tinta');
+  colorFold.trigger.innerHTML = '<span class="pad__pick-dot"></span>';
   COLORS.forEach((c) => {
     const b = el('button', 'pad__swatch');
     b.type = 'button';
     b.style.setProperty('--swatch', c.value);
     b.setAttribute('aria-label', `Warna ${c.label}`);
     b.title = c.label;
-    b.addEventListener('click', () => setColor(c.value));
+    b.addEventListener('click', () => { setColor(c.value); closeTrays(); });
     colorBtns[c.value] = b;
-    gColor.appendChild(b);
+    colorFold.tray.appendChild(b);
   });
 
   // --- Ketebalan ---
   const gWidth = group('Ketebalan');
+  const widthFold = foldable(gWidth, 'Pilih ketebalan garis');
+  widthFold.trigger.innerHTML = '<span class="pad__pick-line"></span>';
   WIDTHS.forEach((w) => {
     const b = el('button', 'pad__width');
     b.type = 'button';
     b.setAttribute('aria-label', `Ketebalan ${w.label}`);
     b.title = w.label;
     b.innerHTML = `<span style="height:${w.value}px"></span>`;
-    b.addEventListener('click', () => setWidth(w.value));
+    b.addEventListener('click', () => { setWidth(w.value); closeTrays(); });
     widthBtns[w.value] = b;
-    gWidth.appendChild(b);
+    widthFold.tray.appendChild(b);
   });
 
   // --- Aksi ---
@@ -194,14 +361,59 @@ export function createScratchpad(host) {
   clearBtn.addEventListener('click', clearAll);
   gAction.append(undoBtn, redoBtn, clearBtn);
 
-  // --- Mengintip & tutup ---
-  const gPeek = group('Tampilan');
+  // --- Mengintip & tata letak ---
+  const gView = group('Tampilan');
   const peekBtn = iconButton('eye', 'Tahan untuk mengintip soal');
   peekBtn.classList.add('pad__peek');
-  const closeBtn = iconButton('minimize', 'Tutup papan coret');
-  gPeek.append(peekBtn, closeBtn);
+  gView.appendChild(peekBtn);
+
+  const layoutFold = foldable(gView, 'Tata letak papan', 'pad__tray--menu');
+  layoutFold.trigger.classList.add('pad__pick--layout');
+  const menuTitle = el('span', 'pad__menu-title');
+  menuTitle.textContent = 'Tata letak';
+  layoutFold.tray.appendChild(menuTitle);
+  LAYOUTS.forEach((L) => {
+    const b = el('button', 'pad__layout');
+    b.type = 'button';
+    b.dataset.layout = L.id;
+    b.innerHTML = `<span class="pad__layout-icon">${icon(L.icon, { size: 18 })}</span>`
+      + `<span class="pad__layout-text"><b>${L.label}</b><small>${L.note}</small></span>`;
+    b.addEventListener('click', () => { setLayout(L.id); closeTrays(); });
+    layoutBtns[L.id] = b;
+    layoutFold.tray.appendChild(b);
+  });
 
   closeBtn.addEventListener('click', close);
+
+  /* ============================================================
+     BAKI LIPAT (warna, ketebalan, tata letak)
+     ============================================================ */
+  function toggleTray(g) {
+    const willOpen = g.dataset.open !== 'true';
+    closeTrays();
+    if (!willOpen) return;
+    g.dataset.open = 'true';
+    const t = trays.find((x) => x.g === g);
+    if (t) t.trigger.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeTrays() {
+    trays.forEach(({ g, trigger }) => {
+      if (g.dataset.open) delete g.dataset.open;
+      trigger.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  const anyTrayOpen = () => trays.some(({ g }) => g.dataset.open === 'true');
+
+  // Ketukan di luar baki menutupnya — termasuk ketukan di kanvas, yang
+  // sekaligus tetap menggambar (baki tidak boleh "memakan" satu goresan).
+  const onOutside = (e) => {
+    if (!anyTrayOpen()) return;
+    if (trays.some(({ g }) => g.contains(e.target))) return;
+    closeTrays();
+  };
+  document.addEventListener('pointerdown', onOutside, true);
 
   /* ============================================================
      MENGINTIP (peek)
@@ -210,9 +422,11 @@ export function createScratchpad(host) {
      coretan meredup jadi tembus pandang supaya soal di bawahnya
      terbaca; begitu dilepas, coretannya kembali utuh.
 
-     Sejak kanvasnya PADAT (Fase 15.5), mekanik ini bukan lagi
-     kemewahan — ia satu-satunya cara siswa melihat soalnya tanpa
-     menutup papan dan kehilangan coretannya dari pandangan.
+     Sejak Fase 19 mekanik ini hanya TAMPIL pada tata letak yang
+     menutupi soal (kertas penuh & kalkir). Pada tata letak
+     berdampingan tidak ada yang perlu diintip — soalnya memang sudah
+     terlihat di sebelah kiri — jadi tombolnya disembunyikan CSS.
+     Mesinnya sendiri tidak bergantung pada tata letak.
 
      Pelepasannya didengarkan di DUA tempat sekaligus, dan itu
      disengaja:
@@ -231,6 +445,7 @@ export function createScratchpad(host) {
     if (!open || peeking) return;
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     peeking = true;
+    closeTrays();
     // Goresan yang sedang berjalan dibatalkan — menggambar sambil
     // mengintip akan menaruh garis di tempat yang tidak terlihat.
     abortLive();
@@ -260,13 +475,15 @@ export function createScratchpad(host) {
   /* ============================================================
      Menggambar
      ============================================================ */
+
+  /**
+   * Posisi pointer dalam piksel CSS, relatif terhadap sudut kiri-atas
+   * kertas. Lihat catatan di kepala berkas: koordinat TIDAK lagi
+   * dinormalisasi, supaya tulisan tidak meregang saat kertas berubah lebar.
+   */
   const pos = (event) => {
     const r = canvas.getBoundingClientRect();
-    // Ternormalisasi: gambar ikut menyesuaikan kalau panggungnya berubah ukuran.
-    return {
-      x: (event.clientX - r.left) / (r.width || 1),
-      y: (event.clientY - r.top) / (r.height || 1),
-    };
+    return { x: event.clientX - r.left, y: event.clientY - r.top };
   };
 
   /**
@@ -391,15 +608,10 @@ export function createScratchpad(host) {
      puing separuh angka yang justru bikin papannya lebih kotor.
      ============================================================ */
 
-  /**
-   * Buang setiap goresan yang tersentuh ruas pointer `a → b`.
-   * Keduanya dalam koordinat ternormalisasi.
-   */
+  /** Buang setiap goresan yang tersentuh ruas pointer `a → b` (piksel CSS). */
   function eraseAlong(a, b) {
     if (!strokes.length || !cssW || !cssH) return;
 
-    const ax = a.x * cssW, ay = a.y * cssH;
-    const bx = b.x * cssW, by = b.y * cssH;
     let hit = false;
 
     // Dari yang TERATAS ke bawah: goresan yang terakhir digambar adalah yang
@@ -409,7 +621,7 @@ export function createScratchpad(host) {
     for (let i = strokes.length - 1; i >= 0; i--) {
       const s = strokes[i];
       // Goresan tebal menutup area lebih luas, jadi jangkauannya ikut melebar.
-      if (!strokeTouched(s, ax, ay, bx, by, ERASER_REACH + s.width / 2)) continue;
+      if (!strokeTouched(s, a.x, a.y, b.x, b.y, ERASER_REACH + s.width / 2)) continue;
       // Indeksnya dicatat SAAT dibuang; undo mengembalikannya dengan urutan
       // terbalik, sehingga posisi tumpuknya pulih persis.
       erasing.removed.push({ index: i, stroke: s });
@@ -426,13 +638,12 @@ export function createScratchpad(host) {
     if (!pts.length) return false;
 
     if (pts.length === 1) {
-      return distPointSeg(pts[0].x * cssW, pts[0].y * cssH, ax, ay, bx, by) <= reach;
+      return distPointSeg(pts[0].x, pts[0].y, ax, ay, bx, by) <= reach;
     }
 
     for (let i = 1; i < pts.length; i++) {
-      const x1 = pts[i - 1].x * cssW, y1 = pts[i - 1].y * cssH;
-      const x2 = pts[i].x * cssW, y2 = pts[i].y * cssH;
-      if (segSegDist(x1, y1, x2, y2, ax, ay, bx, by) <= reach) return true;
+      if (segSegDist(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y,
+        ax, ay, bx, by) <= reach) return true;
     }
     return false;
   }
@@ -457,7 +668,7 @@ export function createScratchpad(host) {
     if (!p) return;
     applyStyle(s);
     ctx.beginPath();
-    ctx.arc(p.x * cssW, p.y * cssH, (ctx.lineWidth / 2) || 1, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, (ctx.lineWidth / 2) || 1, 0, Math.PI * 2);
     ctx.fillStyle = s.color;
     ctx.fill();
   }
@@ -484,9 +695,9 @@ export function createScratchpad(host) {
 
     applyStyle(s);
     ctx.beginPath();
-    ctx.moveTo(pts[s.drawn].x * cssW, pts[s.drawn].y * cssH);
+    ctx.moveTo(pts[s.drawn].x, pts[s.drawn].y);
     for (let i = s.drawn + 1; i < pts.length; i++) {
-      ctx.lineTo(pts[i].x * cssW, pts[i].y * cssH);
+      ctx.lineTo(pts[i].x, pts[i].y);
     }
     ctx.stroke();
     s.drawn = pts.length - 1;
@@ -500,9 +711,9 @@ export function createScratchpad(host) {
 
     applyStyle(s);
     ctx.beginPath();
-    ctx.moveTo(pts[0].x * cssW, pts[0].y * cssH);
+    ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) {
-      ctx.lineTo(pts[i].x * cssW, pts[i].y * cssH);
+      ctx.lineTo(pts[i].x, pts[i].y);
     }
     ctx.stroke();
   }
@@ -520,7 +731,7 @@ export function createScratchpad(host) {
   }
 
   /* ============================================================
-     Ukuran & rotasi perangkat
+     Ukuran, tata letak & rotasi perangkat
 
      Kanvas punya DUA ukuran: kotak CSS-nya, dan jumlah piksel
      sebenarnya (dikali `devicePixelRatio` supaya garisnya tidak
@@ -529,10 +740,16 @@ export function createScratchpad(host) {
      digambar ulang TAJAM, bukan diregangkan.
      ============================================================ */
   function resize() {
+    // Lebar kertas berdampingan dihitung dulu: ia yang menentukan kotak
+    // kanvas yang akan diukur di bawah.
+    syncLayout();
+
     const r = canvas.getBoundingClientRect();
     const w = Math.round(r.width);
     const h = Math.round(r.height);
     if (!w || !h) return;             // masih tersembunyi: tidak ada yang bisa diukur
+
+    root.dataset.compact = String(root.getBoundingClientRect().width < COMPACT_BELOW);
 
     const dpr = window.devicePixelRatio || 1;
     const needW = Math.round(w * dpr);
@@ -552,11 +769,129 @@ export function createScratchpad(host) {
     redrawAll();
   }
 
+  /** Lebar isi panggung yang bisa dibagi antara soal dan kertas. */
+  function stageRoom() {
+    // `.pad` berhenti di talang scrollbar (`right: var(--sp-5)`), jadi ruang
+    // yang benar-benar bisa dipakai adalah lebar kolom DIKURANGI talang itu.
+    const gutter = parseFloat(getComputedStyle(root).right) || 0;
+    return Math.max(0, host.clientWidth - gutter);
+  }
+
+  /** Tata letak yang BENAR-BENAR tampil — berdampingan butuh panggung lebar. */
+  function effectiveLayout() {
+    if (layout === 'split' && stageRoom() < SPLIT_MIN_STAGE) return 'full';
+    return layout;
+  }
+
+  /** Lebar kertas berdampingan dalam piksel — rasio siswa, dijaga batas piksel. */
+  function paperWidth() {
+    const room = stageRoom();
+    const wish = Math.round(room * ratio);
+    return Math.max(MIN_PAPER_PX, Math.min(room - MIN_QUESTION_PX, wish));
+  }
+
+  let shownLayout = null;
+
+  function syncLayout() {
+    const eff = effectiveLayout();
+    root.dataset.layout = eff;
+    host.style.setProperty('--pad-w', `${paperWidth()}px`);
+    if (open) host.dataset.padLayout = eff;
+
+    // Fungsi ini dipanggil di SETIAP ubah ukuran — termasuk tiap frame saat
+    // pembatas diseret — jadi label & ikon hanya ditulis ulang bila tata
+    // letaknya memang berganti.
+    if (eff !== shownLayout) {
+      shownLayout = eff;
+      const L = LAYOUTS.find((x) => x.id === eff) || LAYOUTS[0];
+      headNote.textContent = L.status;
+      layoutFold.trigger.innerHTML = icon(L.icon, { size: 17 });
+      Object.entries(layoutBtns).forEach(([id, b]) => press(b, id === eff));
+    }
+    const narrow = stageRoom() < SPLIT_MIN_STAGE;
+    layoutBtns.split.disabled = narrow;
+    layoutBtns.split.title = narrow ? 'Layar ini terlalu sempit untuk berdampingan' : '';
+    grip.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+  }
+
   const observer = typeof ResizeObserver !== 'undefined'
     ? new ResizeObserver(() => resize())
     : null;
   if (observer) observer.observe(host);
   window.addEventListener('resize', resize);
+
+  /**
+   * Ganti tata letak. Kertasnya berganti ukuran, bukan isinya: goresan
+   * berkoordinat piksel, jadi tidak ada yang meregang (lihat kepala berkas).
+   */
+  function setLayout(id) {
+    if (!LAYOUTS.some((L) => L.id === id)) return;
+    layout = id;
+    endPeek();
+    savePrefs();
+    resize();
+    // Panggung baru mengendap setelah isinya mengalir ulang.
+    requestAnimationFrame(resize);
+  }
+
+  function setRatio(value, persist) {
+    ratio = Math.min(RATIO_MAX, Math.max(RATIO_MIN, value));
+    resize();
+    if (persist) savePrefs();
+  }
+
+  /* ---------------- Pembatas: seret ATAU ketuk ---------------- */
+  let gripDrag = null;
+
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button != null && e.button > 0) return;
+    e.preventDefault();
+    // Penangkapan pointer supaya seretan tidak putus saat jari keluar dari
+    // pembatas yang sempit. Ia MELEMPAR bila pointer-nya sudah tidak aktif
+    // (mis. sentuhan yang dibatalkan sistem) — dan seretan tetap harus jalan.
+    try { grip.setPointerCapture?.(e.pointerId); } catch (err) { /* lanjut tanpa tangkapan */ }
+    gripDrag = { startX: e.clientX, moved: false };
+    root.dataset.resizing = 'true';
+  });
+
+  grip.addEventListener('pointermove', (e) => {
+    if (!gripDrag) return;
+    if (Math.abs(e.clientX - gripDrag.startX) > 4) gripDrag.moved = true;
+    if (!gripDrag.moved) return;
+    // Tepi KANAN kertas diam; lebarnya = jarak jari ke tepi itu.
+    const right = root.getBoundingClientRect().right;
+    const room = stageRoom();
+    if (room) setRatio((right - e.clientX) / room, false);
+  });
+
+  const endGrip = () => {
+    if (!gripDrag) return;
+    const tapped = !gripDrag.moved;
+    gripDrag = null;
+    delete root.dataset.resizing;
+    if (tapped) {
+      // Ketukan: maju ke lebar siap pakai berikutnya (berputar).
+      const next = RATIO_PRESETS.find((p) => p > ratio + 0.01) ?? RATIO_PRESETS[0];
+      setRatio(next, true);
+    } else {
+      savePrefs();
+    }
+  };
+  grip.addEventListener('pointerup', endGrip);
+  grip.addEventListener('pointercancel', endGrip);
+
+  grip.addEventListener('keydown', (e) => {
+    // Panah KIRI memperlebar kertas (pembatasnya bergeser ke kiri).
+    if (e.key === 'ArrowLeft') { e.preventDefault(); setRatio(ratio + 0.04, true); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); setRatio(ratio - 0.04, true); }
+  });
+  // Ketukan sudah ditangani `pointerup`; `click` hanya datang dari papan
+  // ketik (Enter/Space), dan detail-nya 0 di jalur itu.
+  grip.addEventListener('click', (e) => {
+    if (e.detail !== 0) return;
+    const next = RATIO_PRESETS.find((p) => p > ratio + 0.01) ?? RATIO_PRESETS[0];
+    setRatio(next, true);
+  });
 
   /* ============================================================
      Riwayat tindakan
@@ -654,10 +989,11 @@ export function createScratchpad(host) {
     open = true;
     root.hidden = false;
     fab.setAttribute('aria-expanded', 'true');
+    fab.setAttribute('aria-label', 'Tutup papan coret');
     host.dataset.padOpen = 'true';
     // Diukur SEKARANG (kotaknya sudah tampil, `getBoundingClientRect` memaksa
     // layout) dan sekali lagi di frame berikutnya, untuk berjaga kalau tata
-    // letak panggung baru mengendap setelah transisi.
+    // letak panggung baru mengendap setelah isinya mengalir ulang.
     resize();
     requestAnimationFrame(resize);
   }
@@ -667,17 +1003,31 @@ export function createScratchpad(host) {
     open = false;
     endPeek();
     abortLive();
+    closeTrays();
     root.hidden = true;
     fab.setAttribute('aria-expanded', 'false');
+    fab.setAttribute('aria-label', 'Buka papan coret');
     delete host.dataset.padOpen;
+    delete host.dataset.padLayout;
     fab.focus();
   }
 
   fab.addEventListener('click', () => (open ? close() : openPad()));
 
-  // Escape menutup papan — jalan keluar yang sama dengan modal.
+  // Escape menutup baki lebih dulu, baru papannya — jalan keluar yang sama
+  // dengan modal, selangkah demi selangkah.
+  //
+  // ⚠️ Sejak papan BERDAMPINGAN, soal tetap hidup di sebelahnya: siswa bisa
+  // membuka Mathpad (atau modal "Kumpulkan Ujian") sementara papan terbuka.
+  // Escape di saat itu milik lapisan yang PALING ATAS. Tanpa penjagaan ini,
+  // satu tekanan Escape membatalkan isian Mathpad SEKALIGUS menutup papan —
+  // dan karena pendengar Mathpad baru dipasang saat pad angka dibuka,
+  // pendengar papan inilah yang menyala lebih dulu.
   const onKey = (e) => {
-    if (e.key === 'Escape' && open) { e.preventDefault(); close(); }
+    if (e.key !== 'Escape' || !open || e.defaultPrevented) return;
+    if (document.querySelector('.mathpad[data-open="true"], .modal-scrim[data-open="true"]')) return;
+    e.preventDefault();
+    if (anyTrayOpen()) closeTrays(); else close();
   };
   document.addEventListener('keydown', onKey);
 
@@ -691,27 +1041,39 @@ export function createScratchpad(host) {
   function setColor(value) {
     color = value;
     Object.entries(colorBtns).forEach(([k, b]) => press(b, k === value));
+    colorFold.trigger.style.setProperty('--swatch', value);
   }
 
   function setWidth(value) {
     width = value;
     Object.entries(widthBtns).forEach(([k, b]) => press(b, Number(k) === value));
+    widthFold.trigger.style.setProperty('--line', `${value}px`);
+  }
+
+  /* ---------------- Preferensi per perangkat ---------------- */
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ layout, ratio }));
+    } catch (e) { /* mode privat / penyimpanan diblokir: tetap jalan tanpa ingatan */ }
   }
 
   setTool('pen');
   setColor(COLORS[0].value);
   setWidth(WIDTHS[1].value);
+  syncLayout();
   syncActions();
 
   /* ---------------- Pembongkaran ---------------- */
   return {
     open: openPad,
     close,
+    setLayout,
     /** Dipakai pengujian & pemeriksaan internal. */
     get state() {
       return { open, peeking, tool, color, width,
         strokes: strokes.length, history: history.length,
-        redo: redo.length, committed };
+        redo: redo.length, committed,
+        layout, effectiveLayout: effectiveLayout(), ratio };
     },
     destroy() {
       if (observer) observer.disconnect();
@@ -720,16 +1082,38 @@ export function createScratchpad(host) {
       window.removeEventListener('pointercancel', endPeek);
       window.removeEventListener('blur', endPeek);
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onOutside, true);
       // Isolasi rute: pindah sub-topik = papan bersih, memori dilepas.
       strokes = [];
       history = [];
       redo = [];
       live = null;
       erasing = null;
+      delete host.dataset.padOpen;
+      delete host.dataset.padLayout;
+      host.style.removeProperty('--pad-w');
       fab.remove();
       root.remove();
     },
   };
+}
+
+/* ------------------------------------------------------------
+   Preferensi — dibaca sekali per papan
+   ------------------------------------------------------------ */
+function readPrefs() {
+  const fallback = { layout: 'split', ratio: RATIO_DEFAULT };
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
+    if (!raw || typeof raw !== 'object') return fallback;
+    const layout = LAYOUTS.some((L) => L.id === raw.layout) ? raw.layout : fallback.layout;
+    const ratio = Number.isFinite(raw.ratio)
+      ? Math.min(RATIO_MAX, Math.max(RATIO_MIN, raw.ratio))
+      : fallback.ratio;
+    return { layout, ratio };
+  } catch (e) {
+    return fallback;
+  }
 }
 
 /* ------------------------------------------------------------
