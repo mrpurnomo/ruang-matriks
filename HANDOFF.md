@@ -1,13 +1,17 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **7 Oktober 2026**, menutup Fase 19.
-> Status: **fase 1–19 selesai, seluruh pengujian otomatis hijau (21/21 + 656/656).**
+> Dokumen serah-terima antar sesi. Diperbarui **7 Oktober 2026**, menutup Fase 19.5.
+> Status: **fase 1–19.5 selesai, seluruh pengujian otomatis hijau (21/21 + 656/656).**
 >
-> 🟡 **FASE 19 SELESAI — MENUNGGU AUDIT QA LEAD ARCHITECT.** Dua pekerjaan:
-> (1) **papan coret BERDAMPINGAN** — soal dan kertas terlihat bersamaan, soal
-> tetap bisa dijawab, tanpa tahan-tombol atau buka-tutup; (2) sistem visual
-> **"Presisi Tenang"** — perombakan tampilan yang menenangkan mata tanpa
-> mengubah identitas merek. Rinciannya di **§00000000**.
+> 🟢 **FASE 19.5 SELESAI — Rich Cards & Widescreen Optimization.** Dua masalah
+> ruang kosong (60–70% layar kosong di bawah daftar bab/sub-topik) diperbaiki:
+> layar Pilih Bab jadi kisi 2×2 kartu kaya mengisi layar; layar Sub-topik jadi
+> papan dua-panel (ikhtisar bab + kisi kartu modul). Commit lokal menunggu.
+> Rinciannya di **§000000000**.
+>
+> ✅ **FASE 19 SELESAI — PAPAN CORET BERDAMPINGAN & "PRESISI TENANG".** Soal
+> dan kertas terlihat bersamaan, soal tetap bisa dijawab tanpa tahan-tombol atau
+> buka-tutup. Rinciannya di **§00000000**.
 >
 > ✅ **FASE 18.5 SELESAI.** Lima temuan UAT: kalimat pertanyaan TKA yang belum
 > ada, markdown mentah di layar, Mathpad yang membuang angka, kartu "Lencana"
@@ -65,14 +69,14 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **7 Oktober 2026**, sesaat setelah Fase 19 ditutup:
+Keadaan per **7 Oktober 2026**, sesaat setelah Fase 19.5 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 19 — Papan Coret Berdampingan & "Presisi Tenang"** (§00000000). Selesai, teruji, di-commit lokal |
+| Pekerjaan terakhir | **Fase 19.5 — Rich Cards & Widescreen Optimization** (§000000000). Selesai, teruji, menunggu commit lokal |
 | Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **656/656** |
-| Git | Fase 19 = **1 commit lokal baru**, di atas `main` yang sudah 2 commit di depan `origin/main`. Belum di-push (§1A) |
-| Pekerjaan tertunda | **Audit QA oleh Lead Architect** atas Fase 19 sebelum dipakai siswa |
+| Git | Fase 19.5 = **perubahan belum di-commit** (3 berkas: `css/phase18.css`, `js/app.js`, `index.html`). 3 commit lokal di depan `origin/main`. Belum di-push (§1A) |
+| Pekerjaan tertunda | Commit lokal Fase 19.5, lalu tunjukkan ke user untuk review visual |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
@@ -89,7 +93,93 @@ menggantung.
 
 ---
 
+
+## 000000000. FASE 19.5 — RICH CARDS & WIDESCREEN OPTIMIZATION (SELESAI)
+
+### 1. Masalah: 60–70% layar kosong di bawah daftar bab/sub-topik
+
+UAT di layar penuh (≥1366×768, 1920×1080): daftar bab tampil sebagai 4 baris
+tipis ±90px menempel di atas, sisanya putih polos. Daftar sub-topik serupa:
+5–7 baris ±48px, lalu kosong. Tiga penyebab berlapis:
+
+1. `.container { max-width: 1180px }` (layout.css) — terlalu sempit di widescreen.
+2. `.workspace__body > * { width: min(1000px, 100%) }` (phase9.css) — konten
+   dikunci 1000px, tidak ikut melebar.
+3. `chapter-list` dan `subtopic-list` memakai `align-content: start` — baris
+   hanya setinggi isinya, tidak ada alasan untuk tumbuh.
+
+### 2. Solusi: tiga komponen baru yang mengisi layar
+
+**A. Layar Pilih Bab** — Kisi 2×2 **Kartu Bab Kaya** (`chapter-list--rich`):
+- `grid-auto-rows: minmax(min-content, 1fr)` — kartu tumbuh mengisi tinggi,
+  bukan menempel di atas.
+- Tiap kartu: nomor besar berwarna aksen bab, rumus matematis khas bab di panel
+  kanan (kotak bertekstur titik-titik), silabus sub-topik mini dengan indikator
+  ✓/→/🔒, bilah progres, tombol CTA kontekstual.
+- Header bar punya statistik kanan: "x/22 sub-topik selesai" & "x% kurikulum".
+
+**B. Layar Sub-topik** — Layout dua-panel **Papan Modul** (`module-board`):
+- Kiri: **Panel Ikhtisar Bab** — nomor, judul, tagline, rumus, progres, tombol
+  ajakan tunggal yang selalu tepat ("Lanjutkan: [sub-topik berikutnya]").
+- Kanan: **Kisi Kartu Modul** — 2–4 kolom adaptif. Tiap kartu: nomor, chip
+  status (Selesai/Berikutnya/Terbuka/Terkunci), judul, cuplikan kalimat pertama
+  materi, 3 langkah (Materi · Simulasi · Mini Kuis), skor terbaik.
+- Kartu terakhir: **Kartu Latihan Soal Bab** (gelap, membentang mengisi sel
+  kosong di baris terakhir via `--span-*` CSS custom property).
+- Kolom otomatis: 4 kolom ≥1500px, 3 kolom menengah, 2 kolom <1100px.
+
+**C. Penyebab void diatasi di CSS phase18.css §19.C:**
+```
+.container { max-width: min(1440px, 94vw) } @media ≥1200px
+.container { max-width: min(1720px, 92vw) } @media ≥1700px
+.workspace--board > .workspace__body > .chapter-list--rich,
+.workspace--board > .workspace__body > .module-board { width: 100%; }
+```
+
+### 3. Bug QA: kartu terakhir tidak bisa diklik di 844×390 (Fase 19.5-fix)
+
+Smoke.py Bagian 84 menguji bahwa item terakhir daftar sub-topik terlihat DAN
+bisa diklik di viewport 844×390 (landscape sempit). Kegagalan: `lastClickable: false`.
+
+**Akar masalah:** Kartu modul (±160px tinggi) terlalu tinggi di landscape sempit,
+sehingga saat `workspace__body` di-scroll habis, `getBoundingClientRect().top`
+kartu terakhir bisa negatif atau sangat kecil. Titik tes `elementFromPoint`
+jatuh di `lr.top + 15px` yang bisa berada di luar area workspace__body.
+
+**Fix:** Di media query `(orientation: landscape) and (max-height: 560px)`,
+tambahkan:
+- `module-card__steps { display: none }` — hilangkan chip 3 langkah.
+- `module-card { padding: 10px 12px; gap: 6px }` — kartu lebih ringkas.
+- `module-card__foot { padding-top: 6px }` — kurangi jarak kaki.
+- `workspace--board > .workspace__body { padding-bottom: 16px }` — scroll ekstra
+  sehingga kartu terakhir bisa sepenuhnya masuk area klik.
+
+### 4. Berkas yang diubah
+
+| Berkas | Perubahan |
+|---|---|
+| `js/app.js` | Tulis ulang `renderChapterList` (→ kartu kaya), `renderSubtopicList` (→ papan modul), `renderQuizMenu` (→ kartu bank kaya). +351 baris, -77 baris. |
+| `css/phase18.css` | Tambah §19.C (~900 baris): sistem aksen per bab, kerangka `workspace--board`, kartu bab kaya, papan modul, kisi kartu modul, papan kuis, responsif 3 breakpoint. |
+| `index.html` | Cache-busting: semua `<link>` CSS naik dari `?v=19` ke `?v=19.6`. |
+
+### 5. Selektor yang dipantau smoke.py (tetap terpenuhi)
+
+- `.chapter-item`, `.chapter-item--completed`, `.chapter-item .progressbar` — ada
+  di `chapter-item--rich` via class ganda.
+- `.subtopic-item[data-state]`, `.subtopic-item:disabled` — ada di
+  `subtopic-item.module-card`.
+- `.workspace__body` bisa di-scroll, item terakhir terlihat dan bisa diklik —
+  diverifikasi Bagian 84.
+
+### 6. Hasil pengujian
+
+- `engine.test.mjs`: **21/21** ✅
+- `smoke.py` (setelah fix §19.5-bug): **656/656** ✅
+
+---
+
 ## 00000000. FASE 19 — PAPAN CORET BERDAMPINGAN & "PRESISI TENANG" (SELESAI)
+
 
 ### 1. Masalah: papan coret menutupi soal
 

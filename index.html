@@ -20,26 +20,31 @@
         integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
         crossorigin="anonymous">
 
-  <!-- Gaya aplikasi (urutan penting: token → layout → komponen → matriks → scrollbar → animasi) -->
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/matrix.css">
-  <link rel="stylesheet" href="css/simulations.css">
-  <link rel="stylesheet" href="css/scrollbars.css">
-  <link rel="stylesheet" href="css/animations.css">
-  <link rel="stylesheet" href="css/phase7.css">
-  <link rel="stylesheet" href="css/phase8.css">
-  <link rel="stylesheet" href="css/phase9.css">
-  <link rel="stylesheet" href="css/phase10.css">
-  <link rel="stylesheet" href="css/phase11.css">
-  <link rel="stylesheet" href="css/phase12.css">
-  <link rel="stylesheet" href="css/phase13.css">
-  <link rel="stylesheet" href="css/phase14.css">
-  <link rel="stylesheet" href="css/phase15.css">
-  <link rel="stylesheet" href="css/phase16.css">
-  <link rel="stylesheet" href="css/phase17.css">
-  <link rel="stylesheet" href="css/phase18.css">
+  <!-- Gaya aplikasi (urutan penting: token → layout → komponen → matriks → scrollbar → animasi)
+
+       ?v=… adalah PENANDA VERSI (cache-busting). Peramban & hosting menahan
+       salinan lama berkas CSS; tanpa penanda ini siswa bisa mendapat HTML
+       baru dengan gaya lama — tata letak setengah jadi. NAIKKAN angkanya di
+       SEMUA baris (dan di app.js di bawah) setiap kali CSS/JS berubah. -->
+  <link rel="stylesheet" href="css/base.css?v=19.6">
+  <link rel="stylesheet" href="css/layout.css?v=19.6">
+  <link rel="stylesheet" href="css/components.css?v=19.6">
+  <link rel="stylesheet" href="css/matrix.css?v=19.6">
+  <link rel="stylesheet" href="css/simulations.css?v=19.6">
+  <link rel="stylesheet" href="css/scrollbars.css?v=19.6">
+  <link rel="stylesheet" href="css/animations.css?v=19.6">
+  <link rel="stylesheet" href="css/phase7.css?v=19.6">
+  <link rel="stylesheet" href="css/phase8.css?v=19.6">
+  <link rel="stylesheet" href="css/phase9.css?v=19.6">
+  <link rel="stylesheet" href="css/phase10.css?v=19.6">
+  <link rel="stylesheet" href="css/phase11.css?v=19.6">
+  <link rel="stylesheet" href="css/phase12.css?v=19.6">
+  <link rel="stylesheet" href="css/phase13.css?v=19.6">
+  <link rel="stylesheet" href="css/phase14.css?v=19.6">
+  <link rel="stylesheet" href="css/phase15.css?v=19.6">
+  <link rel="stylesheet" href="css/phase16.css?v=19.6">
+  <link rel="stylesheet" href="css/phase17.css?v=19.6">
+  <link rel="stylesheet" href="css/phase18.css?v=19.6">
 
   <!-- Favicon: kotak biru TERANG dengan glif navy gelap — terbaca di tab
        terang maupun gelap (versi lama gelap-di-atas-gelap tidak terlihat). -->
@@ -192,7 +197,7 @@
   </script>
 
   <!-- Modul aplikasi (ES6 native, tanpa build step) -->
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=19.6"></script>
 
 </body>
 </html>

@@ -7,7 +7,7 @@ import * as router from './router.js';
 import { icon } from './ui/icons.js';
 import toast, { clearToasts, anchorToasts } from './ui/toast.js';
 import { showModal, confirmAction } from './ui/modal.js';
-import { renderMixed } from './engine/katexRenderer.js';
+import { renderMixed, renderToString } from './engine/katexRenderer.js';
 import { LessonView } from './modules/belajar/lessonRenderer.js';
 import { QuizEngine } from './modules/kuis/quizEngine.js';
 import { ExamEngine } from './modules/kuis/examEngine.js';
@@ -640,46 +640,88 @@ async function renderMenu(params, options) {
 /* ------------------------------------------------------------
    Layar: Daftar Bab
    ------------------------------------------------------------ */
+/**
+ * Fase 19.5: kartu bab KAYA dalam kisi 2×2 yang MENGISI layar.
+ *
+ * Versi lama berupa empat baris tipis setinggi ±90px yang menempel di atas,
+ * dan di monitor/layar penuh menyisakan 60–70% layar kosong di bawahnya —
+ * seperti tampilan ponsel yang dipaksa ke layar besar. Sekarang tiap kartu
+ * memuat yang memang dibutuhkan siswa untuk MEMILIH bab: status, rumus wajah
+ * bab, silabus sub-topiknya (beserta mana yang sudah selesai dan mana yang
+ * berikutnya), progres, dan ajakan yang tepat (Mulai / Lanjutkan / Review).
+ * Baris kisinya `minmax(min-content, 1fr)`: di layar tinggi kartunya tumbuh
+ * mengisi, di lanskap pendek ia kembali ke tinggi isinya lalu MENGGULIR.
+ */
 function renderChapterList(params, options) {
   mountScreen(async (container) => {
     showLoading(container);
     try { await loadManifest(); } catch (err) { return showError(container, err); }
 
+    // Isi tiap bab dimuat sekarang karena kartunya menampilkan silabus. Satu
+    // bab yang gagal dimuat tidak boleh mengosongkan daftar: kartunya tetap
+    // tampil, hanya tanpa silabus.
+    const contents = await Promise.all(
+      state.manifest.chapters.map((ch) => loadChapter(ch.id).catch(() => null)));
+
     container.innerHTML = '';
-    const workspace = el('div', 'workspace');
+    const overall = getOverallProgress(state.manifest);
+    const workspace = el('div', 'workspace workspace--board');
 
     workspace.appendChild(buildBar({
       eyebrow: 'Mode Belajar',
       title: 'Pilih Bab',
       onBack: () => router.navigate(''),
+      aside: `<span class="bar-stat"><b>${overall.completed}<small>/${overall.total}</small></b><span>sub-topik selesai</span></span>
+              <span class="bar-stat"><b>${overall.percent}<small>%</small></b><span>kurikulum dikuasai</span></span>`,
     }));
 
     const body = el('div', 'workspace__body');
-    const list = el('div', 'chapter-list stagger');
+    const list = el('div', 'chapter-list chapter-list--rich stagger');
 
-    state.manifest.chapters.forEach((ch) => {
+    state.manifest.chapters.forEach((ch, i) => {
+      const data = contents[i];
       const progress = getChapterProgress(ch.id, ch.subtopicOrder);
       const isDone = progress.total > 0 && progress.completed === progress.total;
+      const states = subtopicStates(ch);
+      const started = progress.completed > 0
+        || states.some((s) => s.progress.status === 'in_progress');
 
-      const item = el('button', `chapter-item${isDone ? ' chapter-item--completed' : ''}`);
+      const status = isDone ? ['done', 'Tuntas']
+        : started ? ['active', 'Sedang dipelajari'] : ['idle', 'Belum dimulai'];
+      const cta = isDone ? 'Review bab' : started ? 'Lanjutkan' : 'Mulai bab';
+
+      const syllabus = states.map((s, k) => {
+        const sub = data && data.subtopics.find((x) => x.id === s.id);
+        const title = sub ? renderMixed(sub.title) : '';
+        const mark = s.kind === 'done' ? icon('check', { size: 12, stroke: 3 })
+          : s.kind === 'locked' ? '' : `<i>${k + 1}</i>`;
+        return `<span class="syl" data-kind="${s.kind}"><span class="syl__dot">${mark}</span><span class="syl__text">${title}</span></span>`;
+      }).join('');
+
+      const item = el('button', `chapter-item chapter-item--rich${isDone ? ' chapter-item--completed' : ''}`);
       item.type = 'button';
+      item.dataset.accent = ch.accent || 'primary';
+      item.setAttribute('aria-label',
+        `Bab ${ch.number}: ${ch.title}. ${status[1]}, ${progress.completed} dari ${progress.total} sub-topik selesai.`);
 
-      // Bab tuntas ditandai emas + ikon piala, jelas beda dari bab berjalan.
+      // Bab tuntas tetap ditandai emas + piala, jelas beda dari bab berjalan.
       item.innerHTML = `
-        <span class="chapter-item__num">${isDone ? icon('trophy', { size: 22 }) : ch.number}</span>
-        <span class="chapter-item__body">
-          <span class="chapter-item__title">
-            ${ch.title}
-            ${isDone ? '<span class="badge badge--amber" style="margin-left:8px">Tuntas</span>' : ''}
-          </span>
-          <span class="chapter-item__tag">${isDone ? 'Semua sub-topik selesai — buka lagi untuk review.' : ch.tagline}</span>
-          <span class="progressbar" style="margin-top:8px">
-            <span class="progressbar__fill" style="width:${progress.percent}%"></span>
-          </span>
+        <span class="chapter-item__top">
+          <span class="chapter-item__num">${isDone ? icon('trophy', { size: 22 }) : pad2(ch.number)}</span>
+          <span class="chapter-item__status" data-tone="${status[0]}">${status[1]}</span>
         </span>
-        <span class="chapter-item__progress">
-          ${progress.completed}/${progress.total}
-          ${icon('chevron-right', { size: 16 })}
+        <span class="chapter-item__body">
+          <span class="chapter-item__title">${ch.title}</span>
+          <span class="chapter-item__tag">${ch.tagline}</span>
+        </span>
+        <span class="chapter-item__art" aria-hidden="true">${chapterArt(ch.id)}</span>
+        ${data ? `<span class="chapter-item__syllabus">${syllabus}</span>` : ''}
+        <span class="chapter-item__foot">
+          <span class="chapter-item__meter">
+            <span class="chapter-item__meter-label"><span>Progres bab</span><b>${progress.completed}/${progress.total}</b></span>
+            <span class="progressbar"><span class="progressbar__fill" style="width:${progress.percent}%"></span></span>
+          </span>
+          <span class="chapter-item__cta">${cta}${icon('arrow-right', { size: 16 })}</span>
         </span>
       `;
       item.addEventListener('click', () => router.navigate(`belajar/${ch.id}`));
@@ -710,46 +752,144 @@ function renderSubtopicList(params, options) {
       return showError(container, err);
     }
 
-    container.innerHTML = '';
-    const workspace = el('div', 'workspace');
+    // Jumlah soal latihan bab untuk kartu penutup. Opsional: kalau bank
+    // soalnya gagal dimuat, kartu itu saja yang tidak tampil.
+    const quizzes = await loadQuizzes().catch(() => null);
+    const bank = quizzes && quizzes.banks ? (quizzes.banks[chapterMeta.id] || []) : [];
 
+    container.innerHTML = '';
+    const progress = getChapterProgress(chapterMeta.id, chapterMeta.subtopicOrder);
+    const states = subtopicStates(chapterMeta);
+    const isDone = progress.total > 0 && progress.completed === progress.total;
+
+    const workspace = el('div', 'workspace workspace--board');
     workspace.appendChild(buildBar({
       eyebrow: `Bab ${chapterMeta.number}`,
       title: chapterMeta.title,
       onBack: () => router.navigate('belajar'),
+      aside: `<span class="bar-stat"><b>${progress.completed}<small>/${progress.total}</small></b><span>sub-topik selesai</span></span>`,
     }));
 
     const body = el('div', 'workspace__body');
-    const list = el('div', 'subtopic-list stagger');
 
-    chapterMeta.subtopicOrder.forEach((id, index) => {
-      const sub = chapterData.subtopics.find((s) => s.id === id);
+    /**
+     * Fase 19.5: papan modul, bukan daftar tipis.
+     *
+     * Versi lama menampilkan sub-topik sebagai satu kolom baris setinggi
+     * ±48px — di layar penuh, 70% layar di bawahnya kosong. Sekarang:
+     *
+     *   KIRI  — ikhtisar bab: rumus wajahnya, progres, dan SATU ajakan yang
+     *           selalu benar ("Lanjutkan: <sub-topik berikutnya>"), supaya
+     *           siswa tidak perlu mencari kartu mana yang harus diketuk.
+     *   KANAN — kisi kartu modul yang barisnya `1fr` (mengisi tinggi layar):
+     *           nomor, status, judul, cuplikan materi, tiga langkahnya, dan
+     *           skor terbaik untuk yang sudah selesai.
+     *
+     * Kartu terakhir adalah Latihan Soal bab ini. Ia sengaja MEMBENTANG ke
+     * sel kosong di baris terakhir (`--span-*`): kisi yang bolong terbaca
+     * seperti kartu yang hilang, sedangkan latihan bab memang langkah wajar
+     * sesudah semua sub-topiknya.
+     */
+    const board = el('div', 'module-board');
+    board.dataset.accent = chapterMeta.accent || 'primary';
+
+    // --- Ikhtisar bab ---
+    const target = states.find((s) => s.kind === 'next') || null;
+    const targetSub = target && chapterData.subtopics.find((s) => s.id === target.id);
+    const overview = el('aside', 'chapter-overview');
+    overview.innerHTML = `
+      <span class="chapter-overview__num">${pad2(chapterMeta.number)}</span>
+      <span class="chapter-overview__eyebrow">Bab ${chapterMeta.number} · ${progress.total} sub-topik</span>
+      <h2 class="chapter-overview__title">${chapterMeta.title}</h2>
+      <p class="chapter-overview__tag">${chapterMeta.tagline}</p>
+      <div class="chapter-overview__art" aria-hidden="true">${chapterArt(chapterMeta.id)}</div>
+      <div class="chapter-overview__meter">
+        <div class="chapter-overview__meter-label">
+          <span>Progres bab</span><b>${progress.percent}%</b>
+        </div>
+        <div class="progressbar"><div class="progressbar__fill" style="width:${progress.percent}%"></div></div>
+      </div>
+    `;
+
+    const go = el('button', 'btn btn--primary btn--lg chapter-overview__go');
+    go.type = 'button';
+    if (targetSub) {
+      const resumed = progress.completed > 0 || target.progress.status === 'in_progress';
+      go.innerHTML = `${icon('play', { size: 17 })}<span><small>${resumed ? 'Lanjutkan' : 'Mulai'}</small>${renderMixed(targetSub.title)}</span>`;
+      go.addEventListener('click', () => router.navigate(`belajar/${chapterMeta.id}/${targetSub.id}`));
+    } else {
+      // Semua tuntas: ajakannya beralih ke uji pemahaman bab.
+      go.innerHTML = `${icon('trophy', { size: 17 })}<span><small>Bab tuntas</small>Uji dengan Latihan Soal</span>`;
+      go.addEventListener('click', () => router.navigate(`kuis/latihan_bab/${chapterMeta.id}`));
+    }
+    overview.appendChild(go);
+    overview.appendChild(el('p', 'chapter-overview__hint',
+      `${icon('lock', { size: 13 })}<span>Sub-topik terbuka berurutan — selesaikan Mini Kuis untuk membuka yang berikutnya.</span>`));
+    board.appendChild(overview);
+
+    // --- Kisi kartu modul ---
+    const list = el('div', 'subtopic-list module-grid stagger');
+    // Tiga konfigurasi kolom (lebar ≥1500px / menengah / sempit <1100px).
+    // Untuk masing-masing dihitung berapa sel yang harus dibentangi kartu
+    // terakhir supaya baris terakhir tidak pernah bolong. CSS memilih pasangan
+    // yang sesuai lewat media query.
+    const total = chapterMeta.subtopicOrder.length + (bank.length ? 1 : 0);
+    const spanFor = (c) => c * Math.ceil(total / c) - total + 1;
+    const wide = total <= 4 ? 2 : total <= 6 ? 3 : 4;
+    const mid = Math.min(wide, 3);
+    list.style.setProperty('--cols', wide);
+    list.style.setProperty('--cols-mid', mid);
+    list.style.setProperty('--span-wide', spanFor(wide));
+    list.style.setProperty('--span-mid', spanFor(mid));
+    list.style.setProperty('--span-narrow', spanFor(2));
+
+    const CHIP = {
+      done: ['check', 'Selesai'],
+      next: ['play', 'Berikutnya'],
+      open: ['play', 'Terbuka'],
+      locked: ['lock', 'Terkunci'],
+    };
+
+    states.forEach((s, index) => {
+      const sub = chapterData.subtopics.find((x) => x.id === s.id);
       if (!sub) return;
 
-      const progress = getSubtopicProgress(chapterMeta.id, id);
-      const unlocked = isSubtopicUnlocked(chapterMeta.id, chapterMeta.subtopicOrder, id);
-
-      const isDone = progress.status === 'completed';
-      const item = el('button', `subtopic-item${isDone ? ' subtopic-item--completed' : ''}`);
+      const isSubDone = s.kind === 'done';
+      const item = el('button', `subtopic-item module-card${isSubDone ? ' subtopic-item--completed' : ''}`);
       item.type = 'button';
-      item.dataset.state = progress.status;
-      item.disabled = !unlocked;
+      item.dataset.state = s.progress.status;
+      item.dataset.kind = s.kind;
+      item.disabled = !s.unlocked;
 
-      const stateIcon = isDone ? 'check' : unlocked ? 'play' : 'lock';
+      const quizCount = Array.isArray(sub.quiz) ? sub.quiz.length : 0;
+      const action = isSubDone ? 'Review' : s.unlocked
+        ? (s.progress.status === 'in_progress' ? 'Lanjutkan' : 'Mulai') : '';
+      const [chipIcon, chipText] = CHIP[s.kind];
 
       item.innerHTML = `
-        <span class="subtopic-item__state">${icon(stateIcon, { size: 15 })}</span>
-        <span class="subtopic-item__title">${index + 1}. ${sub.title}</span>
-        ${isDone
-          ? `<span class="badge badge--success">${progress.bestQuizScore}</span>
-             <span class="badge badge--primary">Review</span>`
-          : ''}
-        ${icon('chevron-right', { size: 16 })}
+        <span class="module-card__head">
+          <span class="module-card__index">${pad2(index + 1)}</span>
+          <span class="module-card__chip" data-kind="${s.kind}">${icon(chipIcon, { size: 12, stroke: 2.6 })}${chipText}</span>
+        </span>
+        <span class="subtopic-item__title module-card__title">${renderMixed(sub.title)}</span>
+        <span class="module-card__snippet">${renderMixed(snippetOf(sub))}</span>
+        <span class="module-card__steps">
+          <span>${icon('book', { size: 12 })}Materi</span>
+          <span>${icon('grid', { size: 12 })}Simulasi</span>
+          <span>${icon('check-circle', { size: 12 })}Mini Kuis${quizCount ? ` · ${quizCount} soal` : ''}</span>
+        </span>
+        <span class="module-card__foot">
+          ${isSubDone
+            ? `<span class="module-card__score"><b>${s.progress.bestQuizScore}</b>skor terbaik</span>`
+            : s.unlocked ? '<span></span>'
+              : `<span class="module-card__locked">${icon('lock', { size: 12 })}Selesaikan sub-topik ${index} dulu</span>`}
+          ${action ? `<span class="module-card__go">${action}${icon('arrow-right', { size: 15 })}</span>` : ''}
+        </span>
       `;
 
-      if (unlocked) {
+      if (s.unlocked) {
         item.addEventListener('click', () =>
-          router.navigate(`belajar/${chapterMeta.id}/${id}`));
+          router.navigate(`belajar/${chapterMeta.id}/${s.id}`));
       } else {
         // Tombol terkunci tetap menjelaskan alasannya.
         item.title = 'Selesaikan sub-topik sebelumnya untuk membuka yang ini.';
@@ -758,11 +898,30 @@ function renderSubtopicList(params, options) {
       list.appendChild(item);
     });
 
-    body.appendChild(list);
-    body.appendChild(el('p', 'quiz__hint',
-      'Sub-topik terbuka berurutan — selesaikan Mini Kuis untuk membuka yang berikutnya.'));
+    if (bank.length) {
+      const quiz = el('button', 'module-card module-card--quiz');
+      quiz.type = 'button';
+      quiz.innerHTML = `
+        <span class="module-card__head">
+          <span class="module-card__index">${icon('target', { size: 18 })}</span>
+          <span class="module-card__chip" data-kind="quiz">Uji pemahaman</span>
+        </span>
+        <span class="module-card__title">Latihan Soal Bab ${chapterMeta.number}</span>
+        <span class="module-card__snippet">${bank.length} soal campuran dari seluruh sub-topik bab ini, dinilai sekaligus seperti ujian. Bisa dicoba kapan saja — tidak mengunci apa pun.</span>
+        <span class="module-card__foot">
+          ${attemptChips('latihan_bab', chapterMeta.id) || '<span></span>'}
+          <span class="module-card__go">Kerjakan${icon('arrow-right', { size: 15 })}</span>
+        </span>
+      `;
+      quiz.addEventListener('click', () => router.navigate(`kuis/latihan_bab/${chapterMeta.id}`));
+      list.appendChild(quiz);
+    }
+
+    board.appendChild(list);
+    body.appendChild(board);
     workspace.appendChild(body);
     container.appendChild(workspace);
+    if (isDone) board.classList.add('module-board--done');
   }, options);
 }
 
@@ -815,7 +974,7 @@ function renderQuizMenu(params, options) {
     }
 
     container.innerHTML = '';
-    const workspace = el('div', 'workspace');
+    const workspace = el('div', 'workspace workspace--board');
 
     workspace.appendChild(buildBar({
       eyebrow: 'Mode Kuis',
@@ -825,47 +984,74 @@ function renderQuizMenu(params, options) {
 
     const body = el('div', 'workspace__body');
 
+    /**
+     * Fase 19.5: papan kuis. Dulu lima baris tipis di atas layar kosong.
+     * Sekarang kartu TKA menjadi "panggung utama" (ia satu-satunya simulasi
+     * ujian lintas bab), dan empat bank bab mengisi sisa layar dalam kisi
+     * 2×2 yang barisnya tumbuh. Label & struktur dasarnya dipertahankan:
+     * `.panel__label` dan `[data-role="tka-entry"]` dipakai pengujian §110.
+     */
+    const board = el('div', 'quiz-board');
+
     // --- Latihan Soal TKA: 10 soal tetap, empat di antaranya soal asli 2025 ---
-    body.appendChild(el('div', 'panel__label', 'Latihan Soal TKA'));
+    board.appendChild(el('div', 'panel__label', 'Latihan Soal TKA'));
 
     const tkaSet = buildTkaSet(state.quizzes);
-    const tkaItem = el('button', 'chapter-item');
+    const best = skorTkaTertinggi();
+    const tkaItem = el('button', 'chapter-item chapter-item--tka');
     tkaItem.type = 'button';
     tkaItem.dataset.role = 'tka-entry';
     tkaItem.innerHTML = `
-      <span class="chapter-item__num">${icon('trophy', { size: 18 })}</span>
+      <span class="chapter-item__num">${icon('trophy', { size: 22 })}</span>
       <span class="chapter-item__body">
         <span class="chapter-item__title">Latihan Soal TKA</span>
         <span class="chapter-item__tag">${tkaSet.length} soal &middot; gaya ujian sesungguhnya</span>
+        <span class="chapter-item__facts">
+          <span>${icon('check-circle', { size: 13 })}Empat soal asli TKA 2025</span>
+          <span>${icon('clock', { size: 13 })}Navigasi bebas, dinilai setelah dikumpulkan</span>
+          <span>${icon('pencil', { size: 13 })}Papan coret di samping soal</span>
+        </span>
         ${attemptChips('simulasi_tka', 'all')}
       </span>
-      ${icon('chevron-right', { size: 16 })}
+      <span class="chapter-item__best">
+        <b>${best}</b><span>skor tertinggi</span>
+      </span>
+      <span class="chapter-item__cta">Mulai ujian${icon('arrow-right', { size: 16 })}</span>
     `;
     tkaItem.addEventListener('click', () => router.navigate('kuis/simulasi_tka/all'));
-    body.appendChild(tkaItem);
+    board.appendChild(tkaItem);
 
-    body.appendChild(el('div', 'panel__label', 'Latihan per Bab'));
+    board.appendChild(el('div', 'panel__label', 'Latihan per Bab'));
 
-    const list = el('div', 'chapter-list stagger');
+    const list = el('div', 'chapter-list chapter-list--banks stagger');
     state.manifest.chapters.forEach((ch) => {
       const bank = state.quizzes.banks[ch.id] || [];
-      const item = el('button', 'chapter-item');
+      const tries = attemptsFor('latihan_bab', ch.id);
+      const top = tries.length ? Math.max(...tries.map((a) => a.score)) : null;
+      const item = el('button', 'chapter-item chapter-item--bank');
       item.type = 'button';
+      item.dataset.accent = ch.accent || 'primary';
       item.disabled = bank.length === 0;
       item.innerHTML = `
-        <span class="chapter-item__num">${ch.number}</span>
+        <span class="chapter-item__num">${pad2(ch.number)}</span>
         <span class="chapter-item__body">
           <span class="chapter-item__title">${ch.title}</span>
           <span class="chapter-item__tag">${bank.length} soal tersedia</span>
+          <span class="chapter-item__lead">${ch.tagline}</span>
           ${attemptChips('latihan_bab', ch.id)}
         </span>
-        ${icon('chevron-right', { size: 16 })}
+        <span class="chapter-item__art" aria-hidden="true">${chapterArt(ch.id)}</span>
+        <span class="chapter-item__foot">
+          <span class="chapter-item__best-inline">${top === null ? 'Belum pernah dicoba' : `Skor terbaik <b>${top}</b>`}</span>
+          <span class="chapter-item__cta">Latihan${icon('arrow-right', { size: 16 })}</span>
+        </span>
       `;
       item.addEventListener('click', () => router.navigate(`kuis/latihan_bab/${ch.id}`));
       list.appendChild(item);
     });
 
-    body.appendChild(list);
+    board.appendChild(list);
+    body.appendChild(board);
     workspace.appendChild(body);
     container.appendChild(workspace);
   }, options);
@@ -1044,7 +1230,7 @@ function renderQuizSession(params, options) {
 /* ------------------------------------------------------------
    Utilitas UI
    ------------------------------------------------------------ */
-function buildBar({ eyebrow, title, onBack }) {
+function buildBar({ eyebrow, title, onBack, aside }) {
   const bar = el('div', 'workspace__bar');
 
   const back = el('button', 'btn btn--icon btn--ghost');
@@ -1059,7 +1245,60 @@ function buildBar({ eyebrow, title, onBack }) {
   titles.appendChild(el('div', 'workspace__title', renderMixed(title)));
   bar.appendChild(titles);
 
+  // Ringkasan di sisi kanan bilah (mis. "7/22 sub-topik"). Opsional: layar
+  // yang tidak memberinya tetap berbentuk seperti sebelum Fase 19.5.
+  if (aside) bar.appendChild(el('div', 'workspace__aside', aside));
+
   return bar;
+}
+
+/* ------------------------------------------------------------
+   Kartu kaya (Fase 19.5) — perkakas bersama daftar bab, daftar
+   sub-topik, dan menu kuis.
+   ------------------------------------------------------------ */
+
+/**
+ * Rumus "wajah" tiap bab, digambar besar & samar di kartunya.
+ *
+ * Bukan hiasan acak: tiap rumus adalah ringkasan satu kalimat dari isi bab
+ * itu — alamat elemen, aturan baris×kolom, bentuk invers, dan model AX = B.
+ * Siswa yang membuka daftar bab langsung melihat APA yang akan ia pelajari,
+ * dalam bahasa matematikanya sendiri.
+ */
+const CHAPTER_ART = {
+  '01_konsep_dasar': String.raw`\begin{pmatrix} a_{11} & a_{12} & a_{13} \\ a_{21} & a_{22} & a_{23} \end{pmatrix}`,
+  '02_operasi_aljabar': String.raw`c_{ij} = \sum_{k} a_{ik}\, b_{kj}`,
+  '03_determinan_invers': String.raw`A^{-1} = \frac{1}{\det A}\, \operatorname{adj} A`,
+  '04_pemodelan_tka': String.raw`AX = B \;\Rightarrow\; X = A^{-1}B`,
+};
+
+function chapterArt(chapterId) {
+  const tex = CHAPTER_ART[chapterId];
+  return tex ? renderToString(tex, { display: true }) : '';
+}
+
+/** Dua digit: 1 → "01". Nomor tabular terbaca seperti indeks, bukan hitungan. */
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/**
+ * Status tiap sub-topik dalam satu bab, dihitung SEKALI.
+ *
+ *   done   — Mini Kuis-nya sudah lulus
+ *   next   — sub-topik pertama yang terbuka tapi belum selesai (tujuan berikutnya)
+ *   open   — terbuka, belum selesai, tapi bukan yang pertama (jarang: progres lama)
+ *   locked — sub-topik sebelumnya belum selesai
+ */
+function subtopicStates(chapterMeta) {
+  let nextTaken = false;
+  return chapterMeta.subtopicOrder.map((id) => {
+    const progress = getSubtopicProgress(chapterMeta.id, id);
+    const unlocked = isSubtopicUnlocked(chapterMeta.id, chapterMeta.subtopicOrder, id);
+    let kind = 'locked';
+    if (progress.status === 'completed') kind = 'done';
+    else if (unlocked && !nextTaken) { kind = 'next'; nextTaken = true; }
+    else if (unlocked) kind = 'open';
+    return { id, progress, unlocked, kind };
+  });
 }
 
 /* ------------------------------------------------------------
