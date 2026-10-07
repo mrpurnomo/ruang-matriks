@@ -14,7 +14,7 @@ import { mountSimulation } from './simulations/index.js';
 import { QuizEngine } from '../kuis/quizEngine.js';
 import {
   markSubtopicStarted, markSubtopicCompleted, recordAttempt,
-  setChapterCompleteIfDone, unlockBadge, getSubtopicProgress,
+  setChapterCompleteIfDone, unlockBadge, getSubtopicProgress, raiseBestQuizScore,
 } from '../../state/progressStore.js';
 import toast, { anchorToasts } from '../../ui/toast.js';
 import { createScratchpad } from '../../ui/scratchpad.js';
@@ -530,34 +530,65 @@ export class LessonView {
   renderQuiz() {
     const { chapter, subtopic } = this.ctx;
 
+    // Penanda SEKALI-PAKAI: begitu dibaca langsung dimatikan, sehingga
+    // berpindah tab lalu kembali ke Mini Kuis menampilkan review lagi —
+    // bukan kuis ulang yang menyala terus.
+    const retry = this.retrying === true;
+    this.retrying = false;
+
     this.setHint(
-      'Mini Kuis',
-      this.reviewMode
-        ? 'Sub-topik ini sudah selesai. Baca ulang soal beserta kunci dan pembahasannya.'
-        : 'Jawab soalnya untuk membuka sub-topik berikutnya. Salah tidak apa-apa — kamu boleh mencoba lagi.'
+      retry ? 'Coba Ulang Kuis' : 'Mini Kuis',
+      retry
+        ? 'Kerjakan lagi soal Mini Kuis ini. Progresmu tetap aman — sub-topik ini tetap tuntas, dan skor terbaik hanya diperbarui kalau nilaimu lebih tinggi.'
+        : this.reviewMode
+          ? 'Sub-topik ini sudah selesai. Baca ulang soal beserta kunci dan pembahasannya.'
+          : 'Jawab soalnya untuk membuka sub-topik berikutnya. Salah tidak apa-apa — kamu boleh mencoba lagi.'
     );
 
     const host = el('div');
     this.body.appendChild(host);
 
     // Mode review: TIDAK menjalankan logika kuis sama sekali. Siswa hanya
-    // membaca kembali soal beserta kunci dan pembahasannya.
-    if (this.reviewMode) return this.renderQuizReview(host);
+    // membaca kembali soal beserta kunci dan pembahasannya — kecuali ia
+    // sendiri meminta "Coba Ulang Kuis".
+    if (this.reviewMode && !retry) return this.renderQuizReview(host);
 
     recordAttempt(chapter.id, subtopic.id);
 
+    // Percobaan ulang punya kunci ingatan sendiri, dan dimulai BERSIH:
+    // ia tidak boleh mewarisi posisi soal dari percobaan pertama.
+    const sessionKey = retry ? `${this.sessionKey}#kuis-ulang` : `${this.sessionKey}#kuis`;
+    if (retry) clearResume(sessionKey);
+
     const engine = new QuizEngine(host, subtopic.quiz, {
-      sessionKey: `${this.sessionKey}#kuis`,
+      sessionKey,
       requireCorrect: true,
       showExplanation: true,
-      onFinish: (result) => this.onQuizFinish(result, host),
-      backButton: {
-        label: 'Simulasi',
-        onClick: () => { this.step = 1; this.renderStep(); },
-      },
+      onFinish: (result) => this.onQuizFinish(result, host, { retry }),
+      backButton: retry
+        ? { label: 'Review', onClick: () => { this.step = 2; this.renderStep(); } }
+        : { label: 'Simulasi', onClick: () => { this.step = 1; this.renderStep(); } },
     });
 
     engine.start();
+  }
+
+  /** Mulai ulang Mini Kuis sub-topik yang sudah tuntas (Fase 20). */
+  startQuizRetry() {
+    this.retrying = true;
+    this.step = 2;
+    this.renderStep();
+  }
+
+  /** Tombol "Coba Ulang Kuis" — dipakai di review dan di layar penutup. */
+  buildRetryButton(variant = 'btn--ghost') {
+    const retry = el('button', `btn ${variant}`);
+    retry.type = 'button';
+    retry.dataset.role = 'quiz-retry';
+    retry.innerHTML = `${icon('rotate', { size: 16 })}<span>Coba Ulang Kuis</span>`;
+    retry.title = 'Kerjakan lagi Mini Kuis ini. Progres sub-topik tetap aman.';
+    retry.addEventListener('click', () => this.startQuizRetry());
+    return retry;
   }
 
   /** Tampilan review: soal + kunci jawaban + pembahasan, tanpa interaksi. */
@@ -603,6 +634,8 @@ export class LessonView {
     actions.appendChild(back);
 
     actions.appendChild(el('div', 'actionbar__spacer'));
+
+    actions.appendChild(this.buildRetryButton());
 
     const toList = el('button', 'btn btn--primary');
     toList.type = 'button';
@@ -664,13 +697,24 @@ export class LessonView {
     return wrap;
   }
 
-  onQuizFinish(result, host) {
+  onQuizFinish(result, host, { retry = false } = {}) {
     const { chapter, subtopic, subtopicOrder } = this.ctx;
 
     // Modul tuntas: ingatan posisinya dibuang supaya kunjungan berikutnya
     // dimulai dari Materi, bukan dari layar hasil.
     clearResume(this.sessionKey);
     clearResume(`${this.sessionKey}#kuis`);
+    clearResume(`${this.sessionKey}#kuis-ulang`);
+
+    // Percobaan ulang: HANYA skor terbaik yang boleh berubah, dan hanya naik.
+    // Status tuntas & kunci sub-topik berikutnya tidak disentuh sama sekali.
+    let rekorBaru = false;
+    let skorLama = 0;
+    if (retry) {
+      skorLama = getSubtopicProgress(chapter.id, subtopic.id).bestQuizScore || 0;
+      rekorBaru = raiseBestQuizScore(chapter.id, subtopic.id, result.score);
+      if (rekorBaru) toast.success(`Skor terbaik baru: **${result.score}** (sebelumnya ${skorLama}).`);
+    }
 
     if (!this.reviewMode) {
       markSubtopicCompleted(chapter.id, subtopic.id, result.score);
@@ -703,9 +747,17 @@ export class LessonView {
     const inner = el('div', 'lesson-done__inner');
     inner.appendChild(el('span', 'lesson-done__icon', icon('trophy', { size: 46 })));
     inner.appendChild(el('h3', 'lesson-done__title',
-      this.reviewMode ? 'Review selesai!' : 'Sub-topik selesai!'));
+      retry ? 'Percobaan ulang selesai!'
+        : this.reviewMode ? 'Review selesai!' : 'Sub-topik selesai!'));
     inner.appendChild(el('p', 'lesson-done__score text-muted',
       `Skor Mini Kuis kamu: <strong>${result.score}</strong> dari 100.`));
+    if (retry) {
+      const best = Math.max(skorLama, result.score);
+      inner.appendChild(el('p', 'lesson-done__note',
+        rekorBaru
+          ? `${icon('trophy', { size: 14 })}<span>Rekor baru! Skor terbaikmu kini <strong>${best}</strong>.</span>`
+          : `${icon('check-circle', { size: 14 })}<span>Skor terbaikmu tetap <strong>${best}</strong>. Sub-topik ini tetap tuntas.</span>`));
+    }
     card.appendChild(inner);
     panel.appendChild(card);
 
@@ -718,6 +770,10 @@ export class LessonView {
     actions.appendChild(toList);
 
     actions.appendChild(el('div', 'actionbar__spacer'));
+
+    // Coba ulang selalu tersedia di layar penutup: kuisnya sudah tuntas,
+    // jadi mengulangnya murni latihan (Fase 20).
+    actions.appendChild(this.buildRetryButton());
 
     if (nextId) {
       const next = el('button', 'btn btn--primary btn--pulse');

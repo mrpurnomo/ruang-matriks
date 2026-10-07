@@ -1,9 +1,16 @@
 # HANDOFF — Ruang Matriks
 
-> Dokumen serah-terima antar sesi. Diperbarui **7 Oktober 2026**, menutup Fase 19.5.
-> Status: **fase 1–19.5 selesai, seluruh pengujian otomatis hijau (21/21 + 656/656).**
+> Dokumen serah-terima antar sesi. Diperbarui **8 Oktober 2026**, menutup Fase 20.
+> Status: **fase 1–20 selesai, seluruh pengujian otomatis hijau (21/21 + 688/688).**
 >
-> 🟢 **FASE 19.5 SELESAI — Rich Cards & Widescreen Optimization.** Dua masalah
+> 🟡 **FASE 20 SELESAI — MENUNGGU AUDIT QA LEAD ARCHITECT.** Animasi Sarrus
+> diperbaiki (diagonal ke-2/ke-3 kini mendarat di slotnya sendiri, angka rata
+> tengah), Pilih Bab muat utuh satu layar 1280×720–1920×1080, sampul Bab 2/4
+> diperbaiki, **Coba Ulang Mini Kuis** tanpa mengusik progres, pil progres
+> header baru (mode emas 100%), latar angka ambient, dan **Mode Malam
+> opsional**. Rinciannya di **§0000000000**.
+>
+> ✅ **FASE 19.5 SELESAI — Rich Cards & Widescreen Optimization.** Dua masalah
 > ruang kosong (60–70% layar kosong di bawah daftar bab/sub-topik) diperbaiki:
 > layar Pilih Bab jadi kisi 2×2 kartu kaya mengisi layar; layar Sub-topik jadi
 > papan dua-panel (ikhtisar bab + kisi kartu modul). Commit lokal menunggu.
@@ -69,14 +76,15 @@
 
 ## MULAI DARI SINI (sesi baru)
 
-Keadaan per **7 Oktober 2026**, sesaat setelah Fase 19.5 ditutup:
+Keadaan per **8 Oktober 2026**, sesaat setelah Fase 20 ditutup:
 
 | | |
 |---|---|
-| Pekerjaan terakhir | **Fase 19.5 — Rich Cards & Widescreen Optimization** (§000000000). Selesai, teruji, menunggu commit lokal |
-| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **656/656** |
-| Git | Fase 19.5 = **perubahan belum di-commit** (3 berkas: `css/phase18.css`, `js/app.js`, `index.html`). 3 commit lokal di depan `origin/main`. Belum di-push (§1A) |
-| Pekerjaan tertunda | Commit lokal Fase 19.5, lalu tunjukkan ke user untuk review visual |
+| Pekerjaan terakhir | **Fase 20 — Presisi Animasi, Kuis Ulang, Header, Latar Ambient, Mode Malam** (§0000000000). Selesai, teruji, di-commit lokal |
+| Pengujian | `node tests/engine.test.mjs` → **21/21** · `python tests/smoke.py` → **688/688** |
+| Git | Fase 19.5 (`e32e559`) dan Fase 20 = commit lokal di depan `origin/main`. Belum di-push (§1A) |
+| Penanda versi | `index.html` → `?v=20.0` pada 19 stylesheet + `app.js`. **Naikkan setiap CSS/JS berubah** |
+| Pekerjaan tertunda | Audit QA Lead Architect atas Fase 20 |
 
 ### Tiga hal yang paling mudah dilanggar sesi baru
 
@@ -93,6 +101,143 @@ menggantung.
 
 ---
 
+
+## 0000000000. FASE 20 — PRESISI ANIMASI, KUIS ULANG, HEADER, LATAR, MODE MALAM (SELESAI)
+
+### 1. Animasi Sarrus: diagonal ke-2 dan ke-3 terbang ke kotak yang salah (KRITIS)
+
+Laporan menyebut `querySelector` yang selalu mengembalikan kotak pertama. Itu
+benar, tetapi akarnya lebih dalam: **ekspresi Sarrus hanya menggambar slot
+yang SUDAH terisi** (plus satu "…" saat kosong). Untuk diagonal ke-2 memang
+tidak ada slot tujuan sama sekali, jadi indeks berapa pun tidak akan menolong.
+
+`updateExpr()` kini SELALU menggambar tiga slot bernomor per kelompok
+(`data-slot="0..2"`), dan `resolveDiagonal()` menargetkan
+`[data-slot="${current.index}"]`. Angkanya ditulis langsung ke slot saat
+mendarat (`landOn(..., { text })`), sehingga tidak ada satu frame pun "…" di
+bawah chip yang baru tiba. Bonus pedagogis: bentuk `(□+□+□) − (□+□+□)`
+terlihat sejak awal — enam hasil kali, tiga per kelompok.
+
+`Inverse3x3Sim` memakai `SarrusStep` (turunan kelas yang sama), jadi ikut
+terperbaiki. `Det2x2Sim`/`Inverse2x2Sim` hanya punya satu kotak per warna —
+diperiksa, aman.
+
+**Angka tidak rata tengah — akar CSS, bukan animasi.** `simulations.css`
+membuat `.det-expr__term` `inline-grid; place-items: center`; `phase16.css`
+lalu menimpanya dengan `display: inline-block` (demi lebar 4ch) — sejak itu
+angka menempel di atas kotak 42–48px. §20.A mengembalikan `inline-grid` tanpa
+menyentuh lebar 4ch. Terukur: selisih pusat teks–kotak **0px** di keenam slot.
+
+### 2. Kartu bab
+
+- **Bab 2**: Σ diganti `(a b)(x y)ᵀ = (ax + by)`. Siswa membaca Σ sebagai bab deret.
+- **Rumus tidak pernah terpotong**: `fitFormulaArt()` (app.js) mengukur tiap
+  rumus SEKALI dalam satuan em (`--art-em`, `--art-emh`); pelatnya
+  `container-type: size`, dan CSS memilih ukuran huruf terbesar yang muat di
+  kedua sumbu lewat `cqi`/`cqb`. Rumus yang belum diukur disembunyikan satu
+  frame (lebih baik pelat kosong daripada rumus terpotong yang melompat).
+- **Pilih Bab muat satu layar**: silabus kini dua kolom selebar kartu (urut
+  menurun per kolom), pelat rumus di samping judul dan baris itulah yang
+  menyerap sisa tinggi. Di ≤940px tinggi tagline DILEPAS (bukan dipotong "…"
+  — potongan terbaca sebagai cacat), di ≤820/≤740px jarak dirapatkan.
+  Terukur `scrollHeight == clientHeight` di 1280×720, 1366×768, 1440×900,
+  1536×864, 1920×1080, dan 2560×1080. Menu Kuis ikut muat di semua ukuran itu.
+
+### 3. Coba Ulang Mini Kuis
+
+Tombol **"Coba Ulang Kuis"** (`data-role="quiz-retry"`) di Mode Review dan di
+layar penutup. `LessonView.startQuizRetry()` menyalakan penanda SEKALI-PAKAI;
+`renderQuiz()` membacanya lalu mematikannya, jadi pindah tab lalu kembali
+menampilkan review lagi. Kuis ulang memakai kunci ingatan sendiri
+(`#kuis-ulang`) dan selalu mulai bersih.
+
+> ⚠️ Progres dilindungi lewat fungsi BARU `raiseBestQuizScore()` di
+> `progressStore.js` — ia **hanya** bisa menaikkan `bestQuizScore` dan tidak
+> pernah menyentuh `status`. Jangan pakai `markSubtopicCompleted()` untuk kuis
+> ulang: walau saat ini aman, kontraknya bukan untuk itu.
+
+### 4. Pil progres header
+
+"100%" di dalam lingkaran 40px berhuruf 10px → **pil**: lingkaran 30px +
+angka 15px DI SAMPINGNYA + kata "kurikulum". Kelas `.progress-ring`,
+`__bar`, `__label` dipertahankan (§72 mengukur `.progress-ring` di tengah —
+terukur 0px). Pada 100%: cincin bergradien emas (`#ring-gold` di `index.html`),
+pil berdenyut hangat 4,8 detik + satu kilau kecil. `prefers-reduced-motion`
+mematikan keduanya.
+
+### 5. Latar angka ambient
+
+21 glif (0, 1, −1, λ, det, A⁻¹, aᵢⱼ, Aᵀ, matriks kecil 2×2, …) jatuh SANGAT
+pelan (40–95 detik) di `.backdrop`, alfa 0,05–0,08, hanya `transform` yang
+dianimasikan, posisi dari pembangkit acak BERBENIH (susunan sama tiap muat).
+Dibuat sekali oleh `mountAmbient()`; tidak ada timer JS. Nonaktif total pada
+`prefers-reduced-motion`. Tiga blob merek tetap ada (§6).
+
+### 6. Mode Malam — opsional, "meja kerja malam"
+
+Bawaan TETAP terang (keputusan Fase 9, dipatok §6/§16). Tombol bulan di header
+(`data-role="appearance"` — sengaja BUKAN `theme`; pengalih tema gelap lama
+tetap dicabut) menyalakan `html[data-mode="night"]`, disimpan di
+`matriksLab.appearance.v1`, dan dipasang skrip sebaris di `<head>` SEBELUM
+halaman tergambar (tanpa kilatan putih).
+
+| Lapis | Mode malam |
+|---|---|
+| **Kerangka** (latar, header, footer, menu, Pilih Bab, papan sub-topik, menu kuis) | Obsidian-navy `#0A111F`, permukaan `#111A2C`, tinta `#E7EDF9` (15:1), aksen neon lembut per bab |
+| **Pelat kerja** (panggung, panel petunjuk, kartu soal, Mathpad, papan coret, toast, modal, layar masuk) | Desain terang yang SAMA, `filter: brightness(.84)` — kertas di bawah lampu baca |
+
+> ⚠️ **Kenapa pelat tidak dibalik jadi gelap.** 28 mesin simulasi memakai warna
+> sorot & denyut yang kontrasnya DIUKUR ≥4,5:1 di atas latar terang (§34).
+> Membalik warnanya membatalkan jaminan itu di puluhan titik. Peredupan
+> menurunkan silau tanpa mengubah satu pun pasangan warna.
+>
+> ⚠️ **Token alias sudah dihitung di `:root`.** `--ink-900: var(--ink)`
+> diwariskan sebagai nilai JADI; mengganti `--ink` di wadah anak tidak
+> mengubahnya. Seluruh alias dideklarasikan ulang di wadah kerangka (§20.E).
+>
+> ⚠️ **`data-theme="light"` tidak pernah disentuh.** Puluhan aturan lama memakai
+> selektor itu; menggantinya menghidupkan kembali gaya gelap pra-Fase 9.
+
+### Jebakan yang sudah digigit (jangan diulang)
+
+1. **Menunggu chip hilang ≠ menunggu animasi selesai.** Garis coret Sarrus
+   digambar 440ms SEBELUM chip dibuat; loop "tunggu sampai tidak ada
+   `.fly-chip`" berhenti seketika. Pengujian menunggu SLOT-nya terisi.
+2. **`progressStore` menyimpan salinan di memori** (penegasan §9): menyemai
+   `localStorage` lalu berganti hash membuat aplikasi menulis ulang salinan
+   lamanya. Semai → `reload()` → baru navigasi.
+3. **KaTeX tidak bisa menyusut sendiri** — dan mengukurnya saat pelat
+   tersembunyi (lebar 0) menghasilkan pembagian nol. Pelat yang tidak terukur
+   dilewati dan memakai ukuran cadangan.
+4. **Menduduki sel grid secara eksplisit melempar tetangganya ke baris baru.**
+   Tombol Mode Malam memakai `grid-row: 1; grid-column: 3`; `.header-slot`
+   yang hanya ber-`grid-column: 3` lalu jatuh ke baris KEDUA dan header
+   bertambah tinggi 3px — cukup untuk mendorong contoh matriks materi keluar
+   layar di 844×390 (§49). `.header-slot` kini juga ber-`grid-row: 1`.
+5. **Selektor yang lebih spesifik menghidupkan kembali yang sengaja dimatikan.**
+   Silabus dua kolom (`.chapter-item--rich .chapter-item__syllabus`, 0-2-0)
+   mengalahkan `display:none` lanskap pendek milik §19.C (0-1-0); kartu bab
+   jadi lebih tinggi dari wadahnya dan kartu terakhir tak bisa diketuk (§84).
+   Setiap kali menulis ulang tampilan sebuah elemen, cari dulu semua media
+   query yang menyembunyikannya.
+6. **Jangan menjalankan Playwright lain saat `smoke.py` berjalan.** Uji
+   "Mengintip memudar" (§104) membaca opacity transisi yang hanya maju per
+   FRAME; dua peramban headless yang berebut CPU membuat frame telat dan
+   ujinya gagal walau perilakunya benar. Terjadi sekali di Fase 20.
+
+### Berkas yang berubah
+
+| Berkas | Peran |
+|---|---|
+| `js/modules/belajar/simulations/simDetInv.js` | Tiga slot bernomor per kelompok; target `data-slot` |
+| `js/modules/belajar/lessonRenderer.js` | Coba Ulang Kuis (`startQuizRetry`, `buildRetryButton`, `onQuizFinish({retry})`) |
+| `js/state/progressStore.js` | `raiseBestQuizScore()` — hanya menaikkan skor |
+| `js/app.js` | Rumus Bab 2, `fitFormulaArt()`, silabus `--syl-rows`, pil progres 100%, `mountAmbient()`, Mode Malam |
+| `index.html` | Pil progres + gradien emas, tombol Mode Malam, skrip mode dini, `?v=20.0` |
+| `css/phase18.css` | §20.A kotak determinan · §20.B kartu bab satu layar · §20.C pil progres · §20.D latar ambient · §20.E Mode Malam |
+| `tests/smoke.py` | Bagian **119–123** baru (32 pengujian) |
+
+---
 
 ## 000000000. FASE 19.5 — RICH CARDS & WIDESCREEN OPTIMIZATION (SELESAI)
 
@@ -1497,12 +1642,19 @@ python tests/smoke.py
 pip install playwright && playwright install chromium
 ```
 
-### Status pengujian per 7 Oktober 2026 — **terverifikasi, bukan klaim**
+### Status pengujian per 8 Oktober 2026 — **terverifikasi, bukan klaim**
 
 | Suite | Hasil |
 |---|---|
 | `node tests/engine.test.mjs` | **21/21 lolos** |
-| `python tests/smoke.py` | **656/656 lolos** |
+| `python tests/smoke.py` | **688/688 lolos** |
+
+Fase 20 menambah bagian 119–123 (32 pengujian): Sarrus mengisi slot ke-k
+dengan angka rata tengah, Pilih Bab muat satu layar di tiga resolusi beserta
+rumus pelat yang tidak terpotong, Coba Ulang Kuis (rekor hanya naik, status
+tetap tuntas), pil progres & mode emas 100%, latar ambient (alfa, transform
+saja, reduced-motion), penanda versi seragam, dan Mode Malam (bawaan terang,
+kontras ≥4,5:1, bertahan lintas muat-ulang, pelat diredupkan).
 
 Fase 19 menambah bagian 117–118 (24 pengujian): papan berdampingan tanpa
 tumpang-tindih, soal yang tetap bisa dijawab saat papan terbuka, coretan yang
@@ -1671,7 +1823,7 @@ matriks-lab-interaktif/
 │
 └── tests/
     ├── engine.test.mjs                21 pengujian matematika murni
-    ├── smoke.py                       656 pengujian Playwright, 118 bagian
+    ├── smoke.py                       688 pengujian Playwright, 123 bagian
     └── archive_soal.py                Pembangkit arsip soal (Fase 18)
 ```
 
@@ -1878,6 +2030,20 @@ Ini **bukan preferensi gaya** — semuanya punya pengujian di `tests/smoke.py`. 
 85. **Elemen yang dilipat ke baki tetap elemen yang SAMA.** Bilah ringkas hanya mengubah CSS; selektor, label, dan pendengar `.pad__swatch`/`.pad__width` tidak diduplikasi. (Fase 19, bagian uji 101 & 118.)
 
 86. **Token merek SUMBER tidak disentuh perombakan visual.** `--paper`, `--royal`, `--cyan`, `--yellow`, `--magenta`, `--ink`, Montserrat/Roboto, dan tiga blob adalah identitas yang dipatok pengujian. Penyegaran tampilan bekerja di token TURUNAN dan di cara komponen memakainya. Teks konteks soal yang panjang tidak boleh berupa paragraf tebal — hanya kalimat pertanyaannya yang tegas. (Fase 19, bagian uji 6, 16, 98.)
+
+87. **Animasi yang mengisi deret slot wajib menargetkan slot BERNOMOR, dan slotnya harus ada sebelum animasinya mulai.** Menggambar hanya slot yang terisi membuat hasil berikutnya tidak punya tujuan — `querySelector` lalu mengembalikan slot pertama. (Fase 20, bagian uji 119.)
+
+88. **Kotak angka dipusatkan dengan `inline-grid; place-items: center`.** `inline-block` + `min-height` menempelkan angka di atas kotak. Lebar yang dipesan (4ch) tetap boleh. (Fase 20, bagian uji 119.)
+
+89. **Rumus dekoratif tidak boleh terpotong.** Ukur rumus sekali dalam em, biarkan CSS memilih ukuran lewat unit kontainer. Teks yang tidak muat DILEPAS, bukan dipotong "…". (Fase 20, bagian uji 120.)
+
+90. **Percobaan ulang kuis hanya boleh MENAIKKAN skor terbaik, tidak pernah menyentuh status.** Sub-topik tuntas tidak boleh terkunci lagi dan sub-topik sesudahnya tidak boleh tertutup, apa pun hasil percobaan ulangnya. (Fase 20, bagian uji 121.)
+
+91. **Latar animasi: alfa ≤ 0,08, hanya `transform`, mati pada `prefers-reduced-motion`.** Konten tetap di kartu opak (butir 7). (Fase 20, bagian uji 122.)
+
+92. **Mode Malam opsional, bawaan tetap terang.** Kerangka boleh gelap; pelat kerja matematika HANYA diredupkan, tidak dibalik — warna sorot simulasi diukur di atas latar terang (butir 34). Pengalihnya `data-role="appearance"`; `data-role="theme"` tetap tidak ada. (Fase 20, bagian uji 123.)
+
+93. **Penanda versi `?v=` sama di semua stylesheet dan `app.js`, dan dinaikkan setiap CSS/JS berubah.** (Fase 20, bagian uji 122.) Catatan: modul yang di-`import` dari `app.js` belum ikut berversi.
 
 ---
 
@@ -2193,7 +2359,7 @@ Dikumpulkan dari lima belas fase kerja sama. Ini penting untuk diikuti sesi beri
 - **Kerjakan tuntas, jangan berhenti di tengah.** Bila diberi daftar 10 poin, kerjakan sepuluh-sepuluhnya lalu laporkan.
 - **Laporkan apa adanya.** Kalau ada yang gagal, katakan gagal beserta keluarannya. Jangan mengklaim selesai tanpa menjalankan pengujian.
 - **Verifikasi dengan pengukuran, bukan pembacaan kode.** Dua bug terakhir tidak terlihat dari kode — hanya ketahuan setelah geometri diukur di peramban. Ambil tangkapan layar, ukur `getBoundingClientRect()`, cek `scrollWidth`.
-- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **656** justru karena itu (300 → … → 513 → 569 → 611 → 632 → 656 di fase 11–19).
+- **Setiap perbaikan bug UI dapat pengujian regresi.** Suite ini tumbuh dari 134 → **688** justru karena itu (300 → … → 513 → 569 → 611 → 632 → 656 → 688 di fase 11–20).
 - **Komentar dalam Bahasa Indonesia**, menjelaskan alasan di balik keputusan.
 - **Utamakan alasan pedagogis.** Aplikasi ini tidak boleh menghitung untuk siswa. Setiap perubahan mekanik dinilai dari apakah ia membuat siswa mengerjakan matematikanya sendiri.
 - Pengguna memakai bahasa Indonesia. Balas dalam bahasa Indonesia.

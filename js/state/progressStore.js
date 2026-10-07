@@ -152,6 +152,23 @@ export function markSubtopicCompleted(chapterId, subtopicId, score = 100) {
   persist();
 }
 
+/**
+ * Coba Ulang Mini Kuis (Fase 20): perbarui skor terbaik TANPA menyentuh
+ * status. Percobaan ulang adalah latihan, bukan ujian ulang — sub-topik yang
+ * sudah tuntas tidak boleh terkunci kembali, dan sub-topik sesudahnya tidak
+ * boleh ikut tertutup, apa pun hasilnya. Skor hanya bisa NAIK.
+ *
+ * @returns {boolean} true bila skor ini memecahkan rekor sebelumnya
+ */
+export function raiseBestQuizScore(chapterId, subtopicId, score) {
+  const sub = ensureSubtopic(chapterId, subtopicId);
+  const before = sub.bestQuizScore || 0;
+  if (score <= before) return false;
+  sub.bestQuizScore = score;
+  persist();
+  return true;
+}
+
 export function recordAttempt(chapterId, subtopicId) {
   const sub = ensureSubtopic(chapterId, subtopicId);
   sub.attempts = (sub.attempts || 0) + 1;

@@ -329,10 +329,22 @@ export class Det3x3SarrusSim extends Simulation {
     this.stage.appendChild(stageRow(this.resultCard));
   }
 
+  /**
+   * Ekspresi Sarrus SELALU memuat tiga slot per kelompok, terisi atau belum.
+   *
+   * ⚠️ Fase 20: versi lama hanya menggambar slot yang SUDAH terisi (plus satu
+   * "…" saat kosong). Akibatnya diagonal ke-2 dan ke-3 tidak punya kotak
+   * tujuan sama sekali: `querySelector` mengembalikan kotak PERTAMA, dan
+   * angka hasil kalinya terbang kembali ke slot diagonal ke-1 — tepat saat
+   * siswa sedang belajar bahwa tiap diagonal menyumbang suku sendiri.
+   * Tiga slot bernomor (`data-slot`) sejak awal juga mengajarkan bentuknya:
+   * "(□ + □ + □) − (□ + □ + □)" — enam hasil kali, tiga di tiap kelompok.
+   */
   updateExpr() {
-    const fmt = (arr, cls) => arr.length
-      ? arr.map((v) => `<span class="det-expr__term det-expr__term--${cls}">${formatNumber(v)}</span>`).join('<span class="det-expr__op">+</span>')
-      : `<span class="det-expr__term det-expr__term--${cls} is-empty">…</span>`;
+    const fmt = (arr, cls) => [0, 1, 2].map((k) => (k < arr.length
+      ? `<span class="det-expr__term det-expr__term--${cls}" data-slot="${k}">${formatNumber(arr[k])}</span>`
+      : `<span class="det-expr__term det-expr__term--${cls} is-empty" data-slot="${k}">…</span>`))
+      .join('<span class="det-expr__op">+</span>');
 
     const down = this.collected.down;
     const up = this.collected.up;
@@ -508,12 +520,19 @@ export class Det3x3SarrusSim extends Simulation {
     await this.wait(440);
 
     // Tiga angka melebur menjadi satu hasil kali, lalu mendarat di ekspresi.
+    // Slot tujuan = slot ke-`current.index` di kelompoknya (lihat `updateExpr`).
     const chips = wanted.map((c) => makeFlyChip(c, { text: c.dataset.value }));
-    const anchor = this.expr.querySelector(`.det-expr__term--${slotCls}`);
+    const anchor = this.expr.querySelector(
+      `.det-expr__term--${slotCls}[data-slot="${current.index}"]`)
+      || this.expr.querySelector(`.det-expr__term--${slotCls}.is-empty`);
 
     await Promise.all(chips.map((chip) => flyTo(chip, anchor)));
     const merged = await merge(chips, formatNumber(product), { operator: '×' });
-    await landOn(merged, anchor, { text: null });
+    // Angkanya ditulis LANGSUNG ke slotnya saat mendarat (bukan menunggu
+    // `updateExpr`), supaya tidak ada satu frame pun slot kosong "…" di
+    // bawah chip yang baru saja mendarat.
+    await landOn(merged, anchor, { text: formatNumber(product) });
+    anchor.classList.remove('is-empty');
 
     this.collected[current.group].push(product);
     this.updateExpr();

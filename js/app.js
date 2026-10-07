@@ -252,6 +252,15 @@ function updateHeader() {
   }
   if (label) label.textContent = `${overall.percent}%`;
 
+  // Kurikulum tuntas: pil berganti emas & berdenyut pelan (Fase 20).
+  const pill = document.querySelector('.progress-ring');
+  if (pill) {
+    const complete = overall.total > 0 && overall.percent >= 100;
+    pill.dataset.complete = String(complete);
+    pill.setAttribute('aria-label', complete
+      ? 'Seluruh kurikulum dikuasai: 100 persen'
+      : `Penguasaan kurikulum: ${overall.percent} persen`);
+  }
 }
 
 /* ------------------------------------------------------------
@@ -715,7 +724,7 @@ function renderChapterList(params, options) {
           <span class="chapter-item__tag">${ch.tagline}</span>
         </span>
         <span class="chapter-item__art" aria-hidden="true">${chapterArt(ch.id)}</span>
-        ${data ? `<span class="chapter-item__syllabus">${syllabus}</span>` : ''}
+        ${data ? `<span class="chapter-item__syllabus" style="--syl-rows:${Math.ceil(states.length / 2)}">${syllabus}</span>` : ''}
         <span class="chapter-item__foot">
           <span class="chapter-item__meter">
             <span class="chapter-item__meter-label"><span>Progres bab</span><b>${progress.completed}/${progress.total}</b></span>
@@ -731,6 +740,7 @@ function renderChapterList(params, options) {
     body.appendChild(list);
     workspace.appendChild(body);
     container.appendChild(workspace);
+    fitFormulaArt(workspace);
   }, options);
 }
 
@@ -921,6 +931,7 @@ function renderSubtopicList(params, options) {
     body.appendChild(board);
     workspace.appendChild(body);
     container.appendChild(workspace);
+    fitFormulaArt(workspace);
     if (isDone) board.classList.add('module-board--done');
   }, options);
 }
@@ -1054,6 +1065,7 @@ function renderQuizMenu(params, options) {
     body.appendChild(board);
     workspace.appendChild(body);
     container.appendChild(workspace);
+    fitFormulaArt(workspace);
   }, options);
 }
 
@@ -1267,7 +1279,10 @@ function buildBar({ eyebrow, title, onBack, aside }) {
  */
 const CHAPTER_ART = {
   '01_konsep_dasar': String.raw`\begin{pmatrix} a_{11} & a_{12} & a_{13} \\ a_{21} & a_{22} & a_{23} \end{pmatrix}`,
-  '02_operasi_aljabar': String.raw`c_{ij} = \sum_{k} a_{ik}\, b_{kj}`,
+  // Fase 20: notasi Σ diganti. Siswa kelas 11 membacanya sebagai bab DERET,
+  // padahal yang diajarkan Bab 2 adalah gerakan "baris kali kolom" — dan
+  // gerakan itu bisa DILIHAT langsung pada perkalian baris × kolom ini.
+  '02_operasi_aljabar': String.raw`\begin{pmatrix} a & b \end{pmatrix}\!\begin{pmatrix} x \\ y \end{pmatrix} = \begin{pmatrix} ax + by \end{pmatrix}`,
   '03_determinan_invers': String.raw`A^{-1} = \frac{1}{\det A}\, \operatorname{adj} A`,
   '04_pemodelan_tka': String.raw`AX = B \;\Rightarrow\; X = A^{-1}B`,
 };
@@ -1275,6 +1290,32 @@ const CHAPTER_ART = {
 function chapterArt(chapterId) {
   const tex = CHAPTER_ART[chapterId];
   return tex ? renderToString(tex, { display: true }) : '';
+}
+
+/**
+ * Ukur setiap rumus pelat SEKALI, dalam satuan em, lalu serahkan ke CSS.
+ *
+ * Rumus KaTeX tidak bisa menyusut sendiri: `AX = B ⇒ X = A⁻¹B` terpotong di
+ * kanan pelatnya pada 1366×768 karena lebarnya ±13em, sementara matriks
+ * Bab 1 hanya ±7em. Lebar & tinggi rumus dalam em bersifat TETAP (tidak
+ * bergantung ukuran huruf), jadi cukup diukur sekali; CSS lalu memilih
+ * ukuran huruf terbesar yang muat lewat unit kontainer (`cqi`/`cqb`) —
+ * tetap pas saat jendela diubah ukurannya tanpa JavaScript tambahan.
+ * Pelat yang tersembunyi (lebar 0) dilewati dan memakai ukuran cadangan.
+ */
+function fitFormulaArt(root) {
+  requestAnimationFrame(() => {
+    root.querySelectorAll('.chapter-item__art, .chapter-overview__art').forEach((plate) => {
+      const k = plate.querySelector('.katex');
+      if (!k) return;
+      const r = k.getBoundingClientRect();
+      const fs = parseFloat(getComputedStyle(k).fontSize) || 16;
+      if (!r.width || !r.height) return;
+      plate.style.setProperty('--art-em', (r.width / fs).toFixed(3));
+      plate.style.setProperty('--art-emh', (r.height / fs).toFixed(3));
+      plate.dataset.fitted = 'true';
+    });
+  });
 }
 
 /** Dua digit: 1 → "01". Nomor tabular terbaca seperti indeks, bukan hitungan. */
@@ -1399,8 +1440,96 @@ function revealApp() {
   setTimeout(drop, 700);   // jaring pengaman kalau transisinya tidak berjalan
 }
 
+/**
+ * Latar angka ambient (Fase 20) — lihat §20.D phase18.css.
+ *
+ * Dibuat SEKALI, di dalam `.backdrop` yang hidup di luar `#app`, sehingga
+ * tidak ikut dibongkar setiap kali layar berganti. Posisinya ditentukan
+ * pembangkit acak BERBENIH: tiap muat-ulang memberi susunan yang sama,
+ * jadi latar tidak "melompat" saat siswa menyegarkan halaman. Semua gerak
+ * di CSS (transform saja); tidak ada timer JavaScript yang berjalan.
+ */
+const AMBIENT_GLYPHS = [
+  '0', '1', '−1', 'λ', 'det', '2', 'A⁻¹', '0', 'aᵢⱼ', '1', '½', 'Aᵀ',
+  '3', 'I', '−2', '0', 'k', '1',
+  // Kurung matriks kecil — pakai baris baru di dalam glif.
+  { m: '1  0\n0  1' }, { m: '2  1\n1  3' }, { m: 'a  b\nc  d' },
+];
+
+function mountAmbient() {
+  const backdrop = document.querySelector('.backdrop');
+  if (!backdrop || backdrop.querySelector('.ambient')) return;
+
+  let seed = 20;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+  const layer = document.createElement('div');
+  layer.className = 'ambient';
+  layer.setAttribute('aria-hidden', 'true');
+
+  AMBIENT_GLYPHS.forEach((g, i) => {
+    const span = document.createElement('span');
+    const isMatrix = typeof g === 'object';
+    span.className = `ambient__glyph${isMatrix ? ' ambient__glyph--matrix' : ''}`;
+    span.textContent = isMatrix ? g.m : g;
+    const dur = 40 + rand() * 55;                       // 40–95 detik
+    // Disebar merata per lajur supaya tidak menggerombol, lalu digeser acak.
+    const lane = (i + rand() * 0.8) / AMBIENT_GLYPHS.length;
+    span.style.setProperty('--x', `${(lane * 100).toFixed(2)}%`);
+    span.style.setProperty('--s', `${Math.round(isMatrix ? 13 + rand() * 6 : 16 + rand() * 22)}px`);
+    span.style.setProperty('--a', (0.05 + rand() * 0.03).toFixed(3));
+    span.style.setProperty('--d', `${dur.toFixed(1)}s`);
+    // Penundaan NEGATIF: saat halaman dibuka, glif sudah tersebar di
+    // sepanjang lintasannya — bukan menunggu jatuh dari atas bersama-sama.
+    span.style.setProperty('--delay', `${(-rand() * dur).toFixed(1)}s`);
+    span.style.setProperty('--dx', `${Math.round((rand() - 0.5) * 60)}px`);
+    span.style.setProperty('--r0', `${Math.round((rand() - 0.5) * 10)}deg`);
+    span.style.setProperty('--r1', `${Math.round((rand() - 0.5) * 24)}deg`);
+    layer.appendChild(span);
+  });
+
+  backdrop.appendChild(layer);
+}
+
+/**
+ * Mode Malam (Fase 20) — pilihan kenyamanan baca, BUKAN tema bawaan.
+ *
+ * Atribut `data-mode="night"` di <html> sudah dipasang skrip sebaris di
+ * <head> sebelum halaman tergambar; di sini hanya tombolnya yang dihidupkan.
+ * `data-theme="light"` sengaja TIDAK disentuh: puluhan aturan lama memakai
+ * selektor itu untuk warna teks tombol, dan menggantinya akan menghidupkan
+ * kembali gaya tema gelap pra-Fase 9 yang sudah tidak dirawat.
+ */
+const APPEARANCE_KEY = 'matriksLab.appearance.v1';
+
+function applyAppearance(night) {
+  const root = document.documentElement;
+  if (night) root.dataset.mode = 'night'; else delete root.dataset.mode;
+  const btn = document.querySelector('[data-role="appearance"]');
+  if (btn) {
+    btn.setAttribute('aria-pressed', String(night));
+    btn.setAttribute('aria-label', night ? 'Kembali ke mode terang' : 'Aktifkan mode malam');
+    btn.title = night ? 'Mode terang' : 'Mode malam';
+  }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', night ? '#0B1220' : '#EFF4FF');
+}
+
+function initAppearance() {
+  applyAppearance(document.documentElement.dataset.mode === 'night');
+  const btn = document.querySelector('[data-role="appearance"]');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const night = document.documentElement.dataset.mode !== 'night';
+    applyAppearance(night);
+    try { localStorage.setItem(APPEARANCE_KEY, night ? 'night' : 'day'); } catch (e) { /* tanpa ingatan */ }
+  });
+}
+
 async function init() {
   touchSession();
+  initAppearance();
+  mountAmbient();
   initFullscreen();
   registerRoutes();
 

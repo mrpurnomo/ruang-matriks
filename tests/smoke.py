@@ -846,6 +846,161 @@ F19_SEMPIT = """async () => {
              tanpaLuapan: document.documentElement.scrollWidth <= innerWidth + 1 };
 }"""
 
+# ============================================================
+# Skrip peramban untuk bagian regresi Fase 20 (119-123).
+# ============================================================
+
+# Sarrus: tiap diagonal mendarat di SLOT-NYA sendiri, angka rata tengah.
+F20_SARRUS = """async () => {
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    const btn = [...document.querySelectorAll('.stage button')]
+        .find(b => b.textContent.includes('Salin Dua Kolom'));
+    btn.click();
+    await wait(2600);
+    const cells = [...document.querySelectorAll('.matrix__grid--sarrus .cell')];
+    const cell = (i, j) => cells[i * 5 + j];
+    const center = (el) => {
+        const r = el.getBoundingClientRect();
+        const rg = document.createRange(); rg.selectNodeContents(el);
+        const t = rg.getBoundingClientRect();
+        return Math.max(Math.abs((t.left + t.width / 2) - (r.left + r.width / 2)),
+                        Math.abs((t.top + t.height / 2) - (r.top + r.height / 2)));
+    };
+    const out = { slotsAwal: document.querySelectorAll('.det-expr--sarrus .det-expr__term').length,
+                  langkah: [] };
+    for (const group of ['down', 'up']) {
+        const cls = group === 'down' ? 'blue' : 'coral';
+        for (let k = 0; k < 3; k++) {
+            const coords = group === 'down'
+                ? [[0, k], [1, k + 1], [2, k + 2]] : [[2, k], [1, k + 1], [0, k + 2]];
+            for (const [i, j] of coords) cell(i, j).click();
+            // Garis coret digambar dulu (440ms), baru chip terbang — jadi yang
+            // ditunggu adalah SLOT-nya terisi, bukan hilangnya chip.
+            const slotK = () => document.querySelectorAll(`.det-expr__term--${cls}`)[k];
+            for (let t = 0; t < 80 && slotK().classList.contains('is-empty'); t++) await wait(80);
+            await wait(650);      // `anim-land` 500ms + ganti prompt
+            const slots = [...document.querySelectorAll(`.det-expr__term--${cls}`)];
+            out.langkah.push({
+                terisi: slots.filter(s => !s.classList.contains('is-empty')).length,
+                slotIniTerisi: !slots[k].classList.contains('is-empty'),
+                meleset: Math.round(center(slots[k])),
+                sisaChip: document.querySelectorAll('.fly-chip').length,
+            });
+        }
+    }
+    out.hasil = (document.querySelector('.scalar-result__value') || {}).textContent;
+    return out;
+}"""
+
+# Pilih Bab: muat satu layar, dan rumus pelat tidak pernah terpotong.
+F20_BAB = """() => new Promise(resolve => setTimeout(() => {
+    const body = document.querySelector('.workspace__body');
+    const plates = [...document.querySelectorAll('.chapter-item__art')].map(p => {
+        const k = p.querySelector('.katex');
+        const pr = p.getBoundingClientRect(), kr = k ? k.getBoundingClientRect() : null;
+        return { muat: !!kr && kr.left >= pr.left - 1 && kr.right <= pr.right + 1
+                       && kr.top >= pr.top - 1 && kr.bottom <= pr.bottom + 1,
+                 diukur: p.dataset.fitted === 'true' };
+    });
+    resolve({ scrollH: body.scrollHeight, clientH: body.clientHeight,
+              kartu: document.querySelectorAll('.chapter-item--rich').length,
+              plates,
+              adaSigma: [...document.querySelectorAll('.chapter-item__art')]
+                  .some(p => p.textContent.includes('∑')) });
+}, 900))"""
+
+# Coba Ulang Kuis: kuis berjalan lagi, status tuntas TIDAK tersentuh.
+F20_ULANG = """async () => {
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    const v = window.__matriksLab.state.activeView;
+    const prog = () => JSON.parse(localStorage.getItem('matriksLab.v1'))
+        .progress.chapters['01_konsep_dasar'].subtopics;
+    v.goTo(2);
+    await wait(600);
+    const out = { tombolDiReview: !!document.querySelector('[data-role="quiz-retry"]'),
+                  reviewAwal: !!document.querySelector('.answer-key') };
+    document.querySelector('[data-role="quiz-retry"]').click();
+    await wait(800);
+    out.kuisHidup = !!document.querySelector('.ws-stage .quiz__card .numfield, .ws-stage .quiz__card .option');
+    out.kunciTersembunyi = !document.querySelector('.answer-key');
+    out.statusSaatUlang = prog().pengertian_letak.status;
+    // Skor LEBIH RENDAH: rekor tidak turun, status tetap tuntas.
+    const host = () => document.querySelector('.ws-stage .workspace__body > div');
+    v.onQuizFinish({ score: 40 }, host(), { retry: true });
+    await wait(400);
+    out.rendah = { best: prog().pengertian_letak.bestQuizScore, status: prog().pengertian_letak.status,
+                   catatan: (document.querySelector('.lesson-done__note') || {}).textContent || '',
+                   tombolUlangDiPenutup: !!document.querySelector('.lesson-done ~ * [data-role="quiz-retry"], [data-role="quiz-retry"]') };
+    // Skor LEBIH TINGGI: rekor naik.
+    document.querySelector('[data-role="quiz-retry"]').click();
+    await wait(700);
+    v.onQuizFinish({ score: 100 }, host(), { retry: true });
+    await wait(400);
+    out.tinggi = { best: prog().pengertian_letak.bestQuizScore, status: prog().pengertian_letak.status,
+                   catatan: (document.querySelector('.lesson-done__note') || {}).textContent || '' };
+    out.ordoMasihTerbuka = prog().pengertian_letak.status === 'completed';
+    return out;
+}"""
+
+# Pil progres, latar ambient, dan penanda versi.
+F20_HEADER = """() => {
+    const ring = document.querySelector('.progress-ring');
+    const label = document.querySelector('.progress-ring__label');
+    const r = ring.getBoundingClientRect(), c = document.querySelector('.progress-ring svg').getBoundingClientRect();
+    const glyphs = [...document.querySelectorAll('.backdrop .ambient__glyph')];
+    const alfa = glyphs.map(g => { const m = getComputedStyle(g).color.match(/[\\d.]+/g); return +(m[3] || 1); });
+    const versi = [...document.querySelectorAll('link[rel="stylesheet"][href^="css/"]')]
+        .map(l => (l.getAttribute('href').split('?v=')[1] || ''));
+    return {
+        labelPx: parseFloat(getComputedStyle(label).fontSize),
+        angkaDiLuarLingkaran: label.getBoundingClientRect().left >= c.right - 1,
+        complete: ring.dataset.complete,
+        glyphs: glyphs.length,
+        alfaMaks: Math.max(...alfa),
+        animasi: glyphs.length ? getComputedStyle(glyphs[0]).animationName : '',
+        pe: glyphs.length ? getComputedStyle(document.querySelector('.ambient')).pointerEvents : '',
+        blobs: document.querySelectorAll('.backdrop .blob').length,
+        versi: [...new Set(versi)],
+        appVersi: (document.querySelector('script[type="module"]').getAttribute('src').split('?v=')[1] || ''),
+    };
+}"""
+
+F20_MALAM = """async () => {
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    const html = document.documentElement;
+    const lum = (c) => { const v = c.match(/[\\d.]+/g).slice(0, 3).map(Number).map(x => {
+        x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); });
+        return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+    const ratio = (a, b) => { const l1 = lum(a), l2 = lum(b);
+        return (Math.max(l1, l2) + .05) / (Math.min(l1, l2) + .05); };
+    const out = { awal: html.dataset.mode || 'day',
+                  tombol: document.querySelectorAll('[data-role="appearance"]').length,
+                  temaLama: document.querySelectorAll('[data-role="theme"]').length };
+    document.querySelector('[data-role="appearance"]').click();
+    await wait(400);
+    const title = document.querySelector('.chapter-item__title');
+    const card = document.querySelector('.chapter-item--rich');
+    const bg = getComputedStyle(document.body).backgroundColor;
+    out.malam = {
+        mode: html.dataset.mode,
+        disimpan: localStorage.getItem('matriksLab.appearance.v1'),
+        latarGelap: lum(bg) < .02,
+        kontrasJudul: +ratio(getComputedStyle(title).color, 'rgb(17, 26, 44)').toFixed(2),
+        kontrasTag: +ratio(getComputedStyle(document.querySelector('.syl__text')).color, 'rgb(17, 26, 44)').toFixed(2),
+        pressed: document.querySelector('[data-role="appearance"]').getAttribute('aria-pressed'),
+        paperTetap: getComputedStyle(html).getPropertyValue('--paper').trim(),
+    };
+    return out;
+}"""
+
+F20_MALAM_PELAT = """() => ({
+    mode: document.documentElement.dataset.mode,
+    filterPanggung: getComputedStyle(document.querySelector('.ws-stage > .workspace__body')).filter,
+    filterSisi: getComputedStyle(document.querySelector('.ws-side')).filter,
+    // Pelat tetap memakai tinta GELAP di atas permukaan terang.
+    tintaPrompt: getComputedStyle(document.querySelector('.ws-side .workspace__title')).color,
+})"""
+
 # --- Dasbor: kartu skor TKA menggantikan lencana ---
 F185_DASBOR = """() => ({
     label: [...document.querySelectorAll('.hero-stat__label')].map(n => n.textContent),
@@ -6330,6 +6485,132 @@ def run(page, errors):
            and sempit["opsiNonaktif"] is True, json.dumps(sempit))
     record("Lanskap sempit: bilah alat satu baris, tanpa luapan mendatar",
            sempit["bilahSatuBaris"] is True and sempit["tanpaLuapan"] is True, json.dumps(sempit))
+
+    # ==========================================================
+    # FASE 20 — PRESISI ANIMASI, KUIS ULANG, HEADER, LATAR, MALAM
+    # ==========================================================
+
+    print("\n119. Fase 20 - Sarrus: tiap diagonal mendarat di slotnya sendiri")
+    open_fresh(page, "#/belajar/03_determinan_invers/determinan_3x3")
+    bb = page.query_selector("button:has-text('Mulai Simulasi')")
+    if bb:
+        bb.click()
+        page.wait_for_timeout(900)
+    sar = page.evaluate(F20_SARRUS)
+    js20 = json.dumps(sar)[:420]
+    langkah = sar["langkah"]
+    # Dulu `querySelector` selalu mengembalikan kotak PERTAMA: diagonal ke-2
+    # dan ke-3 terbang kembali ke slot diagonal ke-1.
+    record("Ekspresi Sarrus menyiapkan enam slot sejak awal", sar["slotsAwal"] == 6, js20)
+    record("Diagonal ke-k mengisi slot ke-k (kedua kelompok)",
+           len(langkah) == 6 and all(s["slotIniTerisi"] for s in langkah)
+           and [s["terisi"] for s in langkah] == [1, 2, 3, 1, 2, 3], js20)
+    # `phase16.css` dulu menimpa inline-grid dengan inline-block: angka
+    # menempel di atas kotak.
+    record("Angka hasil kali rata tengah di kotaknya (<= 1px)",
+           all(s["meleset"] <= 1 for s in langkah), js20)
+    record("Tidak ada chip terbang yang tertinggal", all(s["sisaChip"] == 0 for s in langkah), js20)
+    record("Determinan akhir benar (7 - 4 = 3)", sar["hasil"] == "3", js20)
+
+    print("\n120. Fase 20 - Pilih Bab utuh satu layar, rumus pelat tidak terpotong")
+    for w, h in [(1366, 768), (1920, 1080), (1280, 720)]:
+        page.set_viewport_size({"width": w, "height": h})
+        open_fresh(page, "#/belajar")
+        bab = page.evaluate(F20_BAB)
+        tag = f"{w}x{h}"
+        record(f"Keempat kartu bab muat tanpa gulir @{tag}",
+               bab["kartu"] == 4 and bab["scrollH"] <= bab["clientH"] + 1, json.dumps(bab))
+        record(f"Rumus keempat pelat diukur & tidak terpotong @{tag}",
+               len(bab["plates"]) == 4 and all(p["muat"] and p["diukur"] for p in bab["plates"]),
+               json.dumps(bab))
+    record("Sampul Bab 2 tidak lagi memakai notasi Σ", bab["adaSigma"] is False, json.dumps(bab))
+    page.set_viewport_size({"width": 1280, "height": 860})
+
+    print("\n121. Fase 20 - Coba Ulang Mini Kuis tanpa mengusik progres")
+    page.evaluate("""() => { const k = 'matriksLab.v1'; const s = JSON.parse(localStorage.getItem(k));
+        const ch = s.progress.chapters;
+        ch['01_konsep_dasar'] = ch['01_konsep_dasar'] || { status: 'in_progress', subtopics: {} };
+        ch['01_konsep_dasar'].subtopics['pengertian_letak'] = { status: 'completed', bestQuizScore: 50, attempts: 1 };
+        localStorage.setItem(k, JSON.stringify(s)); }""")
+    page.reload()          # progressStore menyimpan salinan di memori (§9)
+    page.wait_for_timeout(800)
+    page.evaluate("() => { location.hash = '#/belajar/01_konsep_dasar/pengertian_letak'; }")
+    page.wait_for_timeout(1200)
+    ul = page.evaluate(F20_ULANG)
+    ju = json.dumps(ul, ensure_ascii=False)[:420]
+    record("Tombol 'Coba Ulang Kuis' ada di Mode Review", ul["tombolDiReview"] is True, ju)
+    record("Coba ulang menjalankan kuis interaktif, bukan kunci jawaban",
+           ul["kuisHidup"] is True and ul["kunciTersembunyi"] is True, ju)
+    record("Status sub-topik tetap 'completed' selama kuis ulang",
+           ul["statusSaatUlang"] == "completed", ju)
+    record("Skor ulang yang lebih rendah TIDAK menurunkan rekor",
+           ul["rendah"]["best"] == 50 and ul["rendah"]["status"] == "completed"
+           and "tetap" in ul["rendah"]["catatan"], ju)
+    record("Skor ulang yang lebih tinggi menaikkan rekor",
+           ul["tinggi"]["best"] == 100 and ul["tinggi"]["status"] == "completed"
+           and "Rekor baru" in ul["tinggi"]["catatan"], ju)
+    record("Layar penutup juga menawarkan Coba Ulang Kuis",
+           ul["rendah"]["tombolUlangDiPenutup"] is True, ju)
+
+    print("\n122. Fase 20 - Pil progres, latar angka ambient, penanda versi")
+    open_fresh(page, "#/")
+    hd = page.evaluate(F20_HEADER)
+    jh = json.dumps(hd)[:360]
+    record("Angka progres di luar lingkaran dan cukup besar (>= 14px)",
+           hd["angkaDiLuarLingkaran"] is True and hd["labelPx"] >= 14, jh)
+    record("Latar ambient: belasan glif, alfa <= 0,08, tidak menangkap pointer",
+           hd["glyphs"] >= 12 and hd["alfaMaks"] <= 0.081 and hd["pe"] == "none", jh)
+    record("Latar ambient hanya menganimasikan transform (ambientFall)",
+           hd["animasi"] == "ambientFall", jh)
+    record("Tiga blob merek tetap ada", hd["blobs"] == 3, jh)
+    record("Semua stylesheet & app.js memakai penanda versi yang sama",
+           len(hd["versi"]) == 1 and hd["versi"][0] != "" and hd["appVersi"] == hd["versi"][0], jh)
+    page.emulate_media(reduced_motion="reduce")
+    gerak = page.evaluate("() => getComputedStyle(document.querySelector('.ambient')).display")
+    page.emulate_media(reduced_motion="no-preference")
+    record("prefers-reduced-motion mematikan latar ambient", gerak == "none", gerak)
+
+    # Kurikulum 100%: pil berganti emas.
+    page.evaluate("""() => fetch('data/lessons.json').then(r => r.json()).then(m => {
+        const k = 'matriksLab.v1'; const s = JSON.parse(localStorage.getItem(k));
+        m.chapters.forEach(c => { s.progress.chapters[c.id] = { status: 'completed', subtopics: {} };
+            c.subtopicOrder.forEach(id => s.progress.chapters[c.id].subtopics[id] =
+                { status: 'completed', bestQuizScore: 100, attempts: 1 }); });
+        localStorage.setItem(k, JSON.stringify(s)); })""")
+    page.reload()
+    page.wait_for_timeout(1000)
+    penuh = page.evaluate("() => ({ c: document.querySelector('.progress-ring').dataset.complete, l: document.querySelector('.progress-ring__label').textContent })")
+    record("Kurikulum 100%: pil progres masuk mode emas",
+           penuh["c"] == "true" and penuh["l"] == "100%", json.dumps(penuh))
+    page.evaluate("() => { try { localStorage.removeItem('matriksLab.v1'); } catch (e) {} }")
+
+    print("\n123. Fase 20 - Mode Malam opsional")
+    open_fresh(page, "#/belajar")
+    ml = page.evaluate(F20_MALAM)
+    jm = json.dumps(ml)[:420]
+    record("Bawaan tetap terang; pengalih lama data-role=theme tetap tidak ada",
+           ml["awal"] == "day" and ml["temaLama"] == 0 and ml["tombol"] == 1, jm)
+    record("Pengalih menyalakan mode malam dan mengingatnya",
+           ml["malam"]["mode"] == "night" and ml["malam"]["disimpan"] == "night"
+           and ml["malam"]["pressed"] == "true", jm)
+    record("Mode malam: latar obsidian, token merek sumber tidak berubah",
+           ml["malam"]["latarGelap"] is True and ml["malam"]["paperTetap"].upper() == "#EFF4FF", jm)
+    record("Mode malam: kontras teks kerangka >= 4,5:1",
+           ml["malam"]["kontrasJudul"] >= 4.5 and ml["malam"]["kontrasTag"] >= 4.5, jm)
+    # Pilihan bertahan lintas muat-ulang (dipasang sebelum halaman tergambar).
+    page.goto(f"{BASE}/#/belajar/03_determinan_invers/determinan_3x3")
+    page.reload()
+    page.wait_for_timeout(1200)
+    pl = page.evaluate(F20_MALAM_PELAT)
+    record("Mode malam bertahan setelah muat ulang", pl["mode"] == "night", json.dumps(pl))
+    record("Pelat kerja diredupkan, tintanya tetap gelap di atas terang",
+           "brightness" in pl["filterPanggung"] and "brightness" in pl["filterSisi"]
+           and pl["tintaPrompt"] == "rgb(10, 27, 69)", json.dumps(pl))
+    page.evaluate("() => document.querySelector('[data-role=\"appearance\"]').click()")
+    page.wait_for_timeout(300)
+    kembali = page.evaluate("() => ({ m: document.documentElement.dataset.mode || 'day', s: localStorage.getItem('matriksLab.appearance.v1') })")
+    record("Pengalih mengembalikan mode terang", kembali["m"] == "day" and kembali["s"] == "day", json.dumps(kembali))
+    page.evaluate("() => { try { localStorage.removeItem('matriksLab.appearance.v1'); } catch (e) {} }")
 
 
 def main():

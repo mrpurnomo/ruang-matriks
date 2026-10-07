@@ -1360,6 +1360,30 @@ h1, h2, h3, h4, h5,
 
 
 /* ================================================================
+   20.A  KOTAK HASIL DETERMINAN: RATA TENGAH SEMPURNA (Fase 20)
+
+   `simulations.css` membuat `.det-expr__term` sebuah `inline-grid`
+   ber-`place-items: center`. `phase16.css` kemudian menimpanya dengan
+   `display: inline-block` (demi lebar 4ch yang dipesan) — dan sejak
+   itu angka hasil kali menempel di ATAS kotak setinggi 42–48px, tidak
+   lagi di tengahnya. Lebar 4ch tetap dipertahankan; yang dikembalikan
+   hanya cara memusatkannya.
+   ================================================================ */
+.det-expr__term {
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sarrus kini selalu menampilkan enam slot: sedikit dirampingkan supaya
+   kedua kelompok "( □ + □ + □ )" tetap muat satu baris di panggung. */
+.det-expr--sarrus { gap: 6px; }
+.det-expr--sarrus .det-expr__term { min-width: 44px; min-height: 40px; padding: 0 6px; }
+.det-expr__term.is-empty { opacity: .4; border-style: dashed; }
+
+
+/* ================================================================
    19.C  LAYAR LEBAR: PAPAN YANG MENGISI LAYAR (Fase 19.5)
 
    Masalah (UAT layar penuh): daftar bab, daftar sub-topik, dan menu
@@ -2262,4 +2286,616 @@ h1, h2, h3, h4, h5,
   .chapter-item__facts, .chapter-item__lead { display: none; }
   .chapter-item.chapter-item--tka { padding: 14px 16px; }
   .chapter-item--tka .chapter-item__num { width: 46px; height: 46px; }
+}
+
+
+/* ================================================================
+   20.B  PILIH BAB: EMPAT KARTU UTUH DALAM SATU LAYAR (Fase 20)
+
+   Terukur sebelum perbaikan: di 1366×768 papan bab butuh 908px
+   padahal tersedia 562px; di 1920×1080 butuh 1008px dari 864px —
+   siswa harus menggulir untuk melihat Bab 3 & 4. Penyebabnya
+   silabus SATU kolom di sisi kiri (7 baris × 32px pada Bab 3) dan
+   pelat rumus yang tidak menyumbang apa pun saat menyusut.
+
+   Susunan baru:
+        ┌───────────────────────┬──────────────┐
+        │ 01  STATUS            │              │
+        │ Judul bab             │  pelat rumus │  ← baris ini yang TUMBUH
+        │ tagline               │              │
+        ├───────────────────────┴──────────────┤
+        │ ● sub-topik 1      ● sub-topik 4     │  ← silabus dua kolom,
+        │ ● sub-topik 2      ● sub-topik 5     │    urut menurun per kolom
+        ├──────────────────────────────────────┤
+        │ progres ───────────        [Lanjut→] │
+        └──────────────────────────────────────┘
+   Sisa tinggi layar jatuh ke baris judul+pelat, jadi di monitor
+   tinggi yang membesar adalah RUMUSNYA, bukan celah kosong.
+   ================================================================ */
+.chapter-item.chapter-item--rich {
+  grid-template-columns: minmax(0, 1fr) minmax(0, .82fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "top  art"
+    "body art"
+    "syl  syl"
+    "foot foot";
+  row-gap: clamp(8px, 1.2vh, 16px);
+  column-gap: clamp(16px, 1.8vw, 32px);
+  padding: clamp(14px, 2.1vh, 28px) clamp(16px, 1.7vw, 30px);
+}
+
+.chapter-item--rich .chapter-item__body { align-self: start; }
+
+.chapter-item--rich .chapter-item__num { font-size: clamp(1.7rem, 4.2vh, 3rem); }
+.chapter-item--rich .chapter-item__title { font-size: clamp(1.05rem, 2.5vh, 1.7rem); }
+.chapter-item--rich .chapter-item__tag { font-size: clamp(.82rem, 1.75vh, 1rem); }
+
+/* Silabus: dua kolom selebar kartu, dibaca menurun per kolom (1-2-3-4 |
+   5-6-7) — urutan belajar tetap terbaca seperti daftar, bukan zigzag.
+   `--syl-rows` = ⌈n/2⌉ dihitung app.js per bab. */
+.chapter-item--rich .chapter-item__syllabus {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--syl-rows, 3), auto);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(14px, 1.6vw, 28px);
+  row-gap: 0;
+  align-self: end;
+  padding-top: clamp(6px, 1vh, 10px);
+}
+
+.chapter-item--rich .syl {
+  padding: clamp(1px, .35vh, 4px) 0;
+  font-size: clamp(.78rem, 1.65vh, .92rem);
+}
+
+/* ---- Pelat rumus yang SELALU muat ----
+   Ukuran kontainer (`container-type: size`) membuat pelat tidak ikut
+   menentukan tinggi barisnya; rumus di dalamnya memilih ukuran huruf
+   terbesar yang muat di KEDUA sumbu, dari ukuran rumus dalam em yang
+   diukur sekali oleh `fitFormulaArt()` (app.js). Angka cadangan dipakai
+   bila pelatnya belum sempat diukur. */
+.chapter-item__art,
+.chapter-overview__art {
+  container-type: size;
+  min-height: 84px;
+  padding: 10px 14px;
+}
+
+.chapter-item__art .katex-display,
+.chapter-overview__art .katex-display {
+  margin: 0;
+  font-size: clamp(.7rem,
+    min(calc(84cqi / var(--art-em, 12)), calc(70cqb / var(--art-emh, 2.6))),
+    2.6rem);
+  line-height: 1;
+}
+
+.chapter-item__art .katex,
+.chapter-overview__art .katex { font-size: 1em; }
+
+/* Rumus yang belum diukur disembunyikan sebentar: lebih baik pelat kosong
+   satu frame daripada rumus yang terlihat terpotong lalu melompat. */
+.chapter-item__art:not([data-fitted]) .katex-display,
+.chapter-overview__art:not([data-fitted]) .katex-display { visibility: hidden; }
+
+/* Laptop pendek (1280×720 / 1366×768). Tagline DILEPAS, bukan
+   dipotong: tagline yang berakhir "…" terbaca sebagai cacat, padahal
+   silabus dua kolom di bawahnya sudah mengatakan isi babnya dengan lebih
+   lengkap. Bilah judul dan jarak antarbaris ikut dirapatkan. */
+/* Terukur: pada 1440×900 dan 1536×864 tagline membungkus dua baris dan
+   papan meluap 34–69px. Di bawah 940px tinggi, tagline dilepas. */
+@media (max-height: 940px) and (min-width: 1100px) {
+  .chapter-item--rich .chapter-item__tag { display: none; }
+  .chapter-item--bank .chapter-item__lead { display: none; }
+}
+
+@media (max-height: 820px) and (min-width: 1100px) {
+  .chapter-item.chapter-item--rich { row-gap: 8px; padding-block: 14px; }
+  .chapter-item.chapter-item--tka { padding-block: 14px; }
+  .chapter-item--tka .chapter-item__num { width: 52px; height: 52px; }
+  .chapter-item.chapter-item--bank { padding-block: 14px; row-gap: 10px; }
+  .quiz-board { gap: 6px; }
+  .chapter-item--rich .chapter-item__top { gap: 10px; }
+  .chapter-item--rich .chapter-item__cta { padding: 6px 12px; }
+  .chapter-item--rich .syl { padding-block: 1px; }
+  .workspace--board { gap: 10px; }
+  .workspace--board > .workspace__bar { padding-block: 6px; }
+  .workspace--board .workspace__title { font-size: 1.1rem; }
+  .workspace--board .workspace__eyebrow { font-size: .62rem; }
+  .bar-stat b { font-size: 1.1rem; }
+}
+
+/* 1280×720: lapis pemadatan terakhir sebelum lanskap pendek (≤560px). */
+@media (max-height: 740px) and (min-width: 1100px) {
+  .chapter-item.chapter-item--rich { row-gap: 6px; padding-block: 11px; }
+  .chapter-item--rich .chapter-item__num { font-size: 1.55rem; }
+  .chapter-item--rich .chapter-item__title { font-size: 1rem; }
+  .chapter-item--rich .syl { font-size: .76rem; padding-block: 0; }
+  .chapter-item--rich .syl__dot { width: 17px; height: 17px; flex-basis: 17px; }
+  .chapter-item--rich .chapter-item__meter-label { font-size: .68rem; }
+  .chapter-list.chapter-list--rich { gap: 10px; }
+  .chapter-item__facts { display: none; }
+  .chapter-item--bank .chapter-item__art { min-height: 64px; }
+}
+
+/* Lanskap pendek: silabus tetap DILEPAS seperti di §19.C. Aturan dua
+   kolom di atas (0-2-0) mengalahkan `display:none` milik §19.C (0-1-0)
+   dan menghidupkannya kembali — kartu jadi lebih tinggi dari wadahnya,
+   dan kartu terakhir tidak lagi bisa diketuk setelah digulir (§84). */
+@media (orientation: landscape) and (max-height: 560px) {
+  .chapter-item--rich .chapter-item__syllabus { display: none; }
+}
+
+/* Di bawah 1100px pelat rumus kartu bab sudah disembunyikan (19.C);
+   tanpanya kolom kanan tidak boleh tersisa sebagai celah. */
+@media (max-width: 1099px) {
+  .chapter-item.chapter-item--rich {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas: "top" "body" "syl" "foot";
+  }
+}
+
+/* Pelat yang ditampilkan ulang setelah tersembunyi tetap terbaca walau
+   belum diukur. */
+@media (max-width: 1099px), (orientation: landscape) and (max-height: 560px) {
+  .chapter-item__art:not([data-fitted]) .katex-display,
+  .chapter-overview__art:not([data-fitted]) .katex-display { visibility: visible; }
+}
+
+
+/* ================================================================
+   20.C  PIL PROGRES DI HEADER (Fase 20)
+
+   Dulu: "100%" berdesakan di dalam lingkaran 40px, huruf 10px.
+   Sekarang: lingkaran ramping 30px + angka 15px DI SAMPINGNYA + kata
+   "kurikulum" — dibaca sekilas tanpa menyipit. Seluruh pil yang
+   dipusatkan (kontrak §72: `.progress-ring` di tengah header ±3px).
+   ================================================================ */
+.progress-ring {
+  width: auto;
+  height: 38px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 14px 3px 4px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid var(--hair-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 6px 16px -12px rgba(15, 32, 77, .45);
+  -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+  transition: background var(--dur-slow) var(--ease-out), border-color var(--dur-slow) var(--ease-out);
+}
+
+.progress-ring svg { width: 30px; height: 30px; flex: 0 0 30px; }
+.progress-ring__track { stroke: #E3E9F5; }
+.progress-ring__bar { stroke: var(--royal); filter: none; }
+
+.progress-ring__text { display: flex; align-items: baseline; gap: 6px; line-height: 1; }
+
+.progress-ring__label {
+  position: static;
+  font-family: var(--display);
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+
+.progress-ring__caption {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: .58rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Kurikulum tuntas: cincin emas, pil bercahaya hangat yang berdenyut
+   sangat pelan (4,8 detik), dan satu kilau kecil yang berkedip. */
+.progress-ring[data-complete="true"] {
+  background: linear-gradient(135deg, #FFF8DC, #FFFFFF 70%);
+  border-color: rgba(224, 161, 0, .45);
+  animation: ringGlow 4.8s ease-in-out infinite;
+}
+
+.progress-ring[data-complete="true"] .progress-ring__bar { stroke: url(#ring-gold); }
+.progress-ring[data-complete="true"] .progress-ring__label { color: #8A6400; }
+.progress-ring[data-complete="true"] .progress-ring__caption { color: #A88214; }
+
+.progress-ring[data-complete="true"]::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 24px;
+  width: 9px;
+  height: 9px;
+  background: #FFC800;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: ringSparkle 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ringGlow {
+  0%, 100% { box-shadow: inset 0 1px 0 #fff, 0 0 0 0 rgba(255, 200, 0, 0); }
+  50%      { box-shadow: inset 0 1px 0 #fff, 0 0 0 5px rgba(255, 200, 0, .16), 0 6px 22px -8px rgba(224, 161, 0, .55); }
+}
+
+@keyframes ringSparkle {
+  0%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); }
+  45%, 55% { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .progress-ring { height: 32px; padding-right: 10px; }
+  .progress-ring svg { width: 24px; height: 24px; flex-basis: 24px; }
+  .progress-ring__caption { display: none; }
+}
+
+/* Catatan di layar penutup Coba Ulang Kuis. */
+.lesson-done__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--hair);
+  font-size: .85rem;
+  color: var(--ink-read);
+}
+
+.lesson-done__note svg { color: #C99700; flex: 0 0 auto; }
+
+
+/* ================================================================
+   20.D  LATAR ANGKA AMBIENT ("hujan matriks" yang tenang)
+
+   Belasan glif matematika (0, 1, −1, λ, det, A⁻¹, kurung matriks)
+   melayang turun SANGAT pelan di belakang semua kartu. Syaratnya
+   ketat dan diukur:
+     · alfa tinta 0,05–0,08 — terasa sebagai tekstur, tidak terbaca
+       sebagai isi; seluruh konten tetap di kartu opak (kontrak §5.7);
+     · hanya `transform` yang dianimasikan → dikerjakan kompositor,
+       tidak memicu tata letak atau gambar ulang;
+     · 40–95 detik per lintasan — gerak yang tertangkap sudut mata
+       tetapi tidak pernah "mengajak menoleh";
+     · `prefers-reduced-motion` → dimatikan seluruhnya.
+   Glif dibuat sekali oleh `mountAmbient()` di app.js.
+   ================================================================ */
+/* Tanpa `mask-image`: masker memaksa seluruh lapisan dirender ke
+   permukaan terpisah setiap frame. Glif sudah lahir di atas layar
+   (−20vh) dan hilang di bawahnya (120vh), jadi tidak ada tepi yang
+   perlu dipudarkan. */
+.ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.ambient__glyph {
+  position: absolute;
+  top: 0;
+  left: var(--x, 50%);
+  font-family: 'KaTeX_Math', 'Times New Roman', serif;
+  font-style: italic;
+  font-size: var(--s, 22px);
+  line-height: 1;
+  white-space: pre;
+  color: rgba(15, 40, 100, var(--a, .06));
+  will-change: transform;
+  transform: translate3d(0, -20vh, 0);
+  animation: ambientFall var(--d, 60s) linear var(--delay, 0s) infinite;
+}
+
+.ambient__glyph--matrix {
+  font-family: var(--font-mono);
+  font-style: normal;
+  padding: 2px 8px;
+  border-inline: 1.5px solid currentColor;
+}
+
+@keyframes ambientFall {
+  from { transform: translate3d(0, -20vh, 0) rotate(var(--r0, 0deg)); }
+  to   { transform: translate3d(var(--dx, 0px), 120vh, 0) rotate(var(--r1, 0deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient { display: none; }
+}
+
+
+/* ================================================================
+   20.E  MODE MALAM — "MEJA KERJA MALAM" (Fase 20, opsional)
+
+   Bawaan aplikasi tetap TERANG (keputusan Fase 9; dipatok §6/§16).
+   Mode malam dinyalakan siswa lewat tombol bulan di header, disimpan
+   per perangkat, dan dipasang SEBELUM halaman tergambar (skrip sebaris
+   di <head>) supaya tidak ada kilatan putih.
+
+   Konsepnya dua lapis, dan pembagian ini disengaja:
+
+     KERANGKA  — latar, header, footer, menu, daftar bab, papan
+                 sub-topik, menu kuis: obsidian-navy (#0A111F) dengan
+                 aksen neon lembut. Token tinta & permukaan DIDEKLARASI
+                 ULANG hanya di wadah-wadah ini.
+
+     PELAT KERJA — panggung simulasi, panel petunjuk, kartu soal,
+                 Mathpad, papan coret, toast, modal: desain terang yang
+                 sama persis, DIREDUPKAN (`brightness(.84)`) seperti
+                 kertas di bawah lampu baca.
+
+   Kenapa pelat tidak dibalik jadi gelap: 28 mesin simulasi memakai
+   warna sorot & denyut yang kontrasnya DIUKUR ≥ 4,5:1 di atas latar
+   terang (kontrak §34). Membalik warnanya berarti membatalkan jaminan
+   itu di puluhan titik yang tidak semuanya bisa diukur ulang. Peredupan
+   menurunkan silau tanpa mengubah satu pun pasangan warna.
+
+   ⚠️ Token alias (`--ink-900: var(--ink)` dst.) sudah DIHITUNG di :root;
+   mengganti `--ink` saja tidak mengubah alias yang diwarisi. Karena itu
+   seluruh alias ikut dideklarasikan ulang di bawah.
+   ================================================================ */
+
+/* ---- Tombol pengalih ----
+   ⚠️ Tombol ini dan `.header-slot` berbagi SEL yang sama (baris 1,
+   kolom 3). `.header-slot` aslinya hanya punya `grid-column: 3`; begitu
+   sel itu diduduki secara eksplisit, penempatan otomatis melemparnya ke
+   BARIS KEDUA dan header bertambah tinggi — terukur 55 → 58px di 844×390,
+   cukup untuk mendorong contoh matriks materi keluar layar (§49). */
+.header-slot { grid-row: 1; }
+
+.mode-toggle {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
+  margin-right: calc(clamp(2.6rem, 14vw, 11rem) + 10px);
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--hair-strong);
+  background: rgba(255, 255, 255, .82);
+  color: var(--ink-2);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 6px 16px -12px rgba(15, 32, 77, .45);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+
+.mode-toggle:hover { color: var(--royal); transform: translateY(-1px); }
+.mode-toggle svg { width: 18px; height: 18px; }
+.mode-toggle__sun { display: none; }
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .mode-toggle { width: 32px; height: 32px; }
+}
+
+/* ---- Palet malam ---- */
+html[data-mode="night"] {
+  color-scheme: dark;
+  --n-bg: #0A111F;
+  --n-surface: #111A2C;
+  --n-raised: #17223A;
+  --n-sunk: #0D1526;
+  --n-line: rgba(148, 172, 230, .14);
+  --n-line-strong: rgba(148, 172, 230, .24);
+  --n-ink: #E7EDF9;      /* 15,0:1 di atas --n-surface */
+  --n-ink-2: #B8C4DE;    /*  9,8:1 */
+  --n-ink-3: #8F9EBF;    /*  6,1:1 */
+  --n-royal: #84AAFF;    /*  7,0:1 — biru merek untuk TEKS di atas gelap */
+  --n-gold: #FFD45C;
+  --n-green: #4ADE9B;
+}
+
+html[data-mode="night"] body { background-color: var(--n-bg); }
+
+/* Token kerangka dideklarasikan ulang HANYA di wadah kerangka. */
+html[data-mode="night"] :is(.app-header, .app-footer, .menu, .workspace--board,
+                            .empty-state, .mode-toggle, .fs-btn) {
+  color: var(--n-ink);
+  --ink: var(--n-ink);
+  --ink-2: var(--n-ink-2);
+  --ink-3: var(--n-ink-3);
+  --ink-read: #CAD5EC;
+  --ink-900: var(--n-ink);
+  --ink-700: var(--n-ink-2);
+  --ink-500: var(--n-ink-3);
+  --ink-300: #6F7FA3;
+  --hair: var(--n-line);
+  --hair-strong: var(--n-line-strong);
+  --border-soft: var(--n-line);
+  --border-strong: var(--n-line-strong);
+  --bg-surface: var(--n-surface);
+  --bg-surface-2: var(--n-surface);
+  --bg-elevated: var(--n-raised);
+  --bg-sunken: var(--n-sunk);
+  --bg-deep: var(--n-sunk);
+  --surface-quiet: var(--n-raised);
+  --surface-sunk: var(--n-sunk);
+  --blue-50: rgba(132, 170, 255, .12);
+  --blue-100: rgba(132, 170, 255, .24);
+  --brand-primary-soft: rgba(132, 170, 255, .12);
+  --brand-primary-line: rgba(132, 170, 255, .32);
+  --success-soft: rgba(74, 222, 155, .12);
+  --accent-coral-soft: rgba(255, 111, 184, .14);
+  --accent-amber-soft: rgba(255, 212, 92, .12);
+  --sh-1: 0 1px 2px rgba(0, 0, 0, .35), 0 4px 12px -6px rgba(0, 0, 0, .5);
+  --sh-2: 0 1px 2px rgba(0, 0, 0, .3), 0 18px 40px -20px rgba(0, 0, 0, .7);
+  --sh-3: 0 2px 6px rgba(0, 0, 0, .35), 0 30px 64px -26px rgba(0, 0, 0, .8);
+  --shadow-1: var(--sh-1);
+  --shadow-2: var(--sh-1);
+  --shadow-3: var(--sh-2);
+  --shadow-float: var(--sh-2);
+}
+
+/* Aksen bab versi malam: tinta neon untuk TEKS, bidang tembus tipis. */
+html[data-mode="night"] [data-accent] { --acc-ink: #84AAFF; --acc-soft: rgba(132, 170, 255, .11); --acc-line: rgba(132, 170, 255, .30); }
+html[data-mode="night"] [data-accent="coral"] { --acc-ink: #FF8DC8; --acc-soft: rgba(255, 111, 184, .11); --acc-line: rgba(255, 111, 184, .30); }
+html[data-mode="night"] [data-accent="amber"] { --acc-ink: #FFD45C; --acc-soft: rgba(255, 212, 92, .10); --acc-line: rgba(255, 212, 92, .30); }
+html[data-mode="night"] [data-accent="success"] { --acc-ink: #4ADE9B; --acc-soft: rgba(74, 222, 155, .10); --acc-line: rgba(74, 222, 155, .30); }
+
+/* ---- Latar ---- */
+html[data-mode="night"] .backdrop {
+  background:
+    radial-gradient(1100px 700px at 10% -10%, rgba(29, 78, 216, .22), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(6, 182, 212, .10), transparent 60%),
+    linear-gradient(180deg, #0B1322 0%, #090F1C 100%);
+}
+html[data-mode="night"] .blob { opacity: .35; }
+html[data-mode="night"] .backdrop::after {
+  background-image: radial-gradient(rgba(170, 195, 255, .07) 1.1px, transparent 1.3px);
+}
+html[data-mode="night"] .ambient__glyph { color: rgba(170, 195, 255, calc(var(--a, .06) * 1.15)); }
+html[data-mode="night"] .boot { background: #0A111F; }
+html[data-mode="night"] .boot__text { color: var(--n-ink-2); }
+
+/* ---- Header, footer, tombol global ---- */
+html[data-mode="night"] .app-header {
+  background: rgba(11, 18, 33, .72);
+  border-bottom-color: var(--n-line);
+  box-shadow: inset 0 -1px 0 rgba(132, 170, 255, .06);
+}
+html[data-mode="night"] .app-footer { background: rgba(10, 17, 31, .82); }
+html[data-mode="night"] :is(.fs-btn, .mode-toggle) {
+  background: rgba(23, 34, 58, .82);
+  border-color: var(--n-line-strong);
+  color: var(--n-ink-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 8px 20px -14px rgba(0, 0, 0, .8);
+}
+html[data-mode="night"] :is(.fs-btn, .mode-toggle):hover { color: #fff; border-color: rgba(132, 170, 255, .5); }
+html[data-mode="night"] .mode-toggle { color: var(--n-gold); }
+html[data-mode="night"] .mode-toggle__moon { display: none; }
+html[data-mode="night"] .mode-toggle__sun { display: block; }
+
+html[data-mode="night"] .progress-ring {
+  background: rgba(23, 34, 58, .78);
+  border-color: var(--n-line-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+html[data-mode="night"] .progress-ring__track { stroke: rgba(148, 172, 230, .18); }
+html[data-mode="night"] .progress-ring__bar { stroke: var(--n-royal); }
+html[data-mode="night"] .progress-ring[data-complete="true"] {
+  background: linear-gradient(135deg, rgba(255, 200, 0, .16), rgba(23, 34, 58, .85) 70%);
+  border-color: rgba(255, 212, 92, .45);
+}
+html[data-mode="night"] .progress-ring[data-complete="true"] .progress-ring__label { color: var(--n-gold); }
+html[data-mode="night"] .progress-ring[data-complete="true"] .progress-ring__caption { color: #E8C35A; }
+
+/* ---- Menu utama ---- */
+html[data-mode="night"] .menu__head::after { --mk: rgba(132, 170, 255, .2); }
+html[data-mode="night"] .menu__greet { background: var(--n-raised); border-color: var(--n-line-strong); color: var(--n-ink-2); }
+html[data-mode="night"] .hero__panel { background: var(--n-surface); }
+html[data-mode="night"] .hero__panel--next { background: linear-gradient(150deg, rgba(255, 212, 92, .06), var(--n-surface) 55%); }
+html[data-mode="night"] .hero-stat:nth-child(1) .hero-stat__value { color: var(--n-royal); }
+html[data-mode="night"] .hero-stat:nth-child(2) .hero-stat__value { color: var(--n-green); }
+html[data-mode="night"] .hero-stat:nth-child(3) .hero-stat__value { color: var(--n-gold); }
+html[data-mode="night"] .mode-card { background: var(--n-surface); }
+html[data-mode="night"] .badge--primary { background: rgba(132, 170, 255, .14); color: var(--n-royal); border-color: rgba(132, 170, 255, .3); }
+html[data-mode="night"] .progressbar { background: rgba(148, 172, 230, .14); border-color: var(--n-line); }
+
+/* ---- Tombol sekunder di kerangka ---- */
+html[data-mode="night"] :is(.menu, .workspace--board) :is(.btn--ghost, .btn--quiet, .btn--switch) {
+  background: var(--n-raised);
+  border-color: var(--n-line-strong);
+  color: var(--n-ink-2);
+}
+html[data-mode="night"] :is(.menu, .workspace--board) :is(.btn--ghost, .btn--quiet, .btn--switch):hover:not([disabled]) {
+  color: #fff;
+  border-color: rgba(132, 170, 255, .5);
+}
+html[data-mode="night"] .menu .btn--danger { background: rgba(248, 113, 113, .1); color: #FCA5A5; border-color: rgba(248, 113, 113, .35); }
+
+/* ---- Papan: bilah judul, kartu bab, kartu modul, menu kuis ---- */
+html[data-mode="night"] .workspace--board > .workspace__bar { background: rgba(17, 26, 44, .86); }
+
+html[data-mode="night"] :is(.chapter-item.chapter-item--rich, .chapter-item.chapter-item--bank, .chapter-overview) {
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--acc-soft) 0%, rgba(0, 0, 0, 0) 58%),
+    var(--n-surface);
+}
+
+html[data-mode="night"] .chapter-item--rich.chapter-item--completed {
+  border-color: rgba(255, 212, 92, .38);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 212, 92, .12) 0%, rgba(0, 0, 0, 0) 58%),
+    var(--n-surface);
+}
+html[data-mode="night"] .chapter-item--rich.chapter-item--completed .chapter-item__num { background: rgba(255, 212, 92, .14); color: var(--n-gold); }
+html[data-mode="night"] .chapter-item__status[data-tone="done"] { background: rgba(255, 212, 92, .12); color: var(--n-gold); border-color: rgba(255, 212, 92, .32); }
+
+html[data-mode="night"] :is(.chapter-item__art, .chapter-overview__art) {
+  background:
+    radial-gradient(circle, rgba(170, 195, 255, .08) 1px, transparent 1.3px) 0 0 / 18px 18px,
+    linear-gradient(160deg, var(--acc-soft), rgba(255, 255, 255, .02));
+}
+
+html[data-mode="night"] .syl__dot { background: var(--n-raised); }
+html[data-mode="night"] .syl[data-kind="next"] .syl__dot { box-shadow: 0 0 0 3px var(--acc-soft), 0 0 12px var(--acc-line); }
+
+/* Ajakan yang disorot: bidang neon, tinta gelap (putih di atas neon
+   terang tidak lolos 4,5:1). */
+html[data-mode="night"] :is(.chapter-item, .module-card):hover:not([disabled]) :is(.chapter-item__cta, .module-card__go) {
+  background: var(--acc-ink);
+  border-color: var(--acc-ink);
+  color: #0A111F;
+}
+
+html[data-mode="night"] .module-card:not(.module-card--quiz) { background: var(--n-surface); }
+html[data-mode="night"] .subtopic-item.module-card[disabled] { background: var(--n-sunk); }
+html[data-mode="night"] .module-card[data-kind="next"] { box-shadow: 0 0 0 3px var(--acc-soft), 0 0 24px -8px var(--acc-line); }
+html[data-mode="night"] .module-card__chip[data-kind="done"] { color: var(--n-green); border-color: rgba(74, 222, 155, .3); }
+html[data-mode="night"] .module-card[data-kind="done"] .module-card__index,
+html[data-mode="night"] .module-card__score b { color: var(--n-green); }
+html[data-mode="night"] .chapter-item__best-inline b { color: var(--n-ink); }
+
+/* Kartu gelap (TKA & Latihan bab) diberi sedikit cahaya tepi supaya
+   tetap terbaca sebagai kartu di atas latar yang juga gelap. */
+html[data-mode="night"] :is(.chapter-item--tka, .module-card--quiz) {
+  box-shadow: inset 0 0 0 1px rgba(132, 170, 255, .22), 0 22px 46px -24px rgba(0, 0, 0, .8);
+}
+
+html[data-mode="night"] .panel__label { color: var(--n-ink-3); }
+
+/* ---- PELAT KERJA: desain terang, diredupkan ----
+   Satu deklarasi untuk semua permukaan tempat matematika dikerjakan.
+   Chip terbang & bayangan seret (hidup di <body>) ikut diredupkan,
+   kalau tidak mereka berkilat lebih terang daripada pelat asalnya. */
+html[data-mode="night"] :is(
+  .workspace--split > .ws-side,
+  .ws-stage > .workspace__body,
+  .ws-stage > .pad,
+  .mathpad,
+  .toast,
+  .modal__panel,
+  .login__card,
+  .soon__card,
+  .rotate-lock__panel,
+  .fly-chip,
+  .drag-ghost,
+  .workspace:not(.workspace--split):not(.workspace--board) > .workspace__bar,
+  .workspace:not(.workspace--split):not(.workspace--board) > .workspace__body
+) {
+  filter: brightness(.84) saturate(.96);
+}
+
+html[data-mode="night"] .modal-scrim { background: rgba(3, 7, 15, .6); }
+html[data-mode="night"] .mathpad-scrim { background: rgba(3, 7, 15, .35); }
+
+/* Papan coret: FAB bertinta ikut tenggelam ke latar, beri tepi cahaya. */
+html[data-mode="night"] .pad-fab { background: #1B2A4A; border-color: rgba(132, 170, 255, .35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-toggle { transition: none; }
+  .progress-ring[data-complete="true"],
+  .progress-ring[data-complete="true"]::after { animation: none; }
 }
